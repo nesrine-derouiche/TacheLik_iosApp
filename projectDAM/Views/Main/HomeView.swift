@@ -128,7 +128,7 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Image("tache_lik_logo_white_red")
+                    Image("tache_lik_logo")
                         .resizable()
                         .scaledToFit()
                         .frame(height: 32)
