@@ -13,6 +13,9 @@ struct VerificationView: View {
     @State private var isResending = false
     @State private var showSuccessMessage = false
     @State private var hasAutoSent = false
+    @State private var viewDidAppear = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
     
     private let authService = DIContainer.shared.authService
     
@@ -158,10 +161,21 @@ struct VerificationView: View {
         }
         .onAppear {
             // Automatically send verification email when view appears
-            if !hasAutoSent {
-                hasAutoSent = true
-                resendVerificationEmail()
+            if !viewDidAppear {
+                viewDidAppear = true
+                if !hasAutoSent {
+                    hasAutoSent = true
+                    // Delay slightly to ensure view is fully loaded
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        resendVerificationEmail()
+                    }
+                }
             }
+        }
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
         }
     }
     
@@ -180,12 +194,42 @@ struct VerificationView: View {
                 // Hide success message after 3 seconds
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 showSuccessMessage = false
+            } catch let error as NetworkError {
+                isResending = false
+                handleError(error)
             } catch {
                 isResending = false
+                errorMessage = "Failed to send verification email: \(error.localizedDescription)"
+                showErrorAlert = true
                 print("❌ Failed to send verification email: \(error.localizedDescription)")
-                // TODO: Show error alert to user
             }
         }
+    }
+    
+    private func handleError(_ error: NetworkError) {
+        switch error {
+        case .serverError(let code, let message):
+            if code == 429 {
+                errorMessage = "Too many requests. Please wait a moment before trying again."
+            } else if let message = message {
+                errorMessage = message
+            } else {
+                errorMessage = "Server error (\(code)). Please try again later."
+            }
+        case .unauthorized:
+            errorMessage = "Session expired. Please login again."
+            isLoggedIn = false
+        case .invalidURL:
+            errorMessage = "Invalid server URL. Please contact support."
+        case .noData:
+            errorMessage = "No response from server. Please check your connection."
+        case .decodingError:
+            errorMessage = "Invalid response from server. Please try again."
+        case .invalidResponse:
+            errorMessage = "Invalid response from server. Please try again."
+        }
+        showErrorAlert = true
+        print("❌ Failed to send verification email: \(errorMessage)")
     }
     
     private func refreshUserData() {
