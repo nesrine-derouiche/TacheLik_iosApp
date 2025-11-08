@@ -25,8 +25,9 @@ struct ExploreView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 20) {
                     // Search
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
@@ -94,10 +95,12 @@ struct ExploreView: View {
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 8)
+                    }
+                    .padding(.top)
+                    .padding(.bottom, DS.barHeight + 8)
                 }
-                .padding(.top)
+                .navigationTitle("Explore")
             }
-            .navigationTitle("Explore")
         }
     }
 }

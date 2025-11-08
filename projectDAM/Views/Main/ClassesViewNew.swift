@@ -17,8 +17,9 @@ struct ClassesView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
+            GeometryReader { geometry in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
                     // Filter Pills
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -59,10 +60,12 @@ struct ClassesView: View {
                                 .padding(.horizontal, 20)
                         }
                     }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.bottom, DS.barHeight + 8)
                 }
-                .padding(.vertical, 8)
+                .background(Color(.systemGroupedBackground))
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Classes")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {

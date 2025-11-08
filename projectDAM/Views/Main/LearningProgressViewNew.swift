@@ -11,8 +11,9 @@ struct LearningProgressView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
+            GeometryReader { geometry in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
                     // Learning Journey Header Card
                     VStack(spacing: 20) {
                         Text("Your Learning Journey")
@@ -94,10 +95,12 @@ struct LearningProgressView: View {
                         )
                         .padding(.horizontal, 20)
                     }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.bottom, DS.barHeight + 8)
                 }
-                .padding(.vertical, 8)
+                .background(Color(.systemGroupedBackground))
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.large)
         }

@@ -7,8 +7,9 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
+            GeometryReader { geometry in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
                     // Profile Card
                     VStack(spacing: 20) {
                         ZStack {
@@ -152,11 +153,12 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
-                    .padding(.bottom, 100) // Add extra bottom padding for tab bar
+                    }
+                    .padding(.vertical, 20)
+                    .padding(.bottom, DS.barHeight + 8)
                 }
-                .padding(.vertical, 20)
+                .background(Color(.systemGroupedBackground))
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
         }
