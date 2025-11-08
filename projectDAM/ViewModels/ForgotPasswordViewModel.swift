@@ -18,9 +18,12 @@ class ForgotPasswordViewModel: ObservableObject {
     @Published var isVerifying = false
     @Published var errorMessage = ""
     @Published var showCodeInput = false
+    @Published var showPasswordInput = false
     @Published var canResend = false
     @Published var resendCountdown = 60
     @Published var passwordResetSuccess = false
+    
+    private var verifiedCode: String = ""
     
     private let authService: AuthServiceProtocol
     private var resendTimer: Timer?
@@ -53,12 +56,54 @@ class ForgotPasswordViewModel: ObservableObject {
         }
     }
     
-    func verifyCodeAndResetPassword() async {
+    func verifyCode() async {
         guard resetCode.count == 6 else {
             errorMessage = "Please enter the 6-digit code"
             return
         }
         
+        isVerifying = true
+        errorMessage = ""
+        
+        do {
+            // Verify the code with backend
+            let request = ["email": email, "code": resetCode]
+            let requestData = try JSONEncoder().encode(request)
+            
+            let response: VerificationCodeResponse = try await DIContainer.shared.networkService.request(
+                endpoint: "/user/verify-password-reset-code",
+                method: .POST,
+                body: requestData,
+                headers: ["Content-Type": "application/json"]
+            )
+            
+            isVerifying = false
+            
+            if response.success {
+                // Save verified code and move to password input
+                verifiedCode = resetCode
+                showPasswordInput = true
+                print("✅ Code verified successfully")
+            } else {
+                errorMessage = response.message
+            }
+        } catch let error as NetworkError {
+            isVerifying = false
+            switch error {
+            case .serverError(_, let message):
+                errorMessage = message ?? "Invalid code"
+            default:
+                errorMessage = "Failed to verify code"
+            }
+            print("❌ Failed to verify code: \(error)")
+        } catch {
+            isVerifying = false
+            errorMessage = "Failed to verify code: \(error.localizedDescription)"
+            print("❌ Failed to verify code: \(error.localizedDescription)")
+        }
+    }
+    
+    func resetPassword() async {
         // Validate passwords
         let passwordValidation = Validators.validatePassword(newPassword)
         if !passwordValidation.isValid {
@@ -77,7 +122,7 @@ class ForgotPasswordViewModel: ObservableObject {
         do {
             try await authService.resetPasswordWithCode(
                 email: email,
-                code: resetCode,
+                code: verifiedCode,
                 newPassword: newPassword
             )
             isVerifying = false

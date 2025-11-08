@@ -35,23 +35,26 @@ struct ForgotPasswordView: View {
                     .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 8)
                     
                     VStack(spacing: 8) {
-                        Text(viewModel.showCodeInput ? "Reset Password" : "Forgot Password?")
+                        Text(viewModel.showPasswordInput ? "New Password" : viewModel.showCodeInput ? "Verify Code" : "Forgot Password?")
                             .font(.system(size: 34, weight: .bold))
                             .foregroundColor(.white)
                         
-                        Text(viewModel.showCodeInput ? "Enter the code sent to \(viewModel.email)" : "Enter your email to receive a reset code")
+                        Text(viewModel.showPasswordInput ? "Enter your new password" : viewModel.showCodeInput ? "Enter the code sent to \(viewModel.email)" : "Enter your email to receive a reset code")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white.opacity(0.9))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
                     
-                    if !viewModel.showCodeInput {
+                    if viewModel.showPasswordInput {
+                        // Password Reset Card
+                        passwordResetCard
+                    } else if viewModel.showCodeInput {
+                        // Code Verification Card
+                        codeVerificationCard
+                    } else {
                         // Email Input Card
                         emailInputCard
-                    } else {
-                        // Code Input and Password Reset Card
-                        codeAndPasswordCard
                     }
                     
                     Spacer()
@@ -141,13 +144,33 @@ struct ForgotPasswordView: View {
         .padding(.horizontal, 24)
     }
     
-    private var codeAndPasswordCard: some View {
+    private var codeVerificationCard: some View {
         VStack(spacing: 20) {
             // Code Input
             VStack(spacing: 16) {
-                CodeInputView(code: $viewModel.resetCode)
-                    .disabled(viewModel.isVerifying)
-                    .opacity(viewModel.isVerifying ? 0.6 : 1.0)
+                CodeInputView(code: $viewModel.resetCode) {
+                    // Auto-verify when code is complete
+                    Task {
+                        await viewModel.verifyCode()
+                    }
+                }
+                .disabled(viewModel.isVerifying)
+                .opacity(viewModel.isVerifying ? 0.6 : 1.0)
+                
+                if viewModel.isVerifying {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .brandPrimary))
+                        Text("Verifying...")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.brandPrimary)
+                    }
+                } else if !viewModel.errorMessage.isEmpty {
+                    Text(viewModel.errorMessage)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                }
                 
                 Text("Code expires in 10 minutes")
                     .font(.system(size: 14, weight: .medium))
@@ -157,6 +180,49 @@ struct ForgotPasswordView: View {
             .background(Color(.secondarySystemBackground))
             .cornerRadius(16)
             
+            // Resend Code Button
+            Button(action: {
+                Task {
+                    await viewModel.resendCode()
+                }
+            }) {
+                HStack(spacing: 8) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .brandPrimary))
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    Text(viewModel.canResend ? "Resend Code" : "Resend in \(viewModel.resendCountdown)s")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundColor(viewModel.canResend ? .brandPrimary : .secondary)
+            }
+            .disabled(!viewModel.canResend || viewModel.isLoading)
+            
+            Button(action: {
+                dismiss()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Back to Login")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundColor(.brandPrimary)
+            }
+            .padding(.top, 8)
+        }
+        .padding(28)
+        .background(Color(.systemBackground))
+        .cornerRadius(28)
+        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+        .padding(.horizontal, 24)
+    }
+    
+    private var passwordResetCard: some View {
+        VStack(spacing: 20) {
             // Password Fields
             VStack(spacing: 16) {
                 CustomTextField(
@@ -188,7 +254,7 @@ struct ForgotPasswordView: View {
             // Reset Password Button
             Button(action: {
                 Task {
-                    await viewModel.verifyCodeAndResetPassword()
+                    await viewModel.resetPassword()
                 }
             }) {
                 if viewModel.isVerifying {
@@ -219,28 +285,6 @@ struct ForgotPasswordView: View {
             .shadow(color: Color.brandPrimary.opacity(0.4), radius: 12, x: 0, y: 6)
             .disabled(isResetButtonDisabled)
             
-            // Resend Code Button
-            Button(action: {
-                Task {
-                    await viewModel.resendCode()
-                }
-            }) {
-                HStack(spacing: 8) {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .brandPrimary))
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    Text(viewModel.canResend ? "Resend Code" : "Resend in \(viewModel.resendCountdown)s")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundColor(viewModel.canResend ? .brandPrimary : .secondary)
-            }
-            .disabled(!viewModel.canResend || viewModel.isLoading)
-            .padding(.top, 8)
-            
             Button(action: {
                 dismiss()
             }) {
@@ -252,7 +296,7 @@ struct ForgotPasswordView: View {
                 }
                 .foregroundColor(.brandPrimary)
             }
-            .padding(.top, 4)
+            .padding(.top, 8)
         }
         .padding(28)
         .background(Color(.systemBackground))
@@ -263,7 +307,6 @@ struct ForgotPasswordView: View {
     
     private var isResetButtonDisabled: Bool {
         viewModel.isVerifying ||
-        viewModel.resetCode.count != 6 ||
         !Validators.isValidPassword(viewModel.newPassword) ||
         viewModel.newPassword != viewModel.confirmPassword
     }
