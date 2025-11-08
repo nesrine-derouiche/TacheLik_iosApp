@@ -1,10 +1,15 @@
+//
+//  ForgotPasswordView.swift
+//  projectDAM
+//
+//  Created on 11/8/2025.
+//
+
 import SwiftUI
 
-// MARK: - Login View
-/// UI for user authentication - follows MVVM pattern
-struct LoginView: View {
-    @StateObject private var viewModel = DIContainer.shared.makeLoginViewModel()
-    @State private var showForgotPassword = false
+struct ForgotPasswordView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel = ForgotPasswordViewModel()
     
     var body: some View {
         ZStack {
@@ -17,27 +22,31 @@ struct LoginView: View {
                     Spacer()
                         .frame(height: 40)
                     
-                    // Tache-lik Logo
-                    Image("tache_lik_logo_white_red")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 140, height: 140)
-                        .rotationEffect(.degrees(-45))
-                        .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 8)
+                    // Header Icon
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 100, height: 100)
+                        
+                        Image(systemName: "lock.rotation")
+                            .font(.system(size: 50, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 8)
                     
                     VStack(spacing: 8) {
-                        Text("Welcome Back!")
+                        Text("Forgot Password?")
                             .font(.system(size: 34, weight: .bold))
                             .foregroundColor(.white)
                         
-                        Text("Sign in to continue your learning journey")
+                        Text("Enter your email to receive a password reset link")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white.opacity(0.9))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
                     
-                    // Login Card
+                    // Reset Card
                     VStack(spacing: 20) {
                         CustomTextField(
                             icon: "envelope.fill",
@@ -47,29 +56,12 @@ struct LoginView: View {
                             isValid: viewModel.email.isEmpty || Validators.isValidEmail(viewModel.email),
                             errorMessage: Validators.validateEmail(viewModel.email).errorMessage
                         )
-                        
-                        CustomTextField(
-                            icon: "lock.fill",
-                            placeholder: "Password",
-                            text: $viewModel.password,
-                            isSecure: !viewModel.showPassword,
-                            showPassword: $viewModel.showPassword,
-                            isValid: viewModel.password.isEmpty || Validators.isValidPassword(viewModel.password),
-                            errorMessage: Validators.validatePassword(viewModel.password).errorMessage
-                        )
-                        
-                        Button(action: {
-                            showForgotPassword = true
-                        }) {
-                            Text("Forgot Password?")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.brandPrimary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
                         
                         Button(action: {
                             Task {
-                                await viewModel.login()
+                                await viewModel.sendResetLink()
                             }
                         }) {
                             if viewModel.isLoading {
@@ -77,9 +69,9 @@ struct LoginView: View {
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
                                 HStack(spacing: 8) {
-                                    Text("Sign In")
+                                    Text("Send Reset Link")
                                         .font(.system(size: 17, weight: .semibold))
-                                    Image(systemName: "arrow.right")
+                                    Image(systemName: "paperplane.fill")
                                         .font(.system(size: 14, weight: .bold))
                                 }
                                 .foregroundColor(.white)
@@ -96,16 +88,17 @@ struct LoginView: View {
                         )
                         .cornerRadius(16)
                         .shadow(color: Color.brandPrimary.opacity(0.4), radius: 12, x: 0, y: 6)
-                        .disabled(viewModel.isLoading || !viewModel.isFormValid)
+                        .disabled(viewModel.isLoading || !Validators.isValidEmail(viewModel.email))
                         
-                        HStack(spacing: 6) {
-                            Text("Don't have an account?")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.secondary)
-                            NavigationLink("Sign Up") {
-                                RegisterView()
+                        Button(action: {
+                            dismiss()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Back to Login")
+                                    .font(.system(size: 15, weight: .semibold))
                             }
-                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.brandPrimary)
                         }
                         .padding(.top, 8)
@@ -121,13 +114,16 @@ struct LoginView: View {
                 }
             }
         }
-        .sheet(isPresented: $showForgotPassword) {
-            ForgotPasswordView()
-        }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK", role: .cancel) {
-                viewModel.clearError()
+        .navigationBarHidden(true)
+        .alert("Success", isPresented: $viewModel.showSuccess) {
+            Button("OK") {
+                dismiss()
             }
+        } message: {
+            Text("Password reset link has been sent to your email")
+        }
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
         } message: {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)

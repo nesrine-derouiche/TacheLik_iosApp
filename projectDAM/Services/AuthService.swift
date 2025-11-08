@@ -20,6 +20,7 @@ protocol AuthServiceProtocol {
     func shouldAutoLogin() -> Bool
     func refreshUserData() async throws
     func requestEmailVerification() async throws
+    func requestPasswordReset(email: String) async throws
     func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse
     func setUserInvitedByLink(userId: String, link: String) async throws
 }
@@ -71,6 +72,16 @@ struct SetInvitedByRequest: Encodable {
 struct SetInvitedByResponse: Decodable {
     let success: Bool?
     let message: String?
+}
+
+struct PasswordResetRequest: Encodable {
+    let email: String
+    let serverUrl: String
+}
+
+struct PasswordResetResponse: Decodable {
+    let success: Bool
+    let message: String
 }
 
 // MARK: - JWT Payload
@@ -255,6 +266,24 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
         print("✅ Verification email sent: \(response.message)")
     }
     
+    /// Request password reset
+    func requestPasswordReset(email: String) async throws {
+        let request = PasswordResetRequest(
+            email: email,
+            serverUrl: AppConfig.serverURL
+        )
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: PasswordResetResponse = try await networkService.request(
+            endpoint: "/user/request-password-reset",
+            method: .POST,
+            body: requestData,
+            headers: ["Content-Type": "application/json"]
+        )
+        
+        print("✅ Password reset link sent: \(response.message)")
+    }
+    
     /// Check if invite link is valid and special
     func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse {
         let response: InviteLinkCheckResponse = try await networkService.request(
@@ -433,6 +462,12 @@ final class MockAuthService: AuthServiceProtocol {
         // Mock implementation - simulate delay
         try await Task.sleep(nanoseconds: 1_000_000_000)
         print("📧 Mock: Verification email sent")
+    }
+    
+    func requestPasswordReset(email: String) async throws {
+        // Mock implementation - simulate delay
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("📧 Mock: Password reset link sent to \(email)")
     }
     
     func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse {
