@@ -82,21 +82,31 @@ struct RegisterView: View {
                             }
                         }
                         
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Password must have:")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(.secondary)
                             
-                            ForEach(Validators.getPasswordRequirements(), id: \.self) { requirement in
-                                HStack(spacing: 4) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.brandSuccess)
-                                    Text(requirement)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
+                            // Minimum 8 characters
+                            PasswordRequirementRow(
+                                text: "At least 8 characters",
+                                isMet: viewModel.password.count >= 8,
+                                isRequired: true
+                            )
+                            
+                            // At least one number
+                            PasswordRequirementRow(
+                                text: "At least one number",
+                                isMet: viewModel.password.range(of: "[0-9]", options: .regularExpression) != nil,
+                                isRequired: true
+                            )
+                            
+                            // At least one letter
+                            PasswordRequirementRow(
+                                text: "At least one letter",
+                                isMet: viewModel.password.range(of: "[A-Za-z]", options: .regularExpression) != nil,
+                                isRequired: true
+                            )
                             
                             if !Validators.getPasswordImprovements().isEmpty {
                                 Text("For stronger password:")
@@ -104,16 +114,19 @@ struct RegisterView: View {
                                     .foregroundColor(.secondary)
                                     .padding(.top, 4)
                                 
-                                ForEach(Validators.getPasswordImprovements(), id: \.self) { improvement in
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "star.circle")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.brandWarning)
-                                        Text(improvement)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
+                                // Uppercase letter (optional)
+                                PasswordRequirementRow(
+                                    text: "Add uppercase letter for stronger password",
+                                    isMet: viewModel.password.range(of: "[A-Z]", options: .regularExpression) != nil,
+                                    isRequired: false
+                                )
+                                
+                                // Special character (optional)
+                                PasswordRequirementRow(
+                                    text: "Add special character for stronger password",
+                                    isMet: viewModel.password.range(of: "[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]", options: .regularExpression) != nil,
+                                    isRequired: false
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
@@ -135,7 +148,8 @@ struct RegisterView: View {
                                 icon: "ticket",
                                 placeholder: "Invite Code (optional)",
                                 text: $viewModel.inviteCode,
-                                isSecure: false
+                                isSecure: false,
+                                isValid: viewModel.inviteCode.isEmpty || viewModel.inviteLinkValid || viewModel.isCheckingInviteLink
                             )
                             .textInputAutocapitalization(.characters)
                             .onChange(of: viewModel.inviteCode) { newValue in
@@ -200,16 +214,59 @@ struct RegisterView: View {
             }
             .padding()
         }
-        .alert("Registration Error", isPresented: $viewModel.showError) {
+        .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text(viewModel.errorMessage ?? "An error occurred")
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+            }
         }
-        .onChange(of: viewModel.registrationSuccess) { success in
-            if success {
+        .alert("Success", isPresented: $viewModel.registrationSuccess) {
+            Button("OK") {
                 isLoggedIn = true
                 dismiss()
             }
+        } message: {
+            Text("Account created successfully!")
+        }
+    }
+}
+
+// MARK: - Password Requirement Row
+struct PasswordRequirementRow: View {
+    let text: String
+    let isMet: Bool
+    let isRequired: Bool
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isMet ? "checkmark.circle.fill" : (isRequired ? "circle" : "star.circle"))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(iconColor)
+            
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundColor(textColor)
+                .strikethrough(isMet, color: .brandSuccess)
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMet)
+    }
+    
+    private var iconColor: Color {
+        if isMet {
+            return .brandSuccess
+        } else if isRequired {
+            return .secondary
+        } else {
+            return .brandWarning
+        }
+    }
+    
+    private var textColor: Color {
+        if isMet {
+            return .brandSuccess
+        } else {
+            return .secondary
         }
     }
 }
