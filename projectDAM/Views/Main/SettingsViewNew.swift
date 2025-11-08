@@ -150,6 +150,7 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
+                    .padding(.bottom, 100) // Add extra bottom padding for tab bar
                 }
                 .padding(.vertical, 20)
             }

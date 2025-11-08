@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import UIKit
 import SocketIO
 
 // MARK: - Socket Service Protocol
@@ -59,8 +60,10 @@ final class SocketService: SocketServiceProtocol {
             .reconnects(true),
             .reconnectAttempts(configuration.reconnectAttempts),
             .reconnectWait(configuration.reconnectWait),
-            .connectParams(["transport": "websocket"]),
-            .forceWebsockets(true)
+            .forcePolling(false),
+            .forceWebsockets(false), // Let it negotiate transport
+            .secure(false), // HTTP not HTTPS
+            .selfSigned(false)
         ]
         
         guard let url = URL(string: configuration.url) else {
