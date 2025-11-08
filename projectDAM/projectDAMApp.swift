@@ -13,6 +13,11 @@ struct projectDAMApp: App {
     let persistenceController = PersistenceController.shared
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("isDarkMode") private var isDarkMode = false
+    
+    init() {
+        // Print configuration on app launch (debug only)
+        AppConfig.printConfiguration()
+    }
 
     var body: some Scene {
         WindowGroup {

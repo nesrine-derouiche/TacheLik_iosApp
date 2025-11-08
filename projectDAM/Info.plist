@@ -7,5 +7,9 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>API_BASE_URL</key>
+	<string>$(API_BASE_URL)</string>
+	<key>USE_MOCK_DATA</key>
+	<string>$(USE_MOCK_DATA)</string>
 </dict>
 </plist>

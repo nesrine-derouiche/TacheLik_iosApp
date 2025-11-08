@@ -31,8 +31,18 @@ struct RegisterRequest: Encodable {
 }
 
 struct AuthResponse: Decodable {
-    let user: User
+    let message: String
     let token: String
+    let success: Bool
+}
+
+// MARK: - JWT Payload
+struct JWTPayload: Decodable {
+    let id: String
+    let email: String
+    let role: String
+    let iat: Int
+    let exp: Int
 }
 
 // MARK: - Auth Service Implementation
@@ -65,9 +75,14 @@ final class AuthService: AuthServiceProtocol {
             headers: nil
         )
         
-        saveUser(response.user, token: response.token)
-        currentUser = response.user
-        return response.user
+        // Decode JWT token to extract user information
+        guard let user = decodeJWT(token: response.token) else {
+            throw NetworkError.decodingError
+        }
+        
+        saveUser(user, token: response.token)
+        currentUser = user
+        return user
     }
     
     /// Register new user
@@ -82,9 +97,14 @@ final class AuthService: AuthServiceProtocol {
             headers: nil
         )
         
-        saveUser(response.user, token: response.token)
-        currentUser = response.user
-        return response.user
+        // Decode JWT token to extract user information
+        guard let user = decodeJWT(token: response.token) else {
+            throw NetworkError.decodingError
+        }
+        
+        saveUser(user, token: response.token)
+        currentUser = user
+        return user
     }
     
     /// Logout current user
@@ -122,6 +142,52 @@ final class AuthService: AuthServiceProtocol {
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
            let user = try? JSONDecoder().decode(User.self, from: data) {
             currentUser = user
+        }
+    }
+    
+    /// Decode JWT token to extract user information
+    private func decodeJWT(token: String) -> User? {
+        let segments = token.components(separatedBy: ".")
+        guard segments.count > 1 else { return nil }
+        
+        let payloadSegment = segments[1]
+        var base64 = payloadSegment
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        // Add padding if needed
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+        
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        
+        do {
+            let payload = try JSONDecoder().decode(JWTPayload.self, from: data)
+            
+            // Map role string to UserRole enum
+            let userRole: User.UserRole
+            switch payload.role.lowercased() {
+            case "admin":
+                userRole = .admin
+            case "mentor":
+                userRole = .mentor
+            default:
+                userRole = .student
+            }
+            
+            // Create User object from JWT payload
+            return User(
+                id: payload.id,
+                email: payload.email,
+                name: payload.email.components(separatedBy: "@").first ?? "User",
+                avatar: nil,
+                role: userRole
+            )
+        } catch {
+            print("Failed to decode JWT payload: \(error)")
+            return nil
         }
     }
 }

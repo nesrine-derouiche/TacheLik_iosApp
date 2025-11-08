@@ -1,0 +1,8 @@
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+// API Configuration
+API_BASE_URL = http:/$()/127.0.0.1:3001/api
+
+// Feature Flags
+USE_MOCK_DATA = false

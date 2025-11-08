@@ -52,8 +52,8 @@ final class NetworkService: NetworkServiceProtocol {
     private let session: URLSession
     
     // MARK: - Initialization
-    init(baseURL: String = "http://127.0.0.1:3001/api", session: URLSession = .shared) {
-        self.baseURL = baseURL
+    init(baseURL: String? = nil, session: URLSession = .shared) {
+        self.baseURL = baseURL ?? AppConfig.baseURL
         self.session = session
     }
     
