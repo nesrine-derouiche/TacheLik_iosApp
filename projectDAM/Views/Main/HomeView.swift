@@ -1,0 +1,266 @@
+import SwiftUI
+
+struct HomeView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
+    
+    var body: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // Welcome Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Welcome back!")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.secondary)
+                            Text("Continue Learning")
+                                .font(.system(size: 28, weight: .bold))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    
+                    // Statistics Cards
+                    HStack(spacing: 16) {
+                        StatCardHome(
+                            icon: "book.fill",
+                            value: "8",
+                            label: "Courses",
+                            color: Color.brandPrimary
+                        )
+                        
+                        StatCardHome(
+                            icon: "clock.fill",
+                            value: "124h",
+                            label: "Hours",
+                            color: Color.brandAccent
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Learning Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Continue Learning")
+                            .font(.system(size: 22, weight: .bold))
+                            .padding(.horizontal, 20)
+                        
+                        BeautifulCourseCard(
+                            title: "Advanced Web Development",
+                            instructor: "Dr. Sami Rezgui",
+                            progress: 0.92,
+                            timeLeft: "45 min",
+                            lessonsCompleted: 13,
+                            totalLessons: 20,
+                            color: Color.brandPrimary
+                        )
+                        .padding(.horizontal, 20)
+                        
+                        BeautifulCourseCard(
+                            title: "Data Structures & Algorithms",
+                            instructor: "Prof. Leila Ben Amor",
+                            progress: 0.42,
+                            timeLeft: "1h 20min",
+                            lessonsCompleted: 7,
+                            totalLessons: 15,
+                            color: Color.purple
+                        )
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "graduationcap.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(LinearGradient.brandPrimaryGradient)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 16) {
+                        Button(action: {}) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                        Button(action: {}) {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient.brandPrimaryGradient)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 8, y: -8)
+                                Image(systemName: "bell.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                        
+                        Circle()
+                            .fill(LinearGradient.brandPrimaryGradient)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                Text("AB")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct StatCardHome: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(color)
+                Spacer()
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 32, weight: .bold))
+                Text(label)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+}
+
+struct BeautifulCourseCard: View {
+    let title: String
+    let instructor: String
+    let progress: Double
+    let timeLeft: String
+    let lessonsCompleted: Int
+    let totalLessons: Int
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                // Course Icon
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [color, color.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+                    .shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold))
+                        .lineLimit(2)
+                    Text(instructor)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            
+            // Progress Section
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Progress")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(color)
+                }
+                
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.tertiarySystemFill))
+                            .frame(height: 8)
+                        
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    colors: [color, color.opacity(0.7)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * progress, height: 8)
+                    }
+                }
+                .frame(height: 8)
+                
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(color)
+                        Text("\(lessonsCompleted)/\(totalLessons) lessons")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        Text(timeLeft)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            // Continue Button
+            Button(action: {}) {
+                HStack {
+                    Text("Continue Learning")
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(12)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
+    }
+}
