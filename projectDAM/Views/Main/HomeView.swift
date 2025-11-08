@@ -3,19 +3,70 @@ import SwiftUI
 struct HomeView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     
+    private let authService = DIContainer.shared.authService
+    
+    private var currentUser: User? {
+        authService.getCurrentUser()
+    }
+    
+    private var userInitials: String {
+        guard let username = currentUser?.username else { return "U" }
+        let components = username.split(separator: " ")
+        if components.count >= 2 {
+            return String(components[0].prefix(1) + components[1].prefix(1)).uppercased()
+        }
+        return String(username.prefix(2)).uppercased()
+    }
+    
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Good night"
+        }
+    }
+    
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                     // Welcome Header
-                    HStack {
+                    HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Welcome back!")
+                            Text(greeting)
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.secondary)
-                            Text("Continue Learning")
-                                .font(.system(size: 28, weight: .bold))
+                            
+                            if let user = currentUser {
+                                Text(user.username)
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [.primary, .primary.opacity(0.8)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                
+                                // Role badge
+                                HStack(spacing: 6) {
+                                    Image(systemName: user.isTeacher == true ? "person.fill.badge.plus" : "person.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text(user.role.rawValue)
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(.brandPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.brandPrimary.opacity(0.1))
+                                .cornerRadius(12)
+                            } else {
+                                Text("Continue Learning")
+                                    .font(.system(size: 28, weight: .bold))
+                            }
                         }
                         Spacer()
                     }
@@ -100,14 +151,19 @@ struct HomeView: View {
                             }
                         }
                         
-                        Circle()
-                            .fill(LinearGradient.brandPrimaryGradient)
-                            .frame(width: 36, height: 36)
-                            .overlay(
-                                Text("AB")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
+                        Button(action: {
+                            // Navigate to profile
+                        }) {
+                            Circle()
+                                .fill(LinearGradient.brandPrimaryGradient)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Text(userInitials)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                        }
                     }
                 }
             }
