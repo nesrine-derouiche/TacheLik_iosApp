@@ -36,6 +36,7 @@ struct RootView: View {
     @ObservedObject var sessionManager: SessionManager
     @Environment(\.managedObjectContext) private var viewContext
     @AppStorage("isDarkMode") private var isDarkMode = false
+    @State private var isLoadingUser = false
     
     private let authService = DIContainer.shared.authService
     
@@ -62,11 +63,15 @@ struct RootView: View {
                                 sessionManager.reconnectIfNeeded()
                             }
                     }
+                } else if isLoadingUser {
+                    // Loading user data
+                    LoadingView()
                 } else {
-                    // No user data - show login
-                    NavigationView {
-                        LoginView()
-                    }
+                    // No user data and not loading - fetch it
+                    Color.clear
+                        .onAppear {
+                            loadUserData()
+                        }
                 }
             } else {
                 NavigationView {
@@ -93,6 +98,29 @@ struct RootView: View {
                     print("📱 Received session termination notification: \(reason)")
                     sessionManager.terminateSession(reason: reason)
                 }
+            }
+        }
+    }
+    
+    private func loadUserData() {
+        guard authService.shouldAutoLogin() else {
+            isLoggedIn = false
+            return
+        }
+        
+        isLoadingUser = true
+        
+        Task {
+            do {
+                try await authService.refreshUserData()
+                isLoadingUser = false
+                
+                // Reconnect socket after user data is loaded
+                sessionManager.reconnectIfNeeded()
+            } catch {
+                print("❌ Failed to load user data: \(error.localizedDescription)")
+                isLoadingUser = false
+                isLoggedIn = false
             }
         }
     }

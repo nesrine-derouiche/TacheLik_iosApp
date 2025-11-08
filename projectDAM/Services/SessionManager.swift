@@ -44,39 +44,30 @@ final class SessionManager: ObservableObject {
             return
         }
         
+        // Check if socket is already connected
+        guard !socketService.isConnected else {
+            print("✅ Socket already connected")
+            return
+        }
+        
+        // Get auth token
+        guard let token = authService.getAuthToken() else {
+            print("⚠️ No auth token available for reconnection")
+            return
+        }
+        
+        print("🔄 Auto-reconnecting socket...")
+        socketService.connect()
+        
+        // Wait for connection, then authenticate
         Task {
-            do {
-                // Refresh user data from API to get latest info
-                print("🔄 Refreshing user data from API...")
-                try await authService.refreshUserData()
-                
-                // Check if socket is already connected
-                guard !socketService.isConnected else {
-                    print("✅ Socket already connected")
-                    return
-                }
-                
-                // Get auth token
-                guard let token = authService.getAuthToken() else {
-                    print("⚠️ No auth token available for reconnection")
-                    return
-                }
-                
-                print("🔄 Auto-reconnecting socket...")
-                socketService.connect()
-                
-                // Wait for connection, then authenticate
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-                
-                if socketService.isConnected {
-                    socketService.authenticate(token: token)
-                    print("✅ Socket auto-reconnected and authenticated")
-                } else {
-                    print("⚠️ Socket connection failed during auto-reconnect")
-                }
-            } catch {
-                print("❌ Failed to refresh user data: \(error.localizedDescription)")
-                // Continue with cached user data
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            
+            if socketService.isConnected {
+                socketService.authenticate(token: token)
+                print("✅ Socket auto-reconnected and authenticated")
+            } else {
+                print("⚠️ Socket connection failed during auto-reconnect")
             }
         }
     }

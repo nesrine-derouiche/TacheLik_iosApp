@@ -12,6 +12,7 @@ struct VerificationView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @State private var isResending = false
     @State private var showSuccessMessage = false
+    @State private var hasAutoSent = false
     
     private let authService = DIContainer.shared.authService
     
@@ -153,6 +154,13 @@ struct VerificationView: View {
                     
                     Spacer()
                 }
+            }
+        }
+        .onAppear {
+            // Automatically send verification email when view appears
+            if !hasAutoSent {
+                hasAutoSent = true
+                resendVerificationEmail()
             }
         }
     }
