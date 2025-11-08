@@ -207,10 +207,15 @@ struct RegisterView: View {
                 .cornerRadius(12)
                 .disabled(viewModel.isLoading || !viewModel.isFormValid)
                 
-                Button("Already have an account? Login") {
-                    dismiss()
+                HStack(spacing: 4) {
+                    Text("Already have an account?")
+                        .foregroundColor(.secondary)
+                    Button("Login") {
+                        dismiss()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
                 }
-                .foregroundColor(.blue)
             }
             .padding()
         }
