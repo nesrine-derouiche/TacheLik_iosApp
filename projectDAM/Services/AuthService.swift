@@ -65,7 +65,7 @@ struct JWTPayload: Decodable {
 }
 
 // MARK: - Auth Service Implementation
-final class AuthService: AuthServiceProtocol {
+final class AuthService: AuthServiceProtocol, ObservableObject {
     
     // MARK: - Properties
     private let networkService: NetworkServiceProtocol

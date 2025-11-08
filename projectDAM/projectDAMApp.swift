@@ -38,10 +38,10 @@ struct RootView: View {
     @AppStorage("isDarkMode") private var isDarkMode = false
     @State private var isLoadingUser = false
     
-    private let authService = DIContainer.shared.authService
+    @ObservedObject private var authService = DIContainer.shared.authService
     
     private var currentUser: User? {
-        authService.getCurrentUser()
+        authService.currentUser
     }
     
     var body: some View {
