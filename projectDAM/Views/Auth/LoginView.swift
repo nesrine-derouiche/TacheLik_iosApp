@@ -93,9 +93,10 @@ struct LoginView: View {
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
+                            .opacity((viewModel.isLoading || !viewModel.isFormValid) ? 0.5 : 1.0)
                         )
                         .cornerRadius(16)
-                        .shadow(color: Color.brandPrimary.opacity(0.4), radius: 12, x: 0, y: 6)
+                        .shadow(color: Color.brandPrimary.opacity((viewModel.isLoading || !viewModel.isFormValid) ? 0.2 : 0.4), radius: 12, x: 0, y: 6)
                         .disabled(viewModel.isLoading || !viewModel.isFormValid)
                         
                         HStack(spacing: 6) {

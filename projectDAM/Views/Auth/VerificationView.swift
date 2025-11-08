@@ -10,12 +10,16 @@ import SwiftUI
 struct VerificationView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @EnvironmentObject var sessionManager: SessionManager
+    @State private var verificationCode = ""
+    @State private var isVerifying = false
     @State private var isResending = false
     @State private var showSuccessMessage = false
     @State private var hasAutoSent = false
     @State private var viewDidAppear = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var canResend = false
+    @State private var resendCooldown = 60
     
     private let authService = DIContainer.shared.authService
     
@@ -54,7 +58,7 @@ struct VerificationView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.primary)
                         
-                        Text("We've sent a verification link to")
+                        Text("Enter the 6-digit code sent to")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.secondary)
                         
@@ -66,20 +70,33 @@ struct VerificationView: View {
                     .padding(.horizontal, 40)
                     
                     VStack(spacing: 20) {
-                        // Instructions
-                        VStack(alignment: .leading, spacing: 16) {
-                            InstructionRow(
-                                number: "1",
-                                text: "Check your email inbox"
-                            )
-                            InstructionRow(
-                                number: "2",
-                                text: "Click the verification link"
-                            )
-                            InstructionRow(
-                                number: "3",
-                                text: "Return to the app and refresh"
-                            )
+                        // Code Input
+                        VStack(spacing: 16) {
+                            CodeInputView(code: $verificationCode) {
+                                // Auto-verify when code is complete
+                                verifyCode()
+                            }
+                            .disabled(isVerifying)
+                            .opacity(isVerifying ? 0.6 : 1.0)
+                            
+                            if isVerifying {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .brandPrimary))
+                                    Text("Verifying...")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.brandPrimary)
+                                }
+                            } else if !errorMessage.isEmpty {
+                                Text(errorMessage)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.red)
+                                    .multilineTextAlignment(.center)
+                            }
+                            
+                            Text("Code expires in 10 minutes")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
                         }
                         .padding(24)
                         .background(Color(.systemBackground))
@@ -103,7 +120,7 @@ struct VerificationView: View {
                         }
                         
                         // Resend Button
-                        Button(action: resendVerificationEmail) {
+                        Button(action: resendVerificationCode) {
                             HStack(spacing: 12) {
                                 if isResending {
                                     ProgressView()
@@ -111,7 +128,7 @@ struct VerificationView: View {
                                 } else {
                                     Image(systemName: "arrow.clockwise")
                                         .font(.system(size: 16, weight: .semibold))
-                                    Text("Resend Verification Email")
+                                    Text(canResend ? "Resend Code" : "Resend in \(resendCooldown)s")
                                         .font(.system(size: 16, weight: .semibold))
                                 }
                             }
@@ -120,27 +137,11 @@ struct VerificationView: View {
                             .padding()
                             .background(
                                 LinearGradient.brandPrimaryGradient
-                                    .opacity(isResending ? 0.5 : 1.0)
+                                    .opacity((isResending || !canResend) ? 0.5 : 1.0)
                             )
                             .cornerRadius(12)
                         }
-                        .disabled(isResending)
-                        .padding(.horizontal, 40)
-                        
-                        // Refresh Button
-                        Button(action: refreshUserData) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("I've Verified - Refresh")
-                                    .font(.system(size: 16, weight: .semibold))
-                            }
-                            .foregroundColor(.brandPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.brandPrimary.opacity(0.1))
-                            .cornerRadius(12)
-                        }
+                        .disabled(isResending || !canResend)
                         .padding(.horizontal, 40)
                         
                         // Logout Button
@@ -160,93 +161,87 @@ struct VerificationView: View {
             }
         }
         .onAppear {
-            // Automatically send verification email when view appears
+            // Automatically send verification code when view appears
             if !viewDidAppear {
                 viewDidAppear = true
                 if !hasAutoSent {
                     hasAutoSent = true
                     // Delay slightly to ensure view is fully loaded
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        resendVerificationEmail()
+                        resendVerificationCode()
                     }
                 }
             }
         }
-        .alert("Error", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
     }
     
-    private func resendVerificationEmail() {
+    private func resendVerificationCode() {
         isResending = true
-        showSuccessMessage = false
+        errorMessage = ""
+        verificationCode = ""
         
         Task {
             do {
-                try await authService.requestEmailVerification()
+                try await authService.requestEmailVerificationCode(email: userEmail)
                 isResending = false
                 showSuccessMessage = true
                 
-                print("✅ Verification email sent successfully")
+                // Start cooldown
+                canResend = false
+                resendCooldown = 60
+                startCooldownTimer()
+                
+                print("✅ Verification code sent successfully")
                 
                 // Hide success message after 3 seconds
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 showSuccessMessage = false
-            } catch let error as NetworkError {
-                isResending = false
-                handleError(error)
             } catch {
                 isResending = false
-                errorMessage = "Failed to send verification email: \(error.localizedDescription)"
-                showErrorAlert = true
-                print("❌ Failed to send verification email: \(error.localizedDescription)")
+                errorMessage = "Failed to send code: \(error.localizedDescription)"
+                print("❌ Failed to send verification code: \(error.localizedDescription)")
             }
         }
     }
     
-    private func handleError(_ error: NetworkError) {
-        switch error {
-        case .serverError(let code, let message):
-            if code == 429 {
-                errorMessage = "Too many requests. Please wait a moment before trying again."
-            } else if let message = message {
-                errorMessage = message
-            } else {
-                errorMessage = "Server error (\(code)). Please try again later."
-            }
-        case .unauthorized:
-            errorMessage = "Session expired. Please login again."
-            isLoggedIn = false
-        case .invalidURL:
-            errorMessage = "Invalid server URL. Please contact support."
-        case .noData:
-            errorMessage = "No response from server. Please check your connection."
-        case .decodingError:
-            errorMessage = "Invalid response from server. Please try again."
-        case .invalidResponse:
-            errorMessage = "Invalid response from server. Please try again."
-        }
-        showErrorAlert = true
-        print("❌ Failed to send verification email: \(errorMessage)")
-    }
-    
-    private func refreshUserData() {
+    private func verifyCode() {
+        guard verificationCode.count == 6 else { return }
+        
+        isVerifying = true
+        errorMessage = ""
+        
         Task {
             do {
-                try await authService.refreshUserData()
+                try await authService.verifyEmailWithCode(email: userEmail, code: verificationCode)
+                isVerifying = false
                 
-                // Check if user is now verified and has pending invite code
-                if let user = authService.getCurrentUser(), user.verified == true {
+                // Check if user has pending invite code
+                if let user = authService.getCurrentUser() {
                     await setInviteLinkIfPending(userId: user.id)
                 }
-                // The app will automatically navigate if user is now verified
+                
+                print("✅ Email verified successfully")
+                // App will automatically navigate to home
             } catch {
-                print("❌ Failed to refresh user data: \(error.localizedDescription)")
+                isVerifying = false
+                errorMessage = "Invalid or expired code"
+                verificationCode = ""
+                print("❌ Failed to verify code: \(error.localizedDescription)")
             }
         }
     }
+    
+    private func startCooldownTimer() {
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            if resendCooldown > 0 {
+                resendCooldown -= 1
+            } else {
+                canResend = true
+                timer.invalidate()
+            }
+        }
+    }
+    
     
     private func setInviteLinkIfPending(userId: String) async {
         // Check if there's a pending invite code

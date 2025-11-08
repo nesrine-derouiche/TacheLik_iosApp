@@ -75,6 +75,40 @@ final class LoginViewModel: ObservableObject {
             
             // Connect to socket and authenticate
             connectSocket()
+        } catch let error as NetworkError {
+            // Handle NetworkError with proper message extraction
+            switch error {
+            case .serverError(let code, let message):
+                // Always prefer the server message over generic error
+                if let message = message {
+                    errorMessage = message
+                } else {
+                    // Fallback to generic messages for specific codes
+                    switch code {
+                    case 400:
+                        errorMessage = "Invalid credentials"
+                    case 404:
+                        errorMessage = "User not found"
+                    case 429:
+                        errorMessage = "Too many attempts. Please try again later"
+                    case 500...599:
+                        errorMessage = "Server error. Please try again later"
+                    default:
+                        errorMessage = "An error occurred. Please try again"
+                    }
+                }
+            case .unauthorized:
+                errorMessage = "Invalid credentials"
+            case .invalidURL:
+                errorMessage = "Invalid server URL"
+            case .noData:
+                errorMessage = "No response from server"
+            case .decodingError:
+                errorMessage = "Invalid response from server"
+            case .invalidResponse:
+                errorMessage = "Invalid response from server"
+            }
+            print("❌ Login failed: \(errorMessage ?? "Unknown error")")
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Login failed: \(error.localizedDescription)")

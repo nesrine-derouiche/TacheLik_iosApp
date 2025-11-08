@@ -23,6 +23,10 @@ protocol AuthServiceProtocol {
     func requestPasswordReset(email: String) async throws
     func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse
     func setUserInvitedByLink(userId: String, link: String) async throws
+    func requestEmailVerificationCode(email: String) async throws
+    func verifyEmailWithCode(email: String, code: String) async throws
+    func requestPasswordResetCode(email: String) async throws
+    func resetPasswordWithCode(email: String, code: String, newPassword: String) async throws
 }
 
 // MARK: - Auth Response Models
@@ -80,6 +84,11 @@ struct PasswordResetRequest: Encodable {
 }
 
 struct PasswordResetResponse: Decodable {
+    let success: Bool
+    let message: String
+}
+
+struct VerificationCodeResponse: Decodable {
     let success: Bool
     let message: String
 }
@@ -315,7 +324,7 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
                 headers: ["Authorization": "Bearer \(token)"]
             )
             
-            print("✅ User invited by link set successfully: \(response.message ?? "success")")
+            print("✅ User invited by link set successfully")
         } catch NetworkError.decodingError {
             // If decoding fails, the request might have succeeded but returned unexpected format
             // Consider it successful if we got here without other errors
@@ -324,6 +333,69 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
         
         // Clear pending invite code after successful set
         UserDefaults.standard.removeObject(forKey: "pendingInviteCode")
+    }
+    
+    /// Request email verification code (6-digit)
+    func requestEmailVerificationCode(email: String) async throws {
+        let request = ["email": email]
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: VerificationCodeResponse = try await networkService.request(
+            endpoint: "/user/request-email-verification-code",
+            method: .POST,
+            body: requestData,
+            headers: ["Content-Type": "application/json"]
+        )
+        
+        print("✅ Verification code sent: \(response.message)")
+    }
+    
+    /// Verify email with 6-digit code
+    func verifyEmailWithCode(email: String, code: String) async throws {
+        let request = ["email": email, "code": code]
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: VerificationCodeResponse = try await networkService.request(
+            endpoint: "/user/verify-email-code",
+            method: .POST,
+            body: requestData,
+            headers: ["Content-Type": "application/json"]
+        )
+        
+        // Refresh user data to get updated verified status
+        try await refreshUserData()
+        
+        print("✅ Email verified: \(response.message)")
+    }
+    
+    /// Request password reset code (6-digit)
+    func requestPasswordResetCode(email: String) async throws {
+        let request = ["email": email]
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: VerificationCodeResponse = try await networkService.request(
+            endpoint: "/user/request-password-reset-code",
+            method: .POST,
+            body: requestData,
+            headers: ["Content-Type": "application/json"]
+        )
+        
+        print("✅ Password reset code sent: \(response.message)")
+    }
+    
+    /// Reset password with 6-digit code
+    func resetPasswordWithCode(email: String, code: String, newPassword: String) async throws {
+        let request = ["email": email, "code": code, "newPassword": newPassword]
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: VerificationCodeResponse = try await networkService.request(
+            endpoint: "/user/reset-password-with-code",
+            method: .POST,
+            body: requestData,
+            headers: ["Content-Type": "application/json"]
+        )
+        
+        print("✅ Password reset: \(response.message)")
     }
     
     // MARK: - Private Methods
@@ -478,5 +550,25 @@ final class MockAuthService: AuthServiceProtocol {
     func setUserInvitedByLink(userId: String, link: String) async throws {
         try await Task.sleep(nanoseconds: 500_000_000)
         print("📧 Mock: User invited by link set")
+    }
+    
+    func requestEmailVerificationCode(email: String) async throws {
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("📧 Mock: Verification code sent to \(email)")
+    }
+    
+    func verifyEmailWithCode(email: String, code: String) async throws {
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("✅ Mock: Email verified with code \(code)")
+    }
+    
+    func requestPasswordResetCode(email: String) async throws {
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("📧 Mock: Password reset code sent to \(email)")
+    }
+    
+    func resetPasswordWithCode(email: String, code: String, newPassword: String) async throws {
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("✅ Mock: Password reset with code \(code)")
     }
 }
