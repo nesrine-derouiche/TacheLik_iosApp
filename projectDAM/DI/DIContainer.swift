@@ -20,6 +20,12 @@ final class DIContainer {
     let courseService: CourseServiceProtocol
     let socketService: SocketServiceProtocol
     
+    // MARK: - Observable Services
+    /// Access AuthService as ObservableObject for SwiftUI
+    var observableAuthService: AuthService {
+        return authService as! AuthService
+    }
+    
     // MARK: - Initialization
     private init() {
         // Initialize services in correct order

@@ -38,7 +38,7 @@ struct RootView: View {
     @AppStorage("isDarkMode") private var isDarkMode = false
     @State private var isLoadingUser = false
     
-    @ObservedObject private var authService = DIContainer.shared.authService
+    @ObservedObject private var authService = DIContainer.shared.observableAuthService
     
     private var currentUser: User? {
         authService.currentUser
