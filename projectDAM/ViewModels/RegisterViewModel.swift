@@ -16,10 +16,15 @@ final class RegisterViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""
     @Published var confirmPassword = ""
+    @Published var inviteCode = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var registrationSuccess = false
+    @Published var isCheckingInviteLink = false
+    @Published var inviteLinkValid = false
+    @Published var inviteLinkSpecial = false
+    @Published var inviteLinkMessage = ""
     
     // MARK: - Dependencies
     private let authService: AuthServiceProtocol
@@ -54,6 +59,47 @@ final class RegisterViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
+    func checkInviteLink() async {
+        guard !inviteCode.isEmpty else {
+            inviteLinkValid = false
+            inviteLinkSpecial = false
+            inviteLinkMessage = ""
+            return
+        }
+        
+        guard inviteCode.count == 6 else {
+            return // Wait until 6 characters
+        }
+        
+        isCheckingInviteLink = true
+        inviteLinkMessage = ""
+        
+        do {
+            let response = try await authService.checkInviteLink(inviteCode)
+            
+            if response.exists && response.isSpecialInvitation {
+                inviteLinkValid = true
+                inviteLinkSpecial = true
+                inviteLinkMessage = "✓ Special invite! Get a reduction on your first purchase"
+            } else if response.exists {
+                inviteLinkValid = false
+                inviteLinkSpecial = false
+                inviteLinkMessage = "This invite code is not special. Only special invites give a reduction."
+            } else {
+                inviteLinkValid = false
+                inviteLinkSpecial = false
+                inviteLinkMessage = "Invalid invite code"
+            }
+        } catch {
+            inviteLinkValid = false
+            inviteLinkSpecial = false
+            inviteLinkMessage = "Could not verify invite code"
+            print("❌ Failed to check invite link: \(error.localizedDescription)")
+        }
+        
+        isCheckingInviteLink = false
+    }
+    
     func register() async {
         // Validate form
         guard isFormValid else {
@@ -75,10 +121,12 @@ final class RegisterViewModel: ObservableObject {
         
         do {
             // Register user
+            let inviteCodeToSend = inviteCode.isEmpty ? nil : inviteCode
             let user = try await authService.register(
                 username: username,
                 email: email,
-                password: password
+                password: password,
+                inviteCode: inviteCodeToSend
             )
             
             print("✅ Registration successful: \(user.username)")

@@ -236,10 +236,30 @@ struct VerificationView: View {
         Task {
             do {
                 try await authService.refreshUserData()
+                
+                // Check if user is now verified and has pending invite code
+                if let user = authService.getCurrentUser(), user.verified == true {
+                    await setInviteLinkIfPending(userId: user.id)
+                }
                 // The app will automatically navigate if user is now verified
             } catch {
                 print("❌ Failed to refresh user data: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    private func setInviteLinkIfPending(userId: String) async {
+        // Check if there's a pending invite code
+        guard let inviteCode = UserDefaults.standard.string(forKey: "pendingInviteCode") else {
+            return
+        }
+        
+        do {
+            try await authService.setUserInvitedByLink(userId: userId, link: inviteCode)
+            print("✅ Invite link set after verification")
+        } catch {
+            print("❌ Failed to set invite link: \(error.localizedDescription)")
+            // Don't show error to user, this is a background operation
         }
     }
 }

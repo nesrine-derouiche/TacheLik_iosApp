@@ -47,6 +47,46 @@ struct RegisterView: View {
                         isSecure: !showConfirmPassword,
                         showPassword: $showConfirmPassword
                     )
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            CustomTextField(
+                                icon: "ticket",
+                                placeholder: "Invite Code (optional)",
+                                text: $viewModel.inviteCode,
+                                isSecure: false
+                            )
+                            .textInputAutocapitalization(.characters)
+                            .onChange(of: viewModel.inviteCode) { newValue in
+                                // Limit to 6 characters
+                                if newValue.count > 6 {
+                                    viewModel.inviteCode = String(newValue.prefix(6))
+                                } else {
+                                    // Check invite link when 6 characters entered
+                                    Task {
+                                        await viewModel.checkInviteLink()
+                                    }
+                                }
+                            }
+                            
+                            if viewModel.isCheckingInviteLink {
+                                ProgressView()
+                                    .padding(.trailing, 8)
+                            }
+                        }
+                        
+                        if !viewModel.inviteLinkMessage.isEmpty {
+                            Text(viewModel.inviteLinkMessage)
+                                .font(.system(size: 12))
+                                .foregroundColor(viewModel.inviteLinkSpecial ? .green : .red)
+                                .padding(.horizontal, 16)
+                        }
+                        
+                        Text("Optional - Get a reduction on your first purchase with a special invite code")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
+                    }
                 }
                 
                 Button(action: {

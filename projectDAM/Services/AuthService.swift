@@ -11,7 +11,7 @@ import Combine
 // MARK: - Auth Service Protocol
 protocol AuthServiceProtocol {
     func login(email: String, password: String) async throws -> User
-    func register(username: String, email: String, password: String) async throws -> User
+    func register(username: String, email: String, password: String, inviteCode: String?) async throws -> User
     func logout() async throws
     func getCurrentUser() -> User?
     func isAuthenticated() -> Bool
@@ -20,6 +20,8 @@ protocol AuthServiceProtocol {
     func shouldAutoLogin() -> Bool
     func refreshUserData() async throws
     func requestEmailVerification() async throws
+    func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse
+    func setUserInvitedByLink(userId: String, link: String) async throws
 }
 
 // MARK: - Auth Response Models
@@ -53,6 +55,22 @@ struct EmailVerificationRequest: Encodable {
 struct EmailVerificationResponse: Decodable {
     let message: String
     let success: Bool
+}
+
+struct InviteLinkCheckResponse: Decodable {
+    let exists: Bool
+    let success: Bool
+    let isSpecialInvitation: Bool
+}
+
+struct SetInvitedByRequest: Encodable {
+    let userId: String
+    let link: String
+}
+
+struct SetInvitedByResponse: Decodable {
+    let success: Bool?
+    let message: String?
 }
 
 // MARK: - JWT Payload
@@ -114,8 +132,17 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
     }
     
     /// Register new user
-    func register(username: String, email: String, password: String) async throws -> User {
-        let request = RegisterRequest(username: username, email: email, password: password)
+    func register(username: String, email: String, password: String, inviteCode: String? = nil) async throws -> User {
+        // Save invite code locally to use after verification
+        if let inviteCode = inviteCode, !inviteCode.isEmpty {
+            UserDefaults.standard.set(inviteCode, forKey: "pendingInviteCode")
+        }
+        
+        let request = RegisterRequest(
+            username: username,
+            email: email,
+            password: password
+        )
         let requestData = try JSONEncoder().encode(request)
         
         let response: AuthResponse = try await networkService.request(
@@ -228,6 +255,48 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
         print("✅ Verification email sent: \(response.message)")
     }
     
+    /// Check if invite link is valid and special
+    func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse {
+        let response: InviteLinkCheckResponse = try await networkService.request(
+            endpoint: "/user/check-invite-link-special/\(link)",
+            method: .GET,
+            body: nil,
+            headers: nil
+        )
+        
+        print("✅ Invite link checked: exists=\(response.exists), special=\(response.isSpecialInvitation)")
+        return response
+    }
+    
+    /// Set user's invited by link after verification
+    func setUserInvitedByLink(userId: String, link: String) async throws {
+        guard let token = getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        
+        let request = SetInvitedByRequest(userId: userId, link: link)
+        let requestData = try JSONEncoder().encode(request)
+        
+        do {
+            // Try to decode as SetInvitedByResponse
+            let response: SetInvitedByResponse = try await networkService.request(
+                endpoint: "/user/set-user-invited-by-link",
+                method: .PUT,
+                body: requestData,
+                headers: ["Authorization": "Bearer \(token)"]
+            )
+            
+            print("✅ User invited by link set successfully: \(response.message ?? "success")")
+        } catch NetworkError.decodingError {
+            // If decoding fails, the request might have succeeded but returned unexpected format
+            // Consider it successful if we got here without other errors
+            print("⚠️ Invite link set but response format unexpected")
+        }
+        
+        // Clear pending invite code after successful set
+        UserDefaults.standard.removeObject(forKey: "pendingInviteCode")
+    }
+    
     // MARK: - Private Methods
     
     private func saveUser(_ user: User, token: String) {
@@ -304,7 +373,7 @@ final class MockAuthService: AuthServiceProtocol {
         return user
     }
     
-    func register(username: String, email: String, password: String) async throws -> User {
+    func register(username: String, email: String, password: String, inviteCode: String? = nil) async throws -> User {
         try await Task.sleep(nanoseconds: 1_000_000_000)
         
         let user = User(
@@ -364,5 +433,15 @@ final class MockAuthService: AuthServiceProtocol {
         // Mock implementation - simulate delay
         try await Task.sleep(nanoseconds: 1_000_000_000)
         print("📧 Mock: Verification email sent")
+    }
+    
+    func checkInviteLink(_ link: String) async throws -> InviteLinkCheckResponse {
+        try await Task.sleep(nanoseconds: 500_000_000)
+        return InviteLinkCheckResponse(exists: true, success: true, isSpecialInvitation: true)
+    }
+    
+    func setUserInvitedByLink(userId: String, link: String) async throws {
+        try await Task.sleep(nanoseconds: 500_000_000)
+        print("📧 Mock: User invited by link set")
     }
 }
