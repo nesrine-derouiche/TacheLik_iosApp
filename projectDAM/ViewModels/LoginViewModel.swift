@@ -24,10 +24,12 @@ final class LoginViewModel: ObservableObject {
     
     // MARK: - Dependencies
     private let authService: AuthServiceProtocol
+    private let socketService: SocketServiceProtocol
     
     // MARK: - Initialization
-    init(authService: AuthServiceProtocol) {
+    init(authService: AuthServiceProtocol, socketService: SocketServiceProtocol = DIContainer.shared.socketService) {
         self.authService = authService
+        self.socketService = socketService
     }
     
     // MARK: - Public Methods
@@ -63,12 +65,32 @@ final class LoginViewModel: ObservableObject {
             let user = try await authService.login(email: email, password: password)
             isLoggedIn = true
             print("✅ Login successful: \(user.name)")
+            
+            // Connect to socket and authenticate
+            connectSocket()
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Login failed: \(error.localizedDescription)")
         }
         
         isLoading = false
+    }
+    
+    /// Connect to socket server
+    private func connectSocket() {
+        guard let token = authService.getAuthToken() else {
+            print("⚠️ No auth token available for socket connection")
+            return
+        }
+        
+        print("🔌 Connecting to socket server...")
+        socketService.connect()
+        
+        // Wait a moment for connection, then authenticate
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            socketService.authenticate(token: token)
+        }
     }
     
     /// Register new user

@@ -18,6 +18,7 @@ final class DIContainer {
     let networkService: NetworkServiceProtocol
     let authService: AuthServiceProtocol
     let courseService: CourseServiceProtocol
+    let socketService: SocketServiceProtocol
     
     // MARK: - Initialization
     private init() {
@@ -25,6 +26,17 @@ final class DIContainer {
         self.networkService = NetworkService()
         self.authService = AuthService(networkService: networkService)
         self.courseService = CourseService(networkService: networkService, authService: authService)
+        
+        // Initialize socket service with configuration from AppConfig
+        let socketConfig = SocketConfiguration(
+            url: AppConfig.socketURL,
+            enableLogging: AppConfig.enableLogging,
+            reconnectAttempts: 5,
+            reconnectWait: 2,
+            heartbeatInterval: 30,
+            connectionTimeout: 10
+        )
+        self.socketService = SocketService(configuration: socketConfig)
         
         // For development with mock data, use:
         // self.authService = MockAuthService()
@@ -35,7 +47,7 @@ final class DIContainer {
     
     /// Create LoginViewModel with injected dependencies
     func makeLoginViewModel() -> LoginViewModel {
-        return LoginViewModel(authService: authService)
+        return LoginViewModel(authService: authService, socketService: socketService)
     }
     
     /// Create HomeViewModel with injected dependencies

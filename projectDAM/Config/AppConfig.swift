@@ -24,6 +24,16 @@ struct AppConfig {
         return "http://127.0.0.1:3001/api"
     }
     
+    /// Socket.IO server URL (without /api path)
+    static var socketURL: String {
+        // Remove /api suffix from base URL for socket connection
+        let apiURL = baseURL
+        if apiURL.hasSuffix("/api") {
+            return String(apiURL.dropLast(4))
+        }
+        return apiURL
+    }
+    
     /// API timeout interval in seconds
     static let requestTimeout: TimeInterval = 30
     
@@ -75,7 +85,8 @@ struct AppConfig {
         📱 App Configuration
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         Environment: \(isDebug ? "DEBUG" : "RELEASE")
-        Base URL: \(baseURL)
+        API Base URL: \(baseURL)
+        Socket URL: \(socketURL)
         Version: \(appVersion) (\(buildNumber))
         Mock Data: \(useMockData ? "Enabled" : "Disabled")
         Logging: \(enableLogging ? "Enabled" : "Disabled")
