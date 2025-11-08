@@ -132,6 +132,7 @@ struct HomeView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(height: 32)
+                        .rotationEffect(.degrees(-45))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {

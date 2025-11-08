@@ -22,6 +22,7 @@ struct LoginView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 140, height: 140)
+                        .rotationEffect(.degrees(-45))
                         .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 8)
                     
                     VStack(spacing: 8) {
