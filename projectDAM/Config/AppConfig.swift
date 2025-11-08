@@ -34,6 +34,18 @@ struct AppConfig {
         return apiURL
     }
     
+    /// Server URL for email verification links (frontend URL)
+    static var serverURL: String {
+        // Try to get from Info.plist first
+        if let url = Bundle.main.object(forInfoDictionaryKey: "SERVER_URL") as? String,
+           !url.isEmpty {
+            return url
+        }
+        
+        // Fallback to default development URL
+        return "http://localhost:3000"
+    }
+    
     /// API timeout interval in seconds
     static let requestTimeout: TimeInterval = 30
     

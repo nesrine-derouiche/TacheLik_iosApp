@@ -161,16 +161,22 @@ struct VerificationView: View {
         isResending = true
         showSuccessMessage = false
         
-        // TODO: Implement API call to resend verification email
-        // For now, simulate the request
         Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            isResending = false
-            showSuccessMessage = true
-            
-            // Hide success message after 3 seconds
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            showSuccessMessage = false
+            do {
+                try await authService.requestEmailVerification()
+                isResending = false
+                showSuccessMessage = true
+                
+                print("✅ Verification email sent successfully")
+                
+                // Hide success message after 3 seconds
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                showSuccessMessage = false
+            } catch {
+                isResending = false
+                print("❌ Failed to send verification email: \(error.localizedDescription)")
+                // TODO: Show error alert to user
+            }
         }
     }
     

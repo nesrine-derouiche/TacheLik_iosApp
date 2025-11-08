@@ -19,6 +19,7 @@ protocol AuthServiceProtocol {
     func didUserLogout() -> Bool
     func shouldAutoLogin() -> Bool
     func refreshUserData() async throws
+    func requestEmailVerification() async throws
 }
 
 // MARK: - Auth Response Models
@@ -44,6 +45,16 @@ struct UserResponse: Decodable {
     let success: Bool
 }
 
+struct EmailVerificationRequest: Encodable {
+    let email: String
+    let serverUrl: String
+}
+
+struct EmailVerificationResponse: Decodable {
+    let message: String
+    let success: Bool
+}
+
 // MARK: - JWT Payload
 struct JWTPayload: Decodable {
     let id: String
@@ -58,7 +69,6 @@ final class AuthService: AuthServiceProtocol {
     
     // MARK: - Properties
     private let networkService: NetworkServiceProtocol
-    private let userDefaultsKey = "currentUser"
     private let tokenKey = "authToken"
     private let logoutFlagKey = "userDidLogout"
     
@@ -136,7 +146,6 @@ final class AuthService: AuthServiceProtocol {
     
     /// Logout current user
     func logout() async throws {
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.set(true, forKey: logoutFlagKey) // Mark that user manually logged out
         currentUser = nil
@@ -164,7 +173,7 @@ final class AuthService: AuthServiceProtocol {
     
     /// Check if user should auto-login (has token and didn't manually logout)
     func shouldAutoLogin() -> Bool {
-        return !didUserLogout() && getAuthToken() != nil && getCurrentUser() != nil
+        return !didUserLogout() && getAuthToken() != nil
     }
     
     /// Refresh user data from API
@@ -193,20 +202,45 @@ final class AuthService: AuthServiceProtocol {
         print("✅ User data refreshed: \(userResponse.user.username)")
     }
     
+    /// Request email verification
+    func requestEmailVerification() async throws {
+        guard let user = getCurrentUser() else {
+            throw NetworkError.unauthorized
+        }
+        
+        guard let token = getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        
+        let request = EmailVerificationRequest(
+            email: user.email,
+            serverUrl: AppConfig.serverURL
+        )
+        let requestData = try JSONEncoder().encode(request)
+        
+        let response: EmailVerificationResponse = try await networkService.request(
+            endpoint: "/user/request-email-verification",
+            method: .POST,
+            body: requestData,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        
+        print("✅ Verification email sent: \(response.message)")
+    }
+    
     // MARK: - Private Methods
     
     private func saveUser(_ user: User, token: String) {
-        if let encoded = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
-        }
+        // Only save token, not user data
+        // User data will always be fetched fresh from API
         UserDefaults.standard.set(token, forKey: tokenKey)
+        currentUser = user
     }
     
     private func loadCurrentUser() {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let user = try? JSONDecoder().decode(User.self, from: data) {
-            currentUser = user
-        }
+        // Don't load user from UserDefaults
+        // User data will be fetched fresh from API on app launch
+        currentUser = nil
     }
     
     /// Decode JWT token to extract payload
@@ -324,5 +358,11 @@ final class MockAuthService: AuthServiceProtocol {
     func refreshUserData() async throws {
         // Mock implementation - do nothing
         print("🔄 Mock: User data refresh (no-op)")
+    }
+    
+    func requestEmailVerification() async throws {
+        // Mock implementation - simulate delay
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        print("📧 Mock: Verification email sent")
     }
 }
