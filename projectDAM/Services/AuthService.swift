@@ -11,7 +11,7 @@ import Combine
 // MARK: - Auth Service Protocol
 protocol AuthServiceProtocol {
     func login(email: String, password: String) async throws -> User
-    func register(email: String, password: String, name: String) async throws -> User
+    func register(username: String, email: String, password: String) async throws -> User
     func logout() async throws
     func getCurrentUser() -> User?
     func isAuthenticated() -> Bool
@@ -28,9 +28,9 @@ struct LoginRequest: Encodable {
 }
 
 struct RegisterRequest: Encodable {
+    let username: String
     let email: String
     let password: String
-    let name: String
 }
 
 struct AuthResponse: Decodable {
@@ -104,12 +104,12 @@ final class AuthService: AuthServiceProtocol {
     }
     
     /// Register new user
-    func register(email: String, password: String, name: String) async throws -> User {
-        let request = RegisterRequest(email: email, password: password, name: name)
+    func register(username: String, email: String, password: String) async throws -> User {
+        let request = RegisterRequest(username: username, email: email, password: password)
         let requestData = try JSONEncoder().encode(request)
         
         let response: AuthResponse = try await networkService.request(
-            endpoint: "/auth/register",
+            endpoint: "/auth/signup",
             method: .POST,
             body: requestData,
             headers: nil
@@ -270,12 +270,12 @@ final class MockAuthService: AuthServiceProtocol {
         return user
     }
     
-    func register(email: String, password: String, name: String) async throws -> User {
+    func register(username: String, email: String, password: String) async throws -> User {
         try await Task.sleep(nanoseconds: 1_000_000_000)
         
         let user = User(
             id: UUID().uuidString,
-            username: name,
+            username: username,
             email: email,
             phone: nil,
             phoneNbVerified: false,

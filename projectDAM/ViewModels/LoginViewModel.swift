@@ -99,7 +99,7 @@ final class LoginViewModel: ObservableObject {
     }
     
     /// Register new user
-    func register(name: String) async {
+    func register(username: String) async {
         guard isFormValid else {
             errorMessage = "Please enter valid email and password"
             return
@@ -109,9 +109,12 @@ final class LoginViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            let user = try await authService.register(email: email, password: password, name: name)
+            let user = try await authService.register(username: username, email: email, password: password)
             isLoggedIn = true
-            print("✅ Registration successful: \(user.name)")
+            print("✅ Registration successful: \(user.username)")
+            
+            // Connect to socket and authenticate
+            connectSocket()
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Registration failed: \(error.localizedDescription)")

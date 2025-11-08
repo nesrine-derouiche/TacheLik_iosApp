@@ -2,14 +2,10 @@ import SwiftUI
 
 struct RegisterView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var email = ""
-    @State private var password = ""
-    @State private var confirmPassword = ""
+    @StateObject private var viewModel = RegisterViewModel()
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
     @State private var showPassword = false
     @State private var showConfirmPassword = false
-    @State private var isLoading = false
-    @State private var showAlert = false
-    @State private var alertMessage = ""
     
     var body: some View {
         ScrollView {
@@ -21,16 +17,25 @@ struct RegisterView: View {
                 
                 VStack(spacing: 15) {
                     CustomTextField(
-                        icon: "envelope",
-                        placeholder: "Email",
-                        text: $email,
+                        icon: "person",
+                        placeholder: "Username",
+                        text: $viewModel.username,
                         isSecure: false
                     )
                     
                     CustomTextField(
+                        icon: "envelope",
+                        placeholder: "Email",
+                        text: $viewModel.email,
+                        isSecure: false
+                    )
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    
+                    CustomTextField(
                         icon: "lock",
-                        placeholder: "Password",
-                        text: $password,
+                        placeholder: "Password (min 6 characters)",
+                        text: $viewModel.password,
                         isSecure: !showPassword,
                         showPassword: $showPassword
                     )
@@ -38,27 +43,34 @@ struct RegisterView: View {
                     CustomTextField(
                         icon: "lock.shield",
                         placeholder: "Confirm Password",
-                        text: $confirmPassword,
+                        text: $viewModel.confirmPassword,
                         isSecure: !showConfirmPassword,
                         showPassword: $showConfirmPassword
                     )
                 }
                 
-                Button(action: register) {
-                    if isLoading {
+                Button(action: {
+                    Task {
+                        await viewModel.register()
+                    }
+                }) {
+                    if viewModel.isLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
-                        Text("Register")
+                        Text("Create Account")
                             .fontWeight(.bold)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(
+                    LinearGradient.brandPrimaryGradient
+                        .opacity(viewModel.isFormValid ? 1.0 : 0.5)
+                )
                 .foregroundColor(.white)
-                .cornerRadius(10)
-                .disabled(isLoading)
+                .cornerRadius(12)
+                .disabled(viewModel.isLoading || !viewModel.isFormValid)
                 
                 Button("Already have an account? Login") {
                     dismiss()
@@ -67,32 +79,16 @@ struct RegisterView: View {
             }
             .padding()
         }
-        .alert("Notice", isPresented: $showAlert) {
+        .alert("Registration Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text(alertMessage)
+            Text(viewModel.errorMessage ?? "An error occurred")
         }
-    }
-    
-    private func register() {
-        guard !email.isEmpty, !password.isEmpty, !confirmPassword.isEmpty else {
-            alertMessage = "Please fill in all fields"
-            showAlert = true
-            return
-        }
-        
-        guard password == confirmPassword else {
-            alertMessage = "Passwords do not match"
-            showAlert = true
-            return
-        }
-        
-        isLoading = true
-        
-        // Simulate network request
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            isLoading = false
-            dismiss()
+        .onChange(of: viewModel.registrationSuccess) { success in
+            if success {
+                isLoggedIn = true
+                dismiss()
+            }
         }
     }
 }

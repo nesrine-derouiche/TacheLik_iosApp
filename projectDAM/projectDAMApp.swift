@@ -37,14 +37,37 @@ struct RootView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @AppStorage("isDarkMode") private var isDarkMode = false
     
+    private let authService = DIContainer.shared.authService
+    
+    private var currentUser: User? {
+        authService.getCurrentUser()
+    }
+    
     var body: some View {
         Group {
             if isLoggedIn && !sessionManager.isSessionTerminated {
-                MainTabView()
-                    .onAppear {
-                        // Auto-reconnect socket if user is logged in
-                        sessionManager.reconnectIfNeeded()
+                // Check user status
+                if let user = currentUser {
+                    if user.banned == true {
+                        // User is banned - show ban screen
+                        BannedView()
+                    } else if user.verified == false {
+                        // User is not verified - show verification screen
+                        VerificationView()
+                    } else {
+                        // User is verified and not banned - show main app
+                        MainTabView()
+                            .onAppear {
+                                // Auto-reconnect socket if user is logged in
+                                sessionManager.reconnectIfNeeded()
+                            }
                     }
+                } else {
+                    // No user data - show login
+                    NavigationView {
+                        LoginView()
+                    }
+                }
             } else {
                 NavigationView {
                     LoginView()

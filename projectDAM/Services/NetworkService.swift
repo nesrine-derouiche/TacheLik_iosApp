@@ -13,7 +13,7 @@ enum NetworkError: Error, LocalizedError {
     case invalidURL
     case invalidResponse
     case decodingError
-    case serverError(Int)
+    case serverError(Int, String?)
     case noData
     case unauthorized
     
@@ -22,11 +22,18 @@ enum NetworkError: Error, LocalizedError {
         case .invalidURL: return "Invalid URL"
         case .invalidResponse: return "Invalid response from server"
         case .decodingError: return "Failed to decode response"
-        case .serverError(let code): return "Server error: \(code)"
+        case .serverError(let code, let message): 
+            return message ?? "Server error: \(code)"
         case .noData: return "No data received"
         case .unauthorized: return "Unauthorized access"
         }
     }
+}
+
+// MARK: - Error Response Model
+struct ErrorResponse: Decodable {
+    let message: String
+    let success: Bool
 }
 
 // MARK: - Network Service Protocol
@@ -99,7 +106,14 @@ final class NetworkService: NetworkServiceProtocol {
         case 401:
             throw NetworkError.unauthorized
         default:
-            throw NetworkError.serverError(httpResponse.statusCode)
+            // Try to parse error message from response
+            let errorMessage: String?
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                errorMessage = errorResponse.message
+            } else {
+                errorMessage = nil
+            }
+            throw NetworkError.serverError(httpResponse.statusCode, errorMessage)
         }
     }
 }
