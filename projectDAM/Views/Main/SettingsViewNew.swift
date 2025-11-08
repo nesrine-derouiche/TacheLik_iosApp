@@ -5,6 +5,12 @@ struct SettingsView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @EnvironmentObject var sessionManager: SessionManager
     
+    private let authService = DIContainer.shared.authService
+    
+    private var currentUser: User? {
+        authService.getCurrentUser()
+    }
+    
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
@@ -27,19 +33,19 @@ struct SettingsView: View {
                                 .frame(width: 90, height: 90)
                                 .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 6)
                             
-                            Text("ABA")
+                            Text(currentUser?.username.prefix(3).uppercased() ?? "U")
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
                         }
                         
                         VStack(spacing: 6) {
-                            Text("Ahmed Ben Ali")
+                            Text(currentUser?.username ?? "User")
                                 .font(.system(size: 22, weight: .bold))
-                            Text("ahmed.benali@esprit.tn")
+                            Text(currentUser?.email ?? "")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.secondary)
                             
-                            Text("Student")
+                            Text(currentUser?.role.rawValue ?? "Student")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.brandPrimary)
                                 .padding(.horizontal, 16)

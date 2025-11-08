@@ -38,6 +38,11 @@ struct AuthResponse: Decodable {
     let success: Bool
 }
 
+struct UserResponse: Decodable {
+    let user: User
+    let success: Bool
+}
+
 // MARK: - JWT Payload
 struct JWTPayload: Decodable {
     let id: String
@@ -66,7 +71,7 @@ final class AuthService: AuthServiceProtocol {
     
     // MARK: - Public Methods
     
-    /// Login user with email and password
+    /// Login user
     func login(email: String, password: String) async throws -> User {
         let request = LoginRequest(email: email, password: password)
         let requestData = try JSONEncoder().encode(request)
@@ -78,15 +83,23 @@ final class AuthService: AuthServiceProtocol {
             headers: nil
         )
         
-        // Decode JWT token to extract user information
-        guard let user = decodeJWT(token: response.token) else {
+        // Decode JWT token to extract user ID
+        guard let tokenData = decodeJWTPayload(token: response.token) else {
             throw NetworkError.decodingError
         }
         
-        saveUser(user, token: response.token)
+        // Fetch full user data from API
+        let userResponse: UserResponse = try await networkService.request(
+            endpoint: "/user?userId=\(tokenData.id)",
+            method: .GET,
+            body: nil,
+            headers: ["Authorization": "Bearer \(response.token)"]
+        )
+        
+        saveUser(userResponse.user, token: response.token)
         UserDefaults.standard.set(false, forKey: logoutFlagKey) // Clear logout flag on login
-        currentUser = user
-        return user
+        currentUser = userResponse.user
+        return userResponse.user
     }
     
     /// Register new user
@@ -101,15 +114,23 @@ final class AuthService: AuthServiceProtocol {
             headers: nil
         )
         
-        // Decode JWT token to extract user information
-        guard let user = decodeJWT(token: response.token) else {
+        // Decode JWT token to extract user ID
+        guard let tokenData = decodeJWTPayload(token: response.token) else {
             throw NetworkError.decodingError
         }
         
-        saveUser(user, token: response.token)
+        // Fetch full user data from API
+        let userResponse: UserResponse = try await networkService.request(
+            endpoint: "/user?userId=\(tokenData.id)",
+            method: .GET,
+            body: nil,
+            headers: ["Authorization": "Bearer \(response.token)"]
+        )
+        
+        saveUser(userResponse.user, token: response.token)
         UserDefaults.standard.set(false, forKey: logoutFlagKey) // Clear logout flag on registration
-        currentUser = user
-        return user
+        currentUser = userResponse.user
+        return userResponse.user
     }
     
     /// Logout current user
@@ -161,8 +182,8 @@ final class AuthService: AuthServiceProtocol {
         }
     }
     
-    /// Decode JWT token to extract user information
-    private func decodeJWT(token: String) -> User? {
+    /// Decode JWT token to extract payload
+    private func decodeJWTPayload(token: String) -> JWTPayload? {
         let segments = token.components(separatedBy: ".")
         guard segments.count > 1 else { return nil }
         
@@ -181,26 +202,7 @@ final class AuthService: AuthServiceProtocol {
         
         do {
             let payload = try JSONDecoder().decode(JWTPayload.self, from: data)
-            
-            // Map role string to UserRole enum
-            let userRole: User.UserRole
-            switch payload.role.lowercased() {
-            case "admin":
-                userRole = .admin
-            case "mentor":
-                userRole = .mentor
-            default:
-                userRole = .student
-            }
-            
-            // Create User object from JWT payload
-            return User(
-                id: payload.id,
-                email: payload.email,
-                name: payload.email.components(separatedBy: "@").first ?? "User",
-                avatar: nil,
-                role: userRole
-            )
+            return payload
         } catch {
             print("Failed to decode JWT payload: \(error)")
             return nil
@@ -219,10 +221,23 @@ final class MockAuthService: AuthServiceProtocol {
         
         let user = User(
             id: UUID().uuidString,
+            username: "Demo User",
             email: email,
-            name: "Demo User",
-            avatar: nil,
-            role: .student
+            phone: nil,
+            phoneNbVerified: false,
+            role: .student,
+            creationDate: nil,
+            image: nil,
+            verified: true,
+            banned: false,
+            credit: 0,
+            isTeacher: false,
+            inviteLink: nil,
+            invitedBy: nil,
+            inviteLinkType: nil,
+            haveReduction: false,
+            warningTimes: 0,
+            lastLoginDate: nil
         )
         currentUser = user
         return user
@@ -233,10 +248,23 @@ final class MockAuthService: AuthServiceProtocol {
         
         let user = User(
             id: UUID().uuidString,
+            username: name,
             email: email,
-            name: name,
-            avatar: nil,
-            role: .student
+            phone: nil,
+            phoneNbVerified: false,
+            role: .student,
+            creationDate: nil,
+            image: nil,
+            verified: true,
+            banned: false,
+            credit: 0,
+            isTeacher: false,
+            inviteLink: nil,
+            invitedBy: nil,
+            inviteLinkType: nil,
+            haveReduction: false,
+            warningTimes: 0,
+            lastLoginDate: nil
         )
         currentUser = user
         return user

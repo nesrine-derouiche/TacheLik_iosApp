@@ -3,15 +3,51 @@ import Foundation
 // MARK: - User Model
 struct User: Identifiable, Codable {
     let id: String
+    let username: String
     let email: String
-    let name: String
-    let avatar: String?
+    let phone: String?
+    let phoneNbVerified: Bool?
     let role: UserRole
+    let creationDate: String?
+    let image: String?
+    let verified: Bool?
+    let banned: Bool?
+    let credit: Int?
+    let isTeacher: Bool?
+    let inviteLink: String?
+    let invitedBy: String?
+    let inviteLinkType: String?
+    let haveReduction: Bool?
+    let warningTimes: Int?
+    let lastLoginDate: String?
+    
+    // Computed property for display name
+    var name: String {
+        return username
+    }
+    
+    // Computed property for avatar
+    var avatar: String? {
+        return image
+    }
     
     enum UserRole: String, Codable {
         case student = "Student"
-        case mentor = "Mentor"
+        case mentor = "Teacher"
         case admin = "Admin"
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, username, email, phone, role, image, verified, banned, credit
+        case phoneNbVerified = "phone_nb_verified"
+        case creationDate = "creation_date"
+        case isTeacher = "is_teacher"
+        case inviteLink = "invite_link"
+        case invitedBy = "invited_by"
+        case inviteLinkType = "invite_link_type"
+        case haveReduction = "have_reduction"
+        case warningTimes = "warning_times"
+        case lastLoginDate = "last_login_date"
     }
 }
 
