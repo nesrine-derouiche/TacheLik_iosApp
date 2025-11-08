@@ -128,9 +128,10 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Image(systemName: "graduationcap.fill")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(LinearGradient.brandPrimaryGradient)
+                    Image("tache_lik_logo_white_red")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 32)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 16) {

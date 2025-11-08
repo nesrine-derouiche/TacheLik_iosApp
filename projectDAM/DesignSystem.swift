@@ -2,14 +2,20 @@ import SwiftUI
 
 // MARK: - Design System
 struct DS {
-    // MARK: - Colors
+    // MARK: - Colors (Tache-lik Brand)
     struct Colors {
-        static let primary = Color(red: 0.28, green: 0.52, blue: 0.85)
-        static let secondary = Color(red: 0.42, green: 0.67, blue: 0.92)
-        static let accent = Color(red: 0.95, green: 0.47, blue: 0.38)
-        static let success = Color(red: 0.34, green: 0.73, blue: 0.42)
-        static let warning = Color(red: 1.0, green: 0.76, blue: 0.03)
-        static let error = Color(red: 0.93, green: 0.26, blue: 0.31)
+        // Primary: #17a2b8 (cyan)
+        static let primary = Color(red: 0.09, green: 0.635, blue: 0.722)
+        // Secondary: #00394f (dark blue)
+        static let secondary = Color(red: 0.0, green: 0.224, blue: 0.310)
+        // Accent: Keep for highlights
+        static let accent = Color(red: 0.09, green: 0.635, blue: 0.722)
+        // Success: #28a745 (green)
+        static let success = Color(red: 0.157, green: 0.655, blue: 0.271)
+        // Warning: #ffc107 (yellow)
+        static let warning = Color(red: 1.0, green: 0.757, blue: 0.027)
+        // Error/Danger: #dc3545 (red)
+        static let error = Color(red: 0.863, green: 0.208, blue: 0.271)
         
         static let cardBackground = Color(.systemBackground)
         static let secondaryBackground = Color(.secondarySystemBackground)
@@ -46,26 +52,38 @@ struct DS {
     static let barHeight: CGFloat = 70
 }
 
-// MARK: - Color Extensions for Easy Access
+// MARK: - Color Extensions for Easy Access (Tache-lik Brand)
 extension Color {
-    static let brandPrimary = Color(red: 0.28, green: 0.52, blue: 0.85)
-    static let brandSecondary = Color(red: 0.42, green: 0.67, blue: 0.92)
-    static let brandAccent = Color(red: 0.95, green: 0.47, blue: 0.38)
-    static let brandSuccess = Color(red: 0.34, green: 0.73, blue: 0.42)
-    static let brandWarning = Color(red: 1.0, green: 0.76, blue: 0.03)
-    static let brandError = Color(red: 0.93, green: 0.26, blue: 0.31)
+    // Primary: #17a2b8 (cyan)
+    static let brandPrimary = Color(red: 0.09, green: 0.635, blue: 0.722)
+    // Primary Hover: #138ea1
+    static let brandPrimaryHover = Color(red: 0.075, green: 0.557, blue: 0.631)
+    // Secondary: #00394f (dark blue)
+    static let brandSecondary = Color(red: 0.0, green: 0.224, blue: 0.310)
+    // Accent: Same as primary
+    static let brandAccent = Color(red: 0.09, green: 0.635, blue: 0.722)
+    // Success: #28a745
+    static let brandSuccess = Color(red: 0.157, green: 0.655, blue: 0.271)
+    // Warning: #ffc107
+    static let brandWarning = Color(red: 1.0, green: 0.757, blue: 0.027)
+    // Error: #dc3545
+    static let brandError = Color(red: 0.863, green: 0.208, blue: 0.271)
+    // Background: #f5f5f5
+    static let brandBackground = Color(red: 0.961, green: 0.961, blue: 0.961)
+    // Text: #333
+    static let brandText = Color(red: 0.2, green: 0.2, blue: 0.2)
 }
 
-// MARK: - Gradient Extensions
+// MARK: - Gradient Extensions (Tache-lik Brand)
 extension LinearGradient {
     static let brandPrimaryGradient = LinearGradient(
-        colors: [Color.brandPrimary, Color.brandSecondary],
+        colors: [Color.brandPrimary, Color.brandPrimaryHover],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
     static let brandAccentGradient = LinearGradient(
-        colors: [Color.brandAccent, Color.orange],
+        colors: [Color.brandPrimary, Color.brandSecondary],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -77,7 +95,7 @@ extension LinearGradient {
     )
     
     static let brandHeader = LinearGradient(
-        colors: [Color.brandPrimary, Color.brandSecondary, Color.brandAccent.opacity(0.8)],
+        colors: [Color.brandSecondary, Color.brandPrimary],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )

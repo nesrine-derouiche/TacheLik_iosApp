@@ -17,33 +17,12 @@ struct LoginView: View {
                     Spacer()
                         .frame(height: 40)
                     
-                    // Logo with glassmorphic effect
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.15))
-                            .frame(width: 120, height: 120)
-                            .blur(radius: 30)
-                        
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.25), Color.white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 100, height: 100)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
-                            .overlay(
-                                Image(systemName: "graduationcap.fill")
-                                    .font(.system(size: 42, weight: .semibold))
-                                    .foregroundColor(.white)
-                            )
-                    }
-                    .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
+                    // Tache-lik Logo
+                    Image("tache_lik_logo_white_red")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 140, height: 140)
+                        .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 8)
                     
                     VStack(spacing: 8) {
                         Text("Welcome Back!")
