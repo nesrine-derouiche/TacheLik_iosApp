@@ -36,14 +36,12 @@ final class LoginViewModel: ObservableObject {
     
     /// Validates email format
     var isEmailValid: Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
+        return Validators.isValidEmail(email)
     }
     
-    /// Validates password (minimum 6 characters)
+    /// Validates password
     var isPasswordValid: Bool {
-        return password.count >= 6
+        return Validators.isValidPassword(password)
     }
     
     /// Checks if form is valid
@@ -53,8 +51,17 @@ final class LoginViewModel: ObservableObject {
     
     /// Login user
     func login() async {
-        guard isFormValid else {
-            errorMessage = "Please enter valid email and password"
+        // Validate email
+        let emailValidation = Validators.validateEmail(email)
+        if !emailValidation.isValid {
+            errorMessage = emailValidation.errorMessage
+            return
+        }
+        
+        // Validate password
+        let passwordValidation = Validators.validatePassword(password)
+        if !passwordValidation.isValid {
+            errorMessage = passwordValidation.errorMessage
             return
         }
         

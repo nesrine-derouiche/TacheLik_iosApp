@@ -42,19 +42,19 @@ final class RegisterViewModel: ObservableObject {
     // MARK: - Validation
     
     var isFormValid: Bool {
-        !username.isEmpty &&
-        !email.isEmpty &&
-        !password.isEmpty &&
+        Validators.isValidUsername(username) &&
+        Validators.isValidEmail(email) &&
+        Validators.isValidPassword(password) &&
         !confirmPassword.isEmpty &&
-        password == confirmPassword &&
-        isValidEmail(email) &&
-        password.count >= 6
+        password == confirmPassword
     }
     
-    private func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
+    var passwordStrength: Int {
+        Validators.getPasswordStrength(password)
+    }
+    
+    var passwordStrengthDescription: String {
+        Validators.getPasswordStrengthDescription(password)
     }
     
     // MARK: - Public Methods
@@ -101,17 +101,33 @@ final class RegisterViewModel: ObservableObject {
     }
     
     func register() async {
-        // Validate form
-        guard isFormValid else {
-            if username.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty {
-                errorMessage = "Please fill in all fields"
-            } else if !isValidEmail(email) {
-                errorMessage = "Invalid email address"
-            } else if password.count < 6 {
-                errorMessage = "Password must be at least 6 characters"
-            } else if password != confirmPassword {
-                errorMessage = "Passwords do not match"
-            }
+        // Validate username
+        let usernameValidation = Validators.validateUsername(username)
+        if !usernameValidation.isValid {
+            errorMessage = usernameValidation.errorMessage
+            showError = true
+            return
+        }
+        
+        // Validate email
+        let emailValidation = Validators.validateEmail(email)
+        if !emailValidation.isValid {
+            errorMessage = emailValidation.errorMessage
+            showError = true
+            return
+        }
+        
+        // Validate password
+        let passwordValidation = Validators.validatePassword(password)
+        if !passwordValidation.isValid {
+            errorMessage = passwordValidation.errorMessage
+            showError = true
+            return
+        }
+        
+        // Check password confirmation
+        if password != confirmPassword {
+            errorMessage = "Passwords do not match"
             showError = true
             return
         }

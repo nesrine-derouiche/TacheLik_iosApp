@@ -43,7 +43,9 @@ struct LoginView: View {
                             icon: "envelope.fill",
                             placeholder: "Email",
                             text: $viewModel.email,
-                            isSecure: false
+                            isSecure: false,
+                            isValid: viewModel.email.isEmpty || Validators.isValidEmail(viewModel.email),
+                            errorMessage: Validators.validateEmail(viewModel.email).errorMessage
                         )
                         
                         CustomTextField(
@@ -51,7 +53,9 @@ struct LoginView: View {
                             placeholder: "Password",
                             text: $viewModel.password,
                             isSecure: !viewModel.showPassword,
-                            showPassword: $viewModel.showPassword
+                            showPassword: $viewModel.showPassword,
+                            isValid: viewModel.password.isEmpty || Validators.isValidPassword(viewModel.password),
+                            errorMessage: Validators.validatePassword(viewModel.password).errorMessage
                         )
                         
                         Button(action: {
