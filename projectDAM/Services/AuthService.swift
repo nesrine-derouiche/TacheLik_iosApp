@@ -18,6 +18,7 @@ protocol AuthServiceProtocol {
     func getAuthToken() -> String?
     func didUserLogout() -> Bool
     func shouldAutoLogin() -> Bool
+    func refreshUserData() async throws
 }
 
 // MARK: - Auth Response Models
@@ -166,6 +167,32 @@ final class AuthService: AuthServiceProtocol {
         return !didUserLogout() && getAuthToken() != nil && getCurrentUser() != nil
     }
     
+    /// Refresh user data from API
+    func refreshUserData() async throws {
+        guard let token = getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        
+        // Decode JWT to get user ID
+        guard let tokenData = decodeJWTPayload(token: token) else {
+            throw NetworkError.decodingError
+        }
+        
+        // Fetch fresh user data from API
+        let userResponse: UserResponse = try await networkService.request(
+            endpoint: "/user?userId=\(tokenData.id)",
+            method: .GET,
+            body: nil,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+        
+        // Update stored user data
+        saveUser(userResponse.user, token: token)
+        currentUser = userResponse.user
+        
+        print("✅ User data refreshed: \(userResponse.user.username)")
+    }
+    
     // MARK: - Private Methods
     
     private func saveUser(_ user: User, token: String) {
@@ -292,5 +319,10 @@ final class MockAuthService: AuthServiceProtocol {
     
     func shouldAutoLogin() -> Bool {
         return false
+    }
+    
+    func refreshUserData() async throws {
+        // Mock implementation - do nothing
+        print("🔄 Mock: User data refresh (no-op)")
     }
 }
