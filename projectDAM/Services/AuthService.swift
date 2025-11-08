@@ -16,6 +16,8 @@ protocol AuthServiceProtocol {
     func getCurrentUser() -> User?
     func isAuthenticated() -> Bool
     func getAuthToken() -> String?
+    func didUserLogout() -> Bool
+    func shouldAutoLogin() -> Bool
 }
 
 // MARK: - Auth Response Models
@@ -52,6 +54,7 @@ final class AuthService: AuthServiceProtocol {
     private let networkService: NetworkServiceProtocol
     private let userDefaultsKey = "currentUser"
     private let tokenKey = "authToken"
+    private let logoutFlagKey = "userDidLogout"
     
     @Published private(set) var currentUser: User?
     
@@ -81,6 +84,7 @@ final class AuthService: AuthServiceProtocol {
         }
         
         saveUser(user, token: response.token)
+        UserDefaults.standard.set(false, forKey: logoutFlagKey) // Clear logout flag on login
         currentUser = user
         return user
     }
@@ -103,6 +107,7 @@ final class AuthService: AuthServiceProtocol {
         }
         
         saveUser(user, token: response.token)
+        UserDefaults.standard.set(false, forKey: logoutFlagKey) // Clear logout flag on registration
         currentUser = user
         return user
     }
@@ -111,6 +116,7 @@ final class AuthService: AuthServiceProtocol {
     func logout() async throws {
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
         UserDefaults.standard.removeObject(forKey: tokenKey)
+        UserDefaults.standard.set(true, forKey: logoutFlagKey) // Mark that user manually logged out
         currentUser = nil
     }
     
@@ -127,6 +133,16 @@ final class AuthService: AuthServiceProtocol {
     /// Get authentication token
     func getAuthToken() -> String? {
         return UserDefaults.standard.string(forKey: tokenKey)
+    }
+    
+    /// Check if user manually logged out
+    func didUserLogout() -> Bool {
+        return UserDefaults.standard.bool(forKey: logoutFlagKey)
+    }
+    
+    /// Check if user should auto-login (has token and didn't manually logout)
+    func shouldAutoLogin() -> Bool {
+        return !didUserLogout() && getAuthToken() != nil && getCurrentUser() != nil
     }
     
     // MARK: - Private Methods
@@ -240,5 +256,13 @@ final class MockAuthService: AuthServiceProtocol {
     
     func getAuthToken() -> String? {
         return nil
+    }
+    
+    func didUserLogout() -> Bool {
+        return false
+    }
+    
+    func shouldAutoLogin() -> Bool {
+        return false
     }
 }

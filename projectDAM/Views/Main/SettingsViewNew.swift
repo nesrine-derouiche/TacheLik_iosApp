@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("isDarkMode") private var isDarkMode = false
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @EnvironmentObject var sessionManager: SessionManager
     
     var body: some View {
         NavigationView {
@@ -127,6 +128,7 @@ struct SettingsView: View {
                     
                     // Logout Button
                     Button(action: {
+                        sessionManager.logout()
                         isLoggedIn = false
                     }) {
                         HStack {

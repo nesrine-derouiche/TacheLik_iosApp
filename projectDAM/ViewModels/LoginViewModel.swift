@@ -88,14 +88,12 @@ final class LoginViewModel: ObservableObject {
         
         // Wait for connection, then authenticate
         Task {
-            // Wait longer for connection to establish
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
             
             // Only authenticate if connected
             if socketService.isConnected {
                 socketService.authenticate(token: token)
-            } else {
-                print("⚠️ Socket not connected yet, will authenticate on connect")
+                print("✅ Socket authenticated after login")
             }
         }
     }
