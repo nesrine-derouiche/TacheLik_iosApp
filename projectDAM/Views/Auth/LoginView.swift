@@ -52,7 +52,7 @@ struct LoginView: View {
                             icon: "lock.fill",
                             placeholder: "Password",
                             text: $viewModel.password,
-                            isSecure: !viewModel.showPassword,
+                            isSecure: true,
                             showPassword: $viewModel.showPassword,
                             isValid: viewModel.password.isEmpty || Validators.isValidPassword(viewModel.password),
                             errorMessage: Validators.validatePassword(viewModel.password).errorMessage

@@ -57,7 +57,7 @@ struct RegisterView: View {
                             icon: "lock",
                             placeholder: "Password (min 8 characters)",
                             text: $viewModel.password,
-                            isSecure: !showPassword,
+                            isSecure: true,
                             showPassword: $showPassword,
                             isValid: viewModel.password.isEmpty || Validators.isValidPassword(viewModel.password),
                             errorMessage: Validators.validatePassword(viewModel.password).errorMessage
@@ -136,7 +136,7 @@ struct RegisterView: View {
                         icon: "lock.shield",
                         placeholder: "Confirm Password",
                         text: $viewModel.confirmPassword,
-                        isSecure: !showConfirmPassword,
+                        isSecure: true,
                         showPassword: $showConfirmPassword,
                         isValid: viewModel.confirmPassword.isEmpty || viewModel.password == viewModel.confirmPassword,
                         errorMessage: viewModel.confirmPassword.isEmpty ? nil : (viewModel.password == viewModel.confirmPassword ? nil : "Passwords do not match")

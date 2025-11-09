@@ -10,12 +10,12 @@ struct CustomTextField: View {
     var errorMessage: String? = nil
     @FocusState private var isFocused: Bool
     
-    init(icon: String, placeholder: String, text: Binding<String>, isSecure: Bool, showPassword: Binding<Bool>? = nil, isValid: Bool = true, errorMessage: String? = nil) {
+    init(icon: String, placeholder: String, text: Binding<String>, isSecure: Bool, showPassword: Binding<Bool> = .constant(false), isValid: Bool = true, errorMessage: String? = nil) {
         self.icon = icon
         self.placeholder = placeholder
         self._text = text
         self.isSecure = isSecure
-        self._showPassword = showPassword ?? .constant(false)
+        self._showPassword = showPassword
         self.isValid = isValid
         self.errorMessage = errorMessage
     }
