@@ -60,6 +60,8 @@ class ChangePasswordViewModel: ObservableObject {
             
             isLoading = false
             
+            print("📝 Password update response - success: \(response.success), message: \(response.message ?? "nil")")
+            
             if response.success == true {
                 successMessage = true
                 showSuccessAlert = true
@@ -69,14 +71,19 @@ class ChangePasswordViewModel: ObservableObject {
                 newPassword = ""
                 confirmPassword = ""
             } else {
+                // Handle API returning success=false with error message
                 errorMessage = response.message ?? "Failed to change password"
+                print("❌ Password update failed: \(errorMessage)")
             }
         } catch {
             isLoading = false
             
+            print("❌ Password update error: \(error)")
+            
             if let networkError = error as? NetworkError {
                 switch networkError {
-                case .serverError(_, let message):
+                case .serverError(let code, let message):
+                    print("🔴 Server error \(code): \(message ?? "no message")")
                     errorMessage = message ?? "Failed to change password"
                 case .unauthorized:
                     errorMessage = "Session expired. Please login again."

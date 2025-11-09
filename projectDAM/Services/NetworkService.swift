@@ -10,8 +10,8 @@ import Combine
 
 // MARK: - Error Response Model
 struct ErrorResponse: Decodable {
-    let message: String
-    let success: Bool
+    let message: String?
+    let success: Bool?
 }
 
 // MARK: - Network Error
