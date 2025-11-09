@@ -5,6 +5,7 @@ protocol ProfileServiceProtocol {
     func fetchTeacherProfile(userId: String) async throws -> TeacherProfile?
     func updateProfile(userId: String, request: EditProfileRequest) async throws -> UserUpdateResponse
     func updateTeacherProfile(userId: String, request: EditProfileRequest) async throws -> TeacherUpdateResponse
+    func updatePassword(userId: String, currentPassword: String, newPassword: String) async throws -> PasswordUpdateResponse
 }
 
 // MARK: - Profile Service Implementation
@@ -81,6 +82,22 @@ final class ProfileService: ProfileServiceProtocol {
             endpoint: "/teacher/update-teacher/\(userId)",
             method: .PUT,
             multipart: multipart,
+            headers: authHeaders()
+        )
+    }
+    
+    func updatePassword(userId: String, currentPassword: String, newPassword: String) async throws -> PasswordUpdateResponse {
+        let body: [String: String] = [
+            "userId": userId,
+            "currentPassword": currentPassword,
+            "newPassword": newPassword
+        ]
+        let requestData = try JSONEncoder().encode(body)
+        
+        return try await networkService.request(
+            endpoint: "/user/update-user-password",
+            method: .PUT,
+            body: requestData,
             headers: authHeaders()
         )
     }
@@ -242,4 +259,9 @@ struct TeacherProfile: Decodable {
             image = nil
         }
     }
+}
+
+struct PasswordUpdateResponse: Decodable {
+    let success: Bool
+    let message: String?
 }

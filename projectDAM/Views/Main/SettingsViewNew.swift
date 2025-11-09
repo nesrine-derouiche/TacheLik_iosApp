@@ -140,7 +140,7 @@ struct SettingsView: View {
                             
                             Divider().padding(.leading, 56)
                             
-                            NavigationLink(destination: Text("Change Password")) {
+                            NavigationLink(destination: ChangePasswordView()) {
                                 SettingsRowNavigation(
                                     icon: "lock.fill",
                                     title: "Change Password",
