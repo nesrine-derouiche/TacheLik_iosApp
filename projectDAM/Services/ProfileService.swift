@@ -30,22 +30,11 @@ final class ProfileService: ProfileServiceProtocol {
     func updateProfile(userId: String, request: EditProfileRequest) async throws -> UserUpdateResponse {
         var multipart = MultipartFormData()
         
-        func addField(_ name: String, value: String?) {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            multipart.addField(name: name, value: trimmed)
+        // Only send username and image for user update
+        if let username = request.username {
+            let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            multipart.addField(name: "username", value: trimmed)
         }
-
-        addField("username", value: request.username)
-        addField("about", value: request.about)
-        addField("bio", value: request.bio)
-        addField("first_name", value: request.firstName)
-        addField("last_name", value: request.lastName)
-        addField("linkedin", value: request.linkedin)
-        addField("facebook", value: request.facebook)
-        addField("twitter", value: request.twitter)
-        addField("github", value: request.github)
-        addField("website", value: request.website)
-        addField("youtube", value: request.youtube)
 
         if let imageData = request.profileImageData {
             multipart.addFile(
@@ -104,17 +93,13 @@ final class ProfileService: ProfileServiceProtocol {
 
 // MARK: - Request Models
 struct EditProfileRequest {
-    let username: String
-    let about: String?
+    let username: String?
     let bio: String?
     let firstName: String?
     let lastName: String?
     let linkedin: String?
     let facebook: String?
-    let twitter: String?
     let github: String?
-    let website: String?
-    let youtube: String?
     let profileImageData: Data?
     let imageFileName: String?
     let imageMimeType: String?

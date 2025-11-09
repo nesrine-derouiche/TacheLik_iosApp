@@ -30,20 +30,17 @@ final class EditProfileViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var username: String
     @Published var bio: String
-    @Published var about: String
     @Published var firstName: String
     @Published var lastName: String
     @Published var github: String
     @Published var linkedin: String
     @Published var facebook: String
-    @Published var twitter: String
-    @Published var website: String
-    @Published var youtube: String
     @Published var selectedImageData: Data?
     @Published var selectedImageMimeType: String?
     @Published var selectedImageFileName: String?
     @Published var isLoadingTeacherData: Bool = false
-    @Published var isSaving: Bool = false
+    @Published var isSavingPersonalInfo: Bool = false
+    @Published var isSavingTeacherInfo: Bool = false
     @Published var alert: EditProfileAlert?
     
     // MARK: - Immutable Properties
@@ -71,15 +68,11 @@ final class EditProfileViewModel: ObservableObject {
         
         self.username = user.username
         self.bio = ""
-        self.about = ""
         self.firstName = ""
         self.lastName = ""
         self.github = ""
         self.linkedin = ""
         self.facebook = ""
-        self.twitter = ""
-        self.website = ""
-        self.youtube = ""
     }
     
     // MARK: - Computed Validation States
@@ -109,19 +102,17 @@ final class EditProfileViewModel: ObservableObject {
         Validators.validateSocialLink(facebook, type: .facebook)
     }
     
-    var twitterValidation: ValidationResult {
-        Validators.validateSocialLink(twitter, type: .twitter)
+    var canSavePersonalInfo: Bool {
+        usernameValidation.isValid && !isSavingPersonalInfo
     }
     
-    var canSave: Bool {
-        usernameValidation.isValid &&
+    var canSaveTeacherInfo: Bool {
         firstNameValidation.isValid &&
         lastNameValidation.isValid &&
         githubValidation.isValid &&
         linkedinValidation.isValid &&
         facebookValidation.isValid &&
-        twitterValidation.isValid &&
-        !isSaving
+        !isSavingTeacherInfo
     }
     
     var formattedCreationDate: String? {
@@ -158,7 +149,6 @@ final class EditProfileViewModel: ObservableObject {
                 github = ""
                 linkedin = ""
                 facebook = ""
-                twitter = ""
             }
         } catch let error as NetworkError {
             switch error {
@@ -185,37 +175,69 @@ final class EditProfileViewModel: ObservableObject {
         selectedImageMimeType = mimeType
     }
     
-    func saveChanges() async {
-        guard canSave else {
-            presentFirstValidationError()
+    func savePersonalInfo() async {
+        guard canSavePersonalInfo else {
+            if !usernameValidation.isValid {
+                alert = EditProfileAlert(title: "Invalid Username", message: usernameValidation.errorMessage ?? "Please provide a valid username.")
+            }
             return
         }
         
-        isSaving = true
-        defer { isSaving = false }
+        isSavingPersonalInfo = true
+        defer { isSavingPersonalInfo = false }
         
         do {
-            let request = buildRequest()
+            let request = buildPersonalInfoRequest()
             let userResponse = try await profileService.updateProfile(userId: userId, request: request)
             guard userResponse.success == true else {
                 throw EditProfileFlowError.backend(userResponse.message ?? "Failed to update profile.")
-            }
-            if isTeacher {
-                let teacherResponse = try await profileService.updateTeacherProfile(userId: userId, request: request)
-                guard teacherResponse.success == true else {
-                    throw EditProfileFlowError.backend(teacherResponse.message ?? "Failed to update teacher information.")
-                }
             }
             try await authService.refreshUserData()
             if let refreshedUser = authService.getCurrentUser() {
                 username = refreshedUser.username
             }
-            if isTeacher {
-                await loadTeacherProfileIfNeeded()
-            }
             alert = EditProfileAlert(
                 title: "Profile Updated",
-                message: "Your profile information has been saved successfully."
+                message: "Your personal information has been saved successfully."
+            )
+        } catch let error as NetworkError {
+            alert = EditProfileAlert(
+                title: "Update Failed",
+                message: error.errorDescription ?? "Network error"
+            )
+        } catch let error as EditProfileFlowError {
+            alert = EditProfileAlert(
+                title: "Update Failed",
+                message: error.errorDescription ?? "Unknown error"
+            )
+        } catch {
+            alert = EditProfileAlert(
+                title: "Update Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+    
+    func saveTeacherInfo() async {
+        guard isTeacher else { return }
+        guard canSaveTeacherInfo else {
+            presentTeacherValidationError()
+            return
+        }
+        
+        isSavingTeacherInfo = true
+        defer { isSavingTeacherInfo = false }
+        
+        do {
+            let request = buildTeacherInfoRequest()
+            let teacherResponse = try await profileService.updateTeacherProfile(userId: userId, request: request)
+            guard teacherResponse.success == true else {
+                throw EditProfileFlowError.backend(teacherResponse.message ?? "Failed to update teacher information.")
+            }
+            await loadTeacherProfileIfNeeded()
+            alert = EditProfileAlert(
+                title: "Teacher Info Updated",
+                message: "Your teacher information has been saved successfully."
             )
         } catch let error as NetworkError {
             alert = EditProfileAlert(
@@ -236,30 +258,37 @@ final class EditProfileViewModel: ObservableObject {
     }
     
     // MARK: - Private Helpers
-    private func buildRequest() -> EditProfileRequest {
+    private func buildPersonalInfoRequest() -> EditProfileRequest {
         EditProfileRequest(
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
-            about: about,
-            bio: bio,
-            firstName: isTeacher ? firstName.trimmingCharacters(in: .whitespacesAndNewlines) : nil,
-            lastName: isTeacher ? lastName.trimmingCharacters(in: .whitespacesAndNewlines) : nil,
-            linkedin: linkedin,
-            facebook: facebook,
-            twitter: twitter,
-            github: github,
-            website: website,
-            youtube: youtube,
+            bio: nil,
+            firstName: nil,
+            lastName: nil,
+            linkedin: nil,
+            facebook: nil,
+            github: nil,
             profileImageData: selectedImageData,
             imageFileName: selectedImageFileName,
             imageMimeType: selectedImageMimeType
         )
     }
     
-    private func presentFirstValidationError() {
-        if !usernameValidation.isValid {
-            alert = EditProfileAlert(title: "Invalid Username", message: usernameValidation.errorMessage ?? "Please provide a valid username.")
-            return
-        }
+    private func buildTeacherInfoRequest() -> EditProfileRequest {
+        EditProfileRequest(
+            username: nil,
+            bio: bio,
+            firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+            lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
+            linkedin: linkedin,
+            facebook: facebook,
+            github: github,
+            profileImageData: nil,
+            imageFileName: nil,
+            imageMimeType: nil
+        )
+    }
+    
+    private func presentTeacherValidationError() {
         if !firstNameValidation.isValid {
             alert = EditProfileAlert(title: "Invalid First Name", message: firstNameValidation.errorMessage ?? "Please provide a valid first name.")
             return
@@ -278,10 +307,6 @@ final class EditProfileViewModel: ObservableObject {
         }
         if !facebookValidation.isValid {
             alert = EditProfileAlert(title: "Invalid Facebook Link", message: facebookValidation.errorMessage ?? "Please provide a valid Facebook link.")
-            return
-        }
-        if !twitterValidation.isValid {
-            alert = EditProfileAlert(title: "Invalid Twitter Link", message: twitterValidation.errorMessage ?? "Please provide a valid Twitter link.")
         }
     }
 }

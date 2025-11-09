@@ -25,7 +25,6 @@ struct EditProfileView: View {
                     if viewModel.isTeacher {
                         teacherInfoSection
                     }
-                    actionSection
                 }
                 .frame(maxWidth: maxContentWidth)
                 .padding(.vertical, 24)
@@ -153,6 +152,20 @@ struct EditProfileView: View {
                     readOnlyField(label: "Creation Date", value: date)
                 }
                 readOnlyField(label: "Role", value: viewModel.role.rawValue)
+                
+                // Save Personal Info Button
+                Button {
+                    Task { await viewModel.savePersonalInfo() }
+                } label: {
+                    Text(viewModel.isSavingPersonalInfo ? "Saving..." : "Save Personal Info")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(viewModel.canSavePersonalInfo ? Color.brandPrimary : Color.brandPrimary.opacity(0.4))
+                        .cornerRadius(16)
+                }
+                .disabled(!viewModel.canSavePersonalInfo)
             }
             .padding(20)
             .background(Color(.systemBackground))
@@ -180,29 +193,20 @@ struct EditProfileView: View {
                 socialField(label: "GitHub", placeholder: "https://github.com/username", text: $viewModel.github, validation: viewModel.githubValidation)
                 socialField(label: "LinkedIn", placeholder: "https://www.linkedin.com/in/username", text: $viewModel.linkedin, validation: viewModel.linkedinValidation)
                 socialField(label: "Facebook", placeholder: "https://www.facebook.com/username", text: $viewModel.facebook, validation: viewModel.facebookValidation)
-                socialField(label: "Twitter", placeholder: "https://twitter.com/username", text: $viewModel.twitter, validation: viewModel.twitterValidation)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Website")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    TextField("https://example.com", text: $viewModel.website)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
+                
+                // Save Teacher Info Button
+                Button {
+                    Task { await viewModel.saveTeacherInfo() }
+                } label: {
+                    Text(viewModel.isSavingTeacherInfo ? "Saving..." : "Save Teacher Info")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                        .background(viewModel.canSaveTeacherInfo ? Color.brandPrimary : Color.brandPrimary.opacity(0.4))
+                        .cornerRadius(16)
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("YouTube")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    TextField("https://youtube.com/", text: $viewModel.youtube)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .padding()
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-                }
+                .disabled(!viewModel.canSaveTeacherInfo)
             }
             .padding(20)
             .background(Color(.systemBackground))
@@ -211,26 +215,6 @@ struct EditProfileView: View {
         }
     }
     
-    private var actionSection: some View {
-        VStack(spacing: 12) {
-            Button {
-                Task { await viewModel.saveChanges() }
-            } label: {
-                Text(viewModel.isSaving ? "Saving..." : "Save Changes")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.canSave ? Color.brandPrimary : Color.brandPrimary.opacity(0.4))
-                    .cornerRadius(16)
-            }
-            .disabled(!viewModel.canSave)
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-    }
     
     // MARK: - Subviews
     private var profileImage: some View {
