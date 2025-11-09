@@ -10,6 +10,8 @@ import SwiftUI
 struct ForgotPasswordView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ForgotPasswordViewModel()
+    @State private var showNewPassword = false
+    @State private var showConfirmPassword = false
     
     var body: some View {
         ZStack {
@@ -230,6 +232,7 @@ struct ForgotPasswordView: View {
                     placeholder: "New Password",
                     text: $viewModel.newPassword,
                     isSecure: true,
+                    showPassword: $showNewPassword,
                     isValid: viewModel.newPassword.isEmpty || Validators.isValidPassword(viewModel.newPassword),
                     errorMessage: Validators.validatePassword(viewModel.newPassword).errorMessage
                 )
@@ -239,6 +242,7 @@ struct ForgotPasswordView: View {
                     placeholder: "Confirm Password",
                     text: $viewModel.confirmPassword,
                     isSecure: true,
+                    showPassword: $showConfirmPassword,
                     isValid: viewModel.confirmPassword.isEmpty || viewModel.newPassword == viewModel.confirmPassword,
                     errorMessage: viewModel.confirmPassword.isEmpty || viewModel.newPassword == viewModel.confirmPassword ? nil : "Passwords do not match"
                 )
