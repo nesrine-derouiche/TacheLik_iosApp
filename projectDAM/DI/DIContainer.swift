@@ -18,6 +18,7 @@ final class DIContainer {
     let networkService: NetworkServiceProtocol
     let authService: AuthServiceProtocol
     let courseService: CourseServiceProtocol
+    let profileService: ProfileServiceProtocol
     let socketService: SocketServiceProtocol
     
     // MARK: - Observable Services
@@ -32,6 +33,7 @@ final class DIContainer {
         self.networkService = NetworkService()
         self.authService = AuthService(networkService: networkService)
         self.courseService = CourseService(networkService: networkService, authService: authService)
+        self.profileService = ProfileService(networkService: networkService, authService: authService)
         
         // Initialize socket service with configuration from AppConfig
         let socketConfig = SocketConfiguration(
@@ -74,5 +76,14 @@ final class DIContainer {
     /// Create SettingsViewModel with injected dependencies
     func makeSettingsViewModel() -> SettingsViewModel {
         return SettingsViewModel(authService: authService)
+    }
+
+    /// Create EditProfileViewModel with injected dependencies
+    func makeEditProfileViewModel(user: User) -> EditProfileViewModel {
+        return EditProfileViewModel(
+            user: user,
+            profileService: profileService,
+            authService: authService
+        )
     }
 }

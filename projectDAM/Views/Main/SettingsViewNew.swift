@@ -55,13 +55,27 @@ struct SettingsView: View {
                                 .padding(.top, 4)
                         }
                         
-                        Button(action: {}) {
+                        if let user = currentUser {
+                            NavigationLink {
+                                EditProfileView(
+                                    viewModel: DIContainer.shared.makeEditProfileViewModel(user: user)
+                                )
+                            } label: {
+                                Text("Edit Profile")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.brandPrimary)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 10)
+                                    .background(Color.brandPrimary.opacity(0.1))
+                                    .cornerRadius(12)
+                            }
+                        } else {
                             Text("Edit Profile")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.brandPrimary)
+                                .foregroundColor(.secondary)
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 10)
-                                .background(Color.brandPrimary.opacity(0.1))
+                                .background(Color.gray.opacity(0.1))
                                 .cornerRadius(12)
                         }
                     }

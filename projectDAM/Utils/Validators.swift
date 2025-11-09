@@ -217,6 +217,59 @@ struct Validators {
         return validateUsername(username).isValid
     }
     
+    // MARK: - Name Validation
+    
+    /// Validates that the name contains only letters and spaces
+    static func validateName(_ name: String) -> ValidationResult {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return .invalid("This field is required")
+        }
+        let regex = "^[A-Za-zÀ-ÖØ-öø-ÿ\\s'-]{2,}$"
+        let predicate = NSPredicate(format: "SELF MATCHES %@", regex)
+        guard predicate.evaluate(with: trimmed) else {
+            return .invalid("Use letters and spaces only")
+        }
+        return .valid
+    }
+    
+    /// Quick check if name is valid
+    static func isValidName(_ name: String) -> Bool {
+        return validateName(name).isValid
+    }
+    
+    // MARK: - Social Links Validation
+    
+    enum SocialPlatform {
+        case github
+        case linkedin
+        case facebook
+        case twitter
+    }
+    
+    /// Validates that a social link matches the expected platform format. Empty strings are allowed.
+    static func validateSocialLink(_ link: String, type: SocialPlatform) -> ValidationResult {
+        let trimmed = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .valid }
+        
+        let regex: String
+        switch type {
+        case .github:
+            regex = "^https://github.com/[A-Za-z0-9-]+/?$"
+        case .linkedin:
+            regex = "^https://www.linkedin.com/in/[A-Za-z0-9-_%]+/?$"
+        case .facebook:
+            regex = "^https://www.facebook.com/[A-Za-z0-9.]+/?$"
+        case .twitter:
+            regex = "^https://(www\\.)?twitter.com/[A-Za-z0-9_]+/?$"
+        }
+        let predicate = NSPredicate(format: "SELF MATCHES %@", regex)
+        guard predicate.evaluate(with: trimmed) else {
+            return .invalid("Invalid URL format")
+        }
+        return .valid
+    }
+    
     // MARK: - Helper Methods
     
     /// Get all password requirements as a list
