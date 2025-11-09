@@ -49,6 +49,68 @@ struct User: Identifiable, Codable {
         case warningTimes = "warning_times"
         case lastLoginDate = "last_login_date"
     }
+    
+    // Memberwise initializer
+    init(id: String, username: String, email: String, phone: String?, phoneNbVerified: Bool?, role: UserRole, creationDate: String?, image: String?, verified: Bool?, banned: Bool?, credit: Int?, isTeacher: Bool?, inviteLink: String?, invitedBy: String?, inviteLinkType: String?, haveReduction: Bool?, warningTimes: Int?, lastLoginDate: String?) {
+        self.id = id
+        self.username = username
+        self.email = email
+        self.phone = phone
+        self.phoneNbVerified = phoneNbVerified
+        self.role = role
+        self.creationDate = creationDate
+        self.image = image
+        self.verified = verified
+        self.banned = banned
+        self.credit = credit
+        self.isTeacher = isTeacher
+        self.inviteLink = inviteLink
+        self.invitedBy = invitedBy
+        self.inviteLinkType = inviteLinkType
+        self.haveReduction = haveReduction
+        self.warningTimes = warningTimes
+        self.lastLoginDate = lastLoginDate
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(String.self, forKey: .id)
+        username = try container.decode(String.self, forKey: .username)
+        email = try container.decode(String.self, forKey: .email)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        phoneNbVerified = try container.decodeIfPresent(Bool.self, forKey: .phoneNbVerified)
+        role = try container.decode(UserRole.self, forKey: .role)
+        creationDate = try container.decodeIfPresent(String.self, forKey: .creationDate)
+        verified = try container.decodeIfPresent(Bool.self, forKey: .verified)
+        banned = try container.decodeIfPresent(Bool.self, forKey: .banned)
+        credit = try container.decodeIfPresent(Int.self, forKey: .credit)
+        isTeacher = try container.decodeIfPresent(Bool.self, forKey: .isTeacher)
+        inviteLink = try container.decodeIfPresent(String.self, forKey: .inviteLink)
+        invitedBy = try container.decodeIfPresent(String.self, forKey: .invitedBy)
+        inviteLinkType = try container.decodeIfPresent(String.self, forKey: .inviteLinkType)
+        haveReduction = try container.decodeIfPresent(Bool.self, forKey: .haveReduction)
+        warningTimes = try container.decodeIfPresent(Int.self, forKey: .warningTimes)
+        lastLoginDate = try container.decodeIfPresent(String.self, forKey: .lastLoginDate)
+        
+        // Handle image - it can be a string URL, a Buffer object, or null
+        if let imageString = try? container.decode(String.self, forKey: .image) {
+            image = imageString
+        } else if let buffer = try? container.decode(ImageBuffer.self, forKey: .image) {
+            // Convert Buffer to base64 data URL
+            let data = Data(buffer.data)
+            let base64String = data.base64EncodedString()
+            image = "data:image/jpeg;base64,\(base64String)"
+        } else {
+            image = nil
+        }
+    }
+}
+
+// Helper struct to decode Buffer objects from backend
+private struct ImageBuffer: Decodable {
+    let type: String
+    let data: [UInt8]
 }
 
 // MARK: - Course Model

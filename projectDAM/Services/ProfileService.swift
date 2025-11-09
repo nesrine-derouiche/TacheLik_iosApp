@@ -122,6 +122,33 @@ struct UpdatedUser: Decodable {
         case image, phone, username
         case phoneNbVerified = "phone_nb_verified"
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Handle image - it can be a string URL, a Buffer object, or null
+        if let imageString = try? container.decode(String.self, forKey: .image) {
+            self.image = imageString
+        } else if let buffer = try? container.decode(BufferObject.self, forKey: .image) {
+            // Convert Buffer to base64 data URL
+            let data = Data(buffer.data)
+            let base64String = data.base64EncodedString()
+            self.image = "data:image/jpeg;base64,\(base64String)"
+        } else {
+            // If it's null or any other type, set to nil
+            self.image = nil
+        }
+        
+        self.phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        self.phoneNbVerified = try container.decodeIfPresent(Bool.self, forKey: .phoneNbVerified)
+        self.username = try container.decodeIfPresent(String.self, forKey: .username)
+    }
+}
+
+// Helper struct to decode Buffer objects from backend
+private struct BufferObject: Decodable {
+    let type: String
+    let data: [UInt8]
 }
 
 struct TeacherUpdateResponse: Decodable {
