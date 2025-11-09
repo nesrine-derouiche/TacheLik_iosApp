@@ -18,7 +18,7 @@ struct EditProfileView: View {
         GeometryReader { geometry in
             let maxContentWidth: CGFloat = 640
             let horizontalPadding = max((geometry.size.width - maxContentWidth) / 2, 20)
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     headerSection
                     personalInfoSection
@@ -30,26 +30,13 @@ struct EditProfileView: View {
                 .frame(maxWidth: maxContentWidth)
                 .padding(.vertical, 24)
                 .padding(.horizontal, horizontalPadding)
+                .padding(.bottom, DS.barHeight + 8)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    Task { await viewModel.saveChanges() }
-                } label: {
-                    if viewModel.isSaving {
-                        ProgressView()
-                    } else {
-                        Text("Save")
-                    }
-                }
-                .disabled(!viewModel.canSave || viewModel.isSaving)
-            }
-        }
         .task {
             await viewModel.loadTeacherProfileIfNeeded()
         }

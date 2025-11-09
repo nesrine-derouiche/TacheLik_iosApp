@@ -54,30 +54,6 @@ struct SettingsView: View {
                                 .cornerRadius(12)
                                 .padding(.top, 4)
                         }
-                        
-                        if let user = currentUser {
-                            NavigationLink {
-                                EditProfileView(
-                                    viewModel: DIContainer.shared.makeEditProfileViewModel(user: user)
-                                )
-                            } label: {
-                                Text("Edit Profile")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.brandPrimary)
-                                    .padding(.horizontal, 24)
-                                    .padding(.vertical, 10)
-                                    .background(Color.brandPrimary.opacity(0.1))
-                                    .cornerRadius(12)
-                            }
-                        } else {
-                            Text("Edit Profile")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 10)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(12)
-                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
@@ -114,7 +90,19 @@ struct SettingsView: View {
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 0) {
-                            NavigationLink(destination: Text("Personal Information")) {
+                            if let user = currentUser {
+                                NavigationLink {
+                                    EditProfileView(
+                                        viewModel: DIContainer.shared.makeEditProfileViewModel(user: user)
+                                    )
+                                } label: {
+                                    SettingsRowNavigation(
+                                        icon: "person.fill",
+                                        title: "Personal Information",
+                                        iconColor: .brandPrimary
+                                    )
+                                }
+                            } else {
                                 SettingsRowNavigation(
                                     icon: "person.fill",
                                     title: "Personal Information",
