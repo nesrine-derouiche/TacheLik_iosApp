@@ -1,65 +1,86 @@
 import SwiftUI
 
+// MARK: - Section Model
+struct ClassSection: Identifiable {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let color: Color
+    let courses: [Course]
+}
+
 struct ClassesView: View {
     @State private var selectedFilter = 0
     
-    let filters = ["All", "In Progress", "Completed", "Saved"]
+    let filters = ["All", "1A", "2A", "3A & 3B"]
     
-    let beginnerCourses = [
-        Course(id: "1", title: "Cloud Computing Essentials", instructor: "Dr. Hichem Ben Said", image: "cloud", category: "Infrastructure", level: .beginner, rating: 4.7, progress: nil, duration: 15.0, totalLessons: 20, completedLessons: 0, lastAccessDate: nil),
-        Course(id: "2", title: "Cybersecurity Basics", instructor: "Dr. Mohamed Trabelsi", image: "security", category: "Security", level: .beginner, rating: 4.8, progress: nil, duration: 12.0, totalLessons: 18, completedLessons: 0, lastAccessDate: nil)
+    // MARK: - Section 1A Courses
+    let section1ACourses = [
+        Course(id: "1", title: "Algorithme", instructor: "MB1", image: "algorithm", category: "Programming", level: .beginner, rating: 4.7, progress: nil, duration: 15.0, totalLessons: 20, completedLessons: 0, lastAccessDate: nil),
+        Course(id: "2", title: "Web Design Basics", instructor: "Dr. Hichem Ben Said", image: "web", category: "Design", level: .beginner, rating: 4.8, progress: nil, duration: 12.0, totalLessons: 18, completedLessons: 0, lastAccessDate: nil),
+        Course(id: "5", title: "Database Fundamentals", instructor: "Prof. Leila Ben Amor", image: "database", category: "Database", level: .beginner, rating: 4.6, progress: nil, duration: 10.0, totalLessons: 15, completedLessons: 0, lastAccessDate: nil)
     ]
     
-    let intermediateCourses = [
-        Course(id: "3", title: "Data Structures & Algorithms", instructor: "Prof. Leila Ben Amor", image: "algorithms", category: "Programming", level: .intermediate, rating: 4.6, progress: 0.42, duration: 18.0, totalLessons: 30, completedLessons: 13, lastAccessDate: Date()),
-        Course(id: "4", title: "Machine Learning", instructor: "Dr. Sarah Smith", image: "ml", category: "AI", level: .intermediate, rating: 4.9, progress: nil, duration: 25.0, totalLessons: 35, completedLessons: 0, lastAccessDate: nil)
+    // MARK: - Section 2A Courses
+    let section2ACourses = [
+        Course(id: "3", title: "Qt", instructor: "MB3", image: "qt", category: "Programming", level: .intermediate, rating: 4.6, progress: 0.42, duration: 18.0, totalLessons: 30, completedLessons: 13, lastAccessDate: Date()),
+        Course(id: "4", title: "Data Structures & Algorithms", instructor: "Dr. Sarah Smith", image: "datastructures", category: "Programming", level: .intermediate, rating: 4.9, progress: 0.25, duration: 25.0, totalLessons: 35, completedLessons: 9, lastAccessDate: Date()),
+        Course(id: "6", title: "Network Programming", instructor: "Prof. Karim Feki", image: "network", category: "Networking", level: .intermediate, rating: 4.5, progress: nil, duration: 16.0, totalLessons: 22, completedLessons: 0, lastAccessDate: nil)
     ]
+    
+    // MARK: - Section 3A & 3B Courses
+    let section3ABCourses = [
+        Course(id: "7", title: "Théorie des langages (TLA)", instructor: "Dr. Mohamed Trabelsi", image: "language", category: "Theory", level: .advanced, rating: 4.8, progress: nil, duration: 20.0, totalLessons: 25, completedLessons: 0, lastAccessDate: nil),
+        Course(id: "8", title: "Flutter Flow", instructor: "Dr. Amina Saidi", image: "flutter", category: "Mobile Development", level: .advanced, rating: 4.7, progress: 0.60, duration: 28.0, totalLessons: 40, completedLessons: 24, lastAccessDate: Date()),
+        Course(id: "9", title: "Cloud Architecture", instructor: "Prof. Sami Rezgui", image: "cloud", category: "Cloud", level: .advanced, rating: 4.6, progress: nil, duration: 22.0, totalLessons: 32, completedLessons: 0, lastAccessDate: nil)
+    ]
+    
+    var sections: [ClassSection] {
+        [
+            ClassSection(name: "1A", displayName: "1A", color: .blue, courses: section1ACourses),
+            ClassSection(name: "2A", displayName: "2A", color: .purple, courses: section2ACourses),
+            ClassSection(name: "3A & 3B", displayName: "3A & 3B", color: .orange, courses: section3ABCourses)
+        ]
+    }
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                    // Filter Pills
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(0..<filters.count, id: \.self) { index in
-                                FilterPill(
-                                    title: filters[index],
-                                    isSelected: selectedFilter == index
-                                ) {
+                        // Filter Pills
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(0..<filters.count, id: \.self) { index in
+                                    FilterPill(
+                                        title: filters[index],
+                                        isSelected: selectedFilter == index
+                                    ) {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            selectedFilter = index
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                        
+                        // Content based on selected filter
+                        if selectedFilter == 0 {
+                            // All Sections View
+                            AllSectionsView(sections: sections, onSectionTap: { sectionName in
+                                if let index = filters.firstIndex(of: sectionName) {
                                     withAnimation(.spring(response: 0.3)) {
                                         selectedFilter = index
                                     }
                                 }
+                            })
+                        } else {
+                            // Individual Section View
+                            if let selectedSection = sections[safe: selectedFilter - 1] {
+                                SectionCoursesView(section: selectedSection)
                             }
                         }
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    // Beginner Courses
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Beginner Level")
-                            .font(.system(size: 22, weight: .bold))
-                            .padding(.horizontal, 20)
-                        
-                        ForEach(beginnerCourses) { course in
-                            BeautifulCourseListCard(course: course, color: .green)
-                                .padding(.horizontal, 20)
-                        }
-                    }
-                    
-                    // Intermediate Courses
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Intermediate Level")
-                            .font(.system(size: 22, weight: .bold))
-                            .padding(.horizontal, 20)
-                        
-                        ForEach(intermediateCourses) { course in
-                            BeautifulCourseListCard(course: course, color: .purple)
-                                .padding(.horizontal, 20)
-                        }
-                    }
                     }
                     .padding(.vertical, 8)
                     .padding(.bottom, DS.barHeight + 8)
@@ -188,5 +209,107 @@ struct BeautifulCourseListCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+    }
+}
+
+// MARK: - All Sections View
+struct AllSectionsView: View {
+    let sections: [ClassSection]
+    let onSectionTap: (String) -> Void
+    
+    var body: some View {
+        VStack(spacing: 28) {
+            ForEach(sections) { section in
+                VStack(alignment: .leading, spacing: 16) {
+                    // Section Header
+                    HStack {
+                        Text(section.displayName)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Text("\(section.courses.count) Courses")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Preview: Show first 2 courses
+                    VStack(spacing: 12) {
+                        ForEach(section.courses.prefix(2)) { course in
+                            BeautifulCourseListCard(course: course, color: section.color)
+                                .padding(.horizontal, 20)
+                        }
+                    }
+                    
+                    // Navigation Button
+                    Button(action: {
+                        onSectionTap(section.displayName)
+                    }) {
+                        HStack(spacing: 8) {
+                            Text("Go to \(section.displayName)")
+                                .font(.system(size: 15, weight: .semibold))
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(
+                            LinearGradient(
+                                colors: [section.color, section.color.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                        .shadow(color: section.color.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .padding(.vertical, 0)
+            }
+        }
+    }
+}
+
+// MARK: - Section Courses View
+struct SectionCoursesView: View {
+    let section: ClassSection
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section Title with Course Count
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(section.displayName)
+                        .font(.system(size: 28, weight: .bold))
+                    Text("All courses in this section")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text("\(section.courses.count)")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(section.color)
+                    .opacity(0.3)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
+            
+            // All Courses in Section
+            ForEach(section.courses) { course in
+                BeautifulCourseListCard(course: course, color: section.color)
+                    .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+// MARK: - Array Safe Subscript Extension
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        return indices.contains(index) ? self[index] : nil
     }
 }
