@@ -9,6 +9,11 @@ struct EditProfileView: View {
     @State private var pendingImageData: Data?
     @State private var pendingImageMimeType: String?
     @State private var pendingImageFileName: String?
+    @State private var showTeacherPhotoSheet = false
+    @State private var teacherPhotoPickerItem: PhotosPickerItem?
+    @State private var pendingTeacherImageData: Data?
+    @State private var pendingTeacherImageMimeType: String?
+    @State private var pendingTeacherImageFileName: String?
     
     init(viewModel: EditProfileViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -82,6 +87,41 @@ struct EditProfileView: View {
                     pendingImageMimeType = newItem.supportedContentTypes.first?.preferredMIMEType
                     let fileExtension = newItem.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
                     pendingImageFileName = "profile_\(UUID().uuidString).\(fileExtension)"
+                }
+            }
+        }
+        .sheet(isPresented: $showTeacherPhotoSheet) {
+            PhotoSelectionSheet(
+                pendingImageData: $pendingTeacherImageData,
+                pendingImageMimeType: $pendingTeacherImageMimeType,
+                pendingImageFileName: $pendingTeacherImageFileName,
+                photoPickerItem: $teacherPhotoPickerItem,
+                onCancel: {
+                    pendingTeacherImageData = nil
+                    pendingTeacherImageMimeType = nil
+                    pendingTeacherImageFileName = nil
+                    showTeacherPhotoSheet = false
+                },
+                onSave: {
+                    if let data = pendingTeacherImageData {
+                        viewModel.setSelectedTeacherImage(
+                            data: data,
+                            fileName: pendingTeacherImageFileName,
+                            mimeType: pendingTeacherImageMimeType
+                        )
+                    }
+                    showTeacherPhotoSheet = false
+                }
+            )
+        }
+        .onChange(of: teacherPhotoPickerItem) { _ in
+            guard let newItem = teacherPhotoPickerItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self) {
+                    pendingTeacherImageData = data
+                    pendingTeacherImageMimeType = newItem.supportedContentTypes.first?.preferredMIMEType
+                    let fileExtension = newItem.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+                    pendingTeacherImageFileName = "teacher_\(UUID().uuidString).\(fileExtension)"
                 }
             }
         }
@@ -179,6 +219,37 @@ struct EditProfileView: View {
             Text("Teacher Information")
                 .font(.headline)
             VStack(spacing: 16) {
+                // Teacher Image Section
+                VStack(spacing: 12) {
+                    Text("Teacher Profile Image")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    ZStack(alignment: .bottomTrailing) {
+                        teacherProfileImage
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.white, lineWidth: 3))
+                            .shadow(radius: 6)
+                        
+                        Button {
+                            pendingTeacherImageData = nil
+                            pendingTeacherImageMimeType = nil
+                            pendingTeacherImageFileName = nil
+                            showTeacherPhotoSheet = true
+                        } label: {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Circle().fill(Color.brandPrimary))
+                                .shadow(radius: 4)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                
                 nameField(label: "First Name", text: $viewModel.firstName, validation: viewModel.firstNameValidation)
                 nameField(label: "Last Name", text: $viewModel.lastName, validation: viewModel.lastNameValidation)
                 VStack(alignment: .leading, spacing: 8) {
@@ -249,12 +320,66 @@ struct EditProfileView: View {
         }
     }
     
+    private var teacherProfileImage: some View {
+        Group {
+            if let data = pendingTeacherImageData,
+               let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let data = viewModel.selectedTeacherImageData,
+                      let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let urlString = viewModel.existingTeacherImageURL,
+                      !urlString.isEmpty {
+                if urlString.hasPrefix("data:image") {
+                    // Handle base64 data URL
+                    if let data = Data(base64Encoded: urlString.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")),
+                       let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        teacherPlaceholderAvatar
+                    }
+                } else {
+                    // Handle regular URL
+                    AsyncImage(url: URL(string: urlString)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        case .failure:
+                            teacherPlaceholderAvatar
+                        case .empty:
+                            ProgressView()
+                        @unknown default:
+                            teacherPlaceholderAvatar
+                        }
+                    }
+                }
+            } else {
+                teacherPlaceholderAvatar
+            }
+        }
+    }
+    
     private var placeholderAvatar: some View {
         ZStack {
             Circle().fill(Color.brandPrimary.opacity(0.2))
             Image(systemName: "person.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.brandPrimary)
+        }
+    }
+    
+    private var teacherPlaceholderAvatar: some View {
+        ZStack {
+            Circle().fill(Color.brandAccent.opacity(0.2))
+            Image(systemName: "person.fill.badge.plus")
+                .font(.system(size: 40))
+                .foregroundColor(.brandAccent)
         }
     }
     

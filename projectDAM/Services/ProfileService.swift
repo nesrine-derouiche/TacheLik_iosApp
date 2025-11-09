@@ -172,6 +172,30 @@ struct UpdatedTeacher: Decodable {
         case firstName = "first_name"
         case lastName = "last_name"
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        bio = try container.decodeIfPresent(String.self, forKey: .bio)
+        github = try container.decodeIfPresent(String.self, forKey: .github)
+        linkedin = try container.decodeIfPresent(String.self, forKey: .linkedin)
+        facebook = try container.decodeIfPresent(String.self, forKey: .facebook)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        
+        // Handle image - it can be a string URL, a Buffer object, or null
+        if let imageString = try? container.decode(String.self, forKey: .image) {
+            image = imageString
+        } else if let buffer = try? container.decode(BufferObject.self, forKey: .image) {
+            // Convert Buffer to base64 data URL
+            let data = Data(buffer.data)
+            let base64String = data.base64EncodedString()
+            image = "data:image/jpeg;base64,\(base64String)"
+        } else {
+            image = nil
+        }
+    }
 }
 
 struct TeacherProfileResponse: Decodable {
@@ -193,5 +217,29 @@ struct TeacherProfile: Decodable {
         case id, image, bio, github, linkedin, facebook
         case firstName = "first_name"
         case lastName = "last_name"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        bio = try container.decodeIfPresent(String.self, forKey: .bio)
+        github = try container.decodeIfPresent(String.self, forKey: .github)
+        linkedin = try container.decodeIfPresent(String.self, forKey: .linkedin)
+        facebook = try container.decodeIfPresent(String.self, forKey: .facebook)
+        
+        // Handle image - it can be a string URL, a Buffer object, or null
+        if let imageString = try? container.decode(String.self, forKey: .image) {
+            image = imageString
+        } else if let buffer = try? container.decode(BufferObject.self, forKey: .image) {
+            // Convert Buffer to base64 data URL
+            let data = Data(buffer.data)
+            let base64String = data.base64EncodedString()
+            image = "data:image/jpeg;base64,\(base64String)"
+        } else {
+            image = nil
+        }
     }
 }

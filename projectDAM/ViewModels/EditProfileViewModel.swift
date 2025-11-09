@@ -38,6 +38,9 @@ final class EditProfileViewModel: ObservableObject {
     @Published var selectedImageData: Data?
     @Published var selectedImageMimeType: String?
     @Published var selectedImageFileName: String?
+    @Published var selectedTeacherImageData: Data?
+    @Published var selectedTeacherImageMimeType: String?
+    @Published var selectedTeacherImageFileName: String?
     @Published var isLoadingTeacherData: Bool = false
     @Published var isSavingPersonalInfo: Bool = false
     @Published var isSavingTeacherInfo: Bool = false
@@ -50,6 +53,7 @@ final class EditProfileViewModel: ObservableObject {
     let isTeacher: Bool
     let creationDate: String?
     let existingImageURL: String?
+    @Published var existingTeacherImageURL: String?
     
     // MARK: - Dependencies
     private let profileService: ProfileServiceProtocol
@@ -141,6 +145,7 @@ final class EditProfileViewModel: ObservableObject {
                 github = profile.github ?? github
                 linkedin = profile.linkedin ?? linkedin
                 facebook = profile.facebook ?? facebook
+                existingTeacherImageURL = profile.image
             }
             if !isTeacher {
                 firstName = ""
@@ -173,6 +178,12 @@ final class EditProfileViewModel: ObservableObject {
         selectedImageData = data
         selectedImageFileName = fileName
         selectedImageMimeType = mimeType
+    }
+    
+    func setSelectedTeacherImage(data: Data, fileName: String?, mimeType: String?) {
+        selectedTeacherImageData = data
+        selectedTeacherImageFileName = fileName
+        selectedTeacherImageMimeType = mimeType
     }
     
     func savePersonalInfo() async {
@@ -282,9 +293,9 @@ final class EditProfileViewModel: ObservableObject {
             linkedin: linkedin,
             facebook: facebook,
             github: github,
-            profileImageData: nil,
-            imageFileName: nil,
-            imageMimeType: nil
+            profileImageData: selectedTeacherImageData,
+            imageFileName: selectedTeacherImageFileName,
+            imageMimeType: selectedTeacherImageMimeType
         )
     }
     
