@@ -18,23 +18,42 @@ struct SettingsView: View {
                     // Profile Card
                     VStack(spacing: 20) {
                         ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.brandPrimary,
-                                            Color.brandPrimary.opacity(0.8)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 90, height: 90)
-                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 6)
-                            
-                            Text(currentUser?.username.prefix(3).uppercased() ?? "U")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(.white)
+                            if let imageUrl = currentUser?.image, !imageUrl.isEmpty {
+                                // Display user image
+                                if imageUrl.hasPrefix("data:image") {
+                                    // Handle base64 data URL
+                                    if let data = Data(base64Encoded: imageUrl.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")),
+                                       let uiImage = UIImage(data: data) {
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 90, height: 90)
+                                            .clipShape(Circle())
+                                            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 6)
+                                    } else {
+                                        placeholderAvatar
+                                    }
+                                } else {
+                                    // Handle regular URL
+                                    AsyncImage(url: URL(string: imageUrl)) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 90, height: 90)
+                                                .clipShape(Circle())
+                                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 6)
+                                        case .failure, .empty:
+                                            placeholderAvatar
+                                        @unknown default:
+                                            placeholderAvatar
+                                        }
+                                    }
+                                }
+                            } else {
+                                placeholderAvatar
+                            }
                         }
                         
                         VStack(spacing: 6) {
@@ -169,6 +188,27 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
         }
+    }
+    
+    private var placeholderAvatar: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.brandPrimary,
+                        Color.brandPrimary.opacity(0.8)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 90, height: 90)
+            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 6)
+            .overlay(
+                Text(currentUser?.username.prefix(3).uppercased() ?? "U")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.white)
+            )
     }
 }
 

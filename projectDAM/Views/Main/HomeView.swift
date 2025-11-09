@@ -2,11 +2,10 @@ import SwiftUI
 
 struct HomeView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
-    
-    private let authService = DIContainer.shared.authService
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     
     private var currentUser: User? {
-        authService.getCurrentUser()
+        authService.currentUser
     }
     
     private var userInitials: String {
@@ -156,20 +155,59 @@ struct HomeView: View {
                         Button(action: {
                             // Navigate to profile
                         }) {
-                            Circle()
-                                .fill(LinearGradient.brandPrimaryGradient)
-                                .frame(width: 36, height: 36)
-                                .overlay(
-                                    Text(userInitials)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
-                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                            if let imageUrl = currentUser?.image, !imageUrl.isEmpty {
+                                // Display user image
+                                if imageUrl.hasPrefix("data:image") {
+                                    // Handle base64 data URL
+                                    if let data = Data(base64Encoded: imageUrl.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")),
+                                       let uiImage = UIImage(data: data) {
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 36, height: 36)
+                                            .clipShape(Circle())
+                                            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                                    } else {
+                                        avatarPlaceholder
+                                    }
+                                } else {
+                                    // Handle regular URL
+                                    AsyncImage(url: URL(string: imageUrl)) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 36, height: 36)
+                                                .clipShape(Circle())
+                                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                                        case .failure, .empty:
+                                            avatarPlaceholder
+                                        @unknown default:
+                                            avatarPlaceholder
+                                        }
+                                    }
+                                }
+                            } else {
+                                avatarPlaceholder
+                            }
                         }
                     }
                 }
             }
         }
+    }
+    
+    private var avatarPlaceholder: some View {
+        Circle()
+            .fill(LinearGradient.brandPrimaryGradient)
+            .frame(width: 36, height: 36)
+            .overlay(
+                Text(userInitials)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+            )
+            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
     }
 }
 
