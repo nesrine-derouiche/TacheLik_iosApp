@@ -238,8 +238,10 @@ struct AllSectionsView: View {
                     // Preview: Show first 2 courses
                     VStack(spacing: 12) {
                         ForEach(section.courses.prefix(2)) { course in
-                            BeautifulCourseListCard(course: course, color: section.color)
-                                .padding(.horizontal, 20)
+                            NavigationLink(destination: OurCoursesView(section: section, courses: OurCoursesView.getCoursesForSection(section), className: course.title)) {
+                                BeautifulCourseListCard(course: course, color: section.color)
+                                    .padding(.horizontal, 20)
+                            }
                         }
                     }
                     
@@ -298,10 +300,12 @@ struct SectionCoursesView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
             
-            // All Courses in Section
+            // All Courses in Section - Navigatable
             ForEach(section.courses) { course in
-                BeautifulCourseListCard(course: course, color: section.color)
-                    .padding(.horizontal, 20)
+                NavigationLink(destination: OurCoursesView(section: section, courses: OurCoursesView.getCoursesForSection(section), className: course.title)) {
+                    BeautifulCourseListCard(course: course, color: section.color)
+                        .padding(.horizontal, 20)
+                }
             }
         }
     }
