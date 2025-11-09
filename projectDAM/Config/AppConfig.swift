@@ -16,7 +16,8 @@ struct AppConfig {
     static var baseURL: String {
         // Try to get from Info.plist first (for production builds)
         if let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
-           !url.isEmpty {
+           !url.isEmpty,
+           !url.contains("$(") { // Check if the value was actually resolved
             return url
         }
         
@@ -38,7 +39,8 @@ struct AppConfig {
     static var serverURL: String {
         // Try to get from Info.plist first
         if let url = Bundle.main.object(forInfoDictionaryKey: "SERVER_URL") as? String,
-           !url.isEmpty {
+           !url.isEmpty,
+           !url.contains("$(") { // Check if the value was actually resolved
             return url
         }
         

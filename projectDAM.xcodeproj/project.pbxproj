@@ -8,9 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		0475F0502EBF7D72005B54B9 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 0475F04F2EBF7D72005B54B9 /* SocketIO */; };
+		04D8E26D2EC0FF7F00AC81A0 /* Config.local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */; };
+		04D8E26F2EC0FF9F00AC81A0 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
+		04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		261CBA9E2EBE51AD003C55BA /* projectDAM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = projectDAM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -52,6 +56,8 @@
 			children = (
 				261CBAA02EBE51AD003C55BA /* projectDAM */,
 				261CBA9F2EBE51AD003C55BA /* Products */,
+				04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */,
+				04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -131,6 +137,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04D8E26D2EC0FF7F00AC81A0 /* Config.local.xcconfig in Resources */,
+				04D8E26F2EC0FF9F00AC81A0 /* Config.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -149,6 +157,7 @@
 /* Begin XCBuildConfiguration section */
 		261CBAAC2EBE51AE003C55BA /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -212,6 +221,7 @@
 		};
 		261CBAAD2EBE51AE003C55BA /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;

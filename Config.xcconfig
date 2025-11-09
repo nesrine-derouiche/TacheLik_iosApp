@@ -2,7 +2,8 @@
 // https://help.apple.com/xcode/#/dev745c5c974
 
 // API Configuration
-API_BASE_URL = http:/$()/127.0.0.1:3001/api
+//API_BASE_URL = http:/$()/127.0.0.1:3001/api
+API_BASE_URL = https:/$()/dev.api.tache-lik.tn/api
 
 // Feature Flags
 USE_MOCK_DATA = false
