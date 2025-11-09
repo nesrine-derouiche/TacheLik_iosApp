@@ -72,8 +72,15 @@ struct OurCoursesView: View {
                         
                     // Courses Grid
                     VStack(spacing: 16) {
-                        ForEach(courses) { course in
-                            CourseCardView(course: course, sectionColor: section.color)
+                        ForEach(Array(courses.enumerated()), id: \.element.id) { index, course in
+                            let lesson = OurCoursesView.getLessonForCourse(course, in: section)
+                            if let lesson = lesson {
+                                NavigationLink(destination: LessonsView(lesson: lesson)) {
+                                    courseCardContent(course: course, sectionColor: section.color)
+                                }
+                            } else {
+                                courseCardContent(course: course, sectionColor: section.color)
+                            }
                         }
                     }
                     .padding(20)
@@ -83,17 +90,8 @@ struct OurCoursesView: View {
             .background(Color(.systemGroupedBackground))
         }
     }
-}
-
-
-// MARK: - Course Card View
-struct CourseCardView: View {
-    let course: CourseDetail
-    let sectionColor: Color
     
-    @State private var isPressed = false
-    
-    var body: some View {
+    private func courseCardContent(course: CourseDetail, sectionColor: Color) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Course Header with Icon
             HStack(spacing: 16) {
@@ -178,17 +176,6 @@ struct CourseCardView: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                isPressed = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isPressed = false
-                }
-            }
-        }
     }
 }
 
@@ -204,6 +191,47 @@ extension OurCoursesView {
             return tlaCoursesData
         default:
             return []
+        }
+    }
+    
+    static func getLessonForCourse(_ course: CourseDetail, in section: ClassSection) -> Lesson? {
+        switch course.id {
+        // 1A - Algorithme Lessons
+        case "algo-1":
+            return Lesson.algorithmeConditionsLesson
+        case "algo-2":
+            return Lesson.algorithmeStructuresLesson
+        case "algo-3":
+            return Lesson.algorithmeTableauxLesson
+        case "algo-4":
+            return Lesson.algorithmTriLesson
+        case "algo-5":
+            return Lesson.algorithmeStringLesson
+        case "algo-6":
+            return Lesson.algorithmeRevisionLesson
+            
+        // 2A - Qt Lessons
+        case "qt-1":
+            return Lesson.qtIntroductionLesson
+        case "qt-2":
+            return Lesson.qtSignalsLesson
+        case "qt-3":
+            return Lesson.qtWidgetsLesson
+        case "qt-4":
+            return Lesson.qtDatabaseLesson
+            
+        // 3A & 3B - TLA Lessons
+        case "tla-1":
+            return Lesson.tlaIntroductionLesson
+        case "tla-2":
+            return Lesson.tlaaAutomatesLesson
+        case "tla-3":
+            return Lesson.tlaVerificationLesson
+        case "tla-4":
+            return Lesson.tlaApplicationsLesson
+            
+        default:
+            return nil
         }
     }
 }
