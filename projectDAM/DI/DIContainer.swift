@@ -20,6 +20,7 @@ final class DIContainer {
     let courseService: CourseServiceProtocol
     let profileService: ProfileServiceProtocol
     let socketService: SocketServiceProtocol
+    let roleManager: RoleManager
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -34,6 +35,7 @@ final class DIContainer {
         self.authService = AuthService(networkService: networkService)
         self.courseService = CourseService(networkService: networkService, authService: authService)
         self.profileService = ProfileService(networkService: networkService, authService: authService)
+        self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig
         let socketConfig = SocketConfiguration(

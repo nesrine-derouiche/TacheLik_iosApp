@@ -26,6 +26,7 @@ struct projectDAMApp: App {
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .preferredColorScheme(isDarkMode ? .dark : .light)
                 .environmentObject(sessionManager)
+                .environmentObject(DIContainer.shared.roleManager)
         }
     }
 }
@@ -39,6 +40,7 @@ struct RootView: View {
     @State private var isLoadingUser = false
     
     @ObservedObject private var authService = DIContainer.shared.observableAuthService
+    @EnvironmentObject var roleManager: RoleManager
     
     private var currentUser: User? {
         authService.currentUser
@@ -59,8 +61,16 @@ struct RootView: View {
                         // User is verified and not banned - show main app
                         MainTabView()
                             .onAppear {
+                                // Update role manager when user data is available
+                                roleManager.updateRole(from: user)
                                 // Auto-reconnect socket if user is logged in
                                 sessionManager.reconnectIfNeeded()
+                            }
+                            .onChange(of: currentUser) { newUser in
+                                // Update role if user data changes
+                                if let newUser = newUser {
+                                    roleManager.updateRole(from: newUser)
+                                }
                             }
                     }
                 } else if isLoadingUser {
@@ -83,6 +93,13 @@ struct RootView: View {
             Button("OK") {
                 sessionManager.handleSessionTermination()
                 isLoggedIn = false
+                roleManager.updateRole(from: User(
+                    id: "", username: "", email: "", phone: nil, phoneNbVerified: nil,
+                    role: .student, creationDate: nil, image: nil, verified: nil,
+                    banned: nil, credit: nil, isTeacher: nil, inviteLink: nil,
+                    invitedBy: nil, inviteLinkType: nil, haveReduction: nil,
+                    warningTimes: nil, lastLoginDate: nil
+                )) // Reset role on logout
             }
         } message: {
             Text(sessionManager.sessionTerminationReason)
@@ -114,6 +131,11 @@ struct RootView: View {
             do {
                 try await authService.refreshUserData()
                 isLoadingUser = false
+                
+                // Update role manager when user data is fetched
+                if let user = authService.getCurrentUser() {
+                    roleManager.updateRole(from: user)
+                }
                 
                 // Reconnect socket after user data is loaded
                 sessionManager.reconnectIfNeeded()
