@@ -14,6 +14,7 @@ struct projectDAMApp: App {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("isDarkMode") private var isDarkMode = false
     @StateObject private var sessionManager = SessionManager()
+    @State private var showSplash = true
     
     init() {
         // Print configuration on app launch (debug only)
@@ -22,11 +23,22 @@ struct projectDAMApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(isLoggedIn: $isLoggedIn, sessionManager: sessionManager)
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .preferredColorScheme(isDarkMode ? .dark : .light)
-                .environmentObject(sessionManager)
-                .environmentObject(DIContainer.shared.roleManager)
+            ZStack {
+                RootView(isLoggedIn: $isLoggedIn, sessionManager: sessionManager)
+                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                    .preferredColorScheme(isDarkMode ? .dark : .light)
+                    .environmentObject(sessionManager)
+                    .environmentObject(DIContainer.shared.roleManager)
+                
+                if showSplash {
+                    SplashView(onSplashComplete: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showSplash = false
+                        }
+                    })
+                        .transition(.opacity)
+                }
+            }
         }
     }
 }

@@ -11,5 +11,11 @@
 	<string>$(API_BASE_URL)</string>
 	<key>USE_MOCK_DATA</key>
 	<string>$(USE_MOCK_DATA)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Nunito-Bold.ttf</string>
+		<string>Nunito-SemiBold.ttf</string>
+		<string>Nunito-Regular.ttf</string>
+	</array>
 </dict>
 </plist>
