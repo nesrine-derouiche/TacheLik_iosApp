@@ -12,9 +12,17 @@ struct CourseDetail: Identifiable {
     let gradientColors: [Color]
 }
 
+// MARK: - Temporary view section model
+/// Legacy structure used by OurCoursesView. Replace with real class detail data when lessons flow is updated.
+struct LegacyClassSection {
+    let name: String
+    let displayName: String
+    let color: Color
+}
+
 // MARK: - Our Courses View
 struct OurCoursesView: View {
-    let section: ClassSection
+    let section: LegacyClassSection
     let courses: [CourseDetail]
     let className: String
     
@@ -181,7 +189,7 @@ struct OurCoursesView: View {
 
 // MARK: - Sample Course Data
 extension OurCoursesView {
-    static func getCoursesForSection(_ section: ClassSection) -> [CourseDetail] {
+    static func getCoursesForSection(_ section: LegacyClassSection) -> [CourseDetail] {
         switch section.name {
         case "1A":
             return algorithmeCoursesData
@@ -194,7 +202,7 @@ extension OurCoursesView {
         }
     }
     
-    static func getLessonForCourse(_ course: CourseDetail, in section: ClassSection) -> Lesson? {
+    static func getLessonForCourse(_ course: CourseDetail, in section: LegacyClassSection) -> Lesson? {
         switch course.id {
         // 1A - Algorithme Lessons
         case "algo-1":

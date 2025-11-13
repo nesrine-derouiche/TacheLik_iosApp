@@ -15,6 +15,8 @@ protocol CourseServiceProtocol {
     func enrollCourse(courseId: String) async throws
     func updateProgress(courseId: String, progress: Double) async throws
     func fetchUserCourses() async throws -> [Course]
+    func fetchClasses() async throws -> [ClassItem]
+    func fetchClasses(byCategory category: String) async throws -> [ClassItem]
 }
 
 // MARK: - Course Service Implementation
@@ -91,6 +93,41 @@ final class CourseService: CourseServiceProtocol {
         return response.courses
     }
     
+    /// Fetch all classes
+    func fetchClasses() async throws -> [ClassItem] {
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting classes at GET /class/all")
+        }
+        let response: ClassesResponse = try await networkService.request(
+            endpoint: "/class/all",
+            method: .GET,
+            body: nil,
+            headers: nil
+        )
+        if AppConfig.enableLogging {
+            print("✅ [CourseService] Received \(response.classes.count) classes")
+        }
+        return response.classes
+    }
+    
+    /// Fetch classes for a given category filter name
+    func fetchClasses(byCategory category: String) async throws -> [ClassItem] {
+        let encodedCategory = category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting classes for category \(category) at GET /class/by-category/\(encodedCategory)")
+        }
+        let response: ClassesResponse = try await networkService.request(
+            endpoint: "/class/by-category/\(encodedCategory)",
+            method: .GET,
+            body: nil,
+            headers: nil
+        )
+        if AppConfig.enableLogging {
+            print("✅ [CourseService] Received \(response.classes.count) classes for category \(category)")
+        }
+        return response.classes
+    }
+    
     // MARK: - Private Methods
     
     private func getAuthHeaders() -> [String: String] {
@@ -108,6 +145,10 @@ private struct CoursesResponse: Decodable {
 
 private struct CourseResponse: Decodable {
     let course: Course
+}
+
+private struct ClassesResponse: Decodable {
+    let classes: [ClassItem]
 }
 
 private struct EnrollRequest: Encodable {
@@ -146,4 +187,22 @@ final class MockCourseService: CourseServiceProtocol {
         try await Task.sleep(nanoseconds: 500_000_000)
         return Array(Course.sampleCourses.prefix(3))
     }
+    
+    func fetchClasses() async throws -> [ClassItem] {
+        try await Task.sleep(nanoseconds: 300_000_000)
+        return MockCourseService.sampleClasses
+    }
+    
+    func fetchClasses(byCategory category: String) async throws -> [ClassItem] {
+        try await Task.sleep(nanoseconds: 300_000_000)
+        return MockCourseService.sampleClasses.filter { $0.filterName.caseInsensitiveCompare(category) == .orderedSame }
+    }
+    
+    private static let sampleClasses: [ClassItem] = [
+        ClassItem(id: "class-1a-1", title: "Algorithms Basics", image: nil, classOrder: "1-1", filterName: "1A"),
+        ClassItem(id: "class-1a-2", title: "Introduction to Web", image: nil, classOrder: "1-2", filterName: "1A"),
+        ClassItem(id: "class-2a-1", title: "Qt Workshop", image: nil, classOrder: "2-1", filterName: "2A"),
+        ClassItem(id: "class-3a-1", title: "TLA Foundations", image: nil, classOrder: "3-1", filterName: "3A"),
+        ClassItem(id: "class-3b-1", title: "Cloud Architecture", image: nil, classOrder: "3-1", filterName: "3B")
+    ]
 }

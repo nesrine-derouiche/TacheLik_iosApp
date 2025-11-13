@@ -1,91 +1,20 @@
 import SwiftUI
 
-// MARK: - Section Model
-struct ClassSection: Identifiable {
-    let id = UUID()
-    let name: String
-    let displayName: String
-    let color: Color
-    let courses: [Course]
-}
-
+// MARK: - Classes View
 struct ClassesView: View {
-    @State private var selectedFilter = 0
-    
-    let filters = ["All", "1A", "2A", "3A & 3B"]
-    
-    // MARK: - Section 1A Courses
-    let section1ACourses = [
-        Course(id: "1", title: "Algorithme", instructor: "MB1", image: "algorithm", category: "Programming", level: .beginner, rating: 4.7, progress: nil, duration: 15.0, totalLessons: 20, completedLessons: 0, lastAccessDate: nil),
-        Course(id: "2", title: "Web Design Basics", instructor: "Dr. Hichem Ben Said", image: "web", category: "Design", level: .beginner, rating: 4.8, progress: nil, duration: 12.0, totalLessons: 18, completedLessons: 0, lastAccessDate: nil),
-        Course(id: "5", title: "Database Fundamentals", instructor: "Prof. Leila Ben Amor", image: "database", category: "Database", level: .beginner, rating: 4.6, progress: nil, duration: 10.0, totalLessons: 15, completedLessons: 0, lastAccessDate: nil)
-    ]
-    
-    // MARK: - Section 2A Courses
-    let section2ACourses = [
-        Course(id: "3", title: "Qt", instructor: "MB3", image: "qt", category: "Programming", level: .intermediate, rating: 4.6, progress: 0.42, duration: 18.0, totalLessons: 30, completedLessons: 13, lastAccessDate: Date()),
-        Course(id: "4", title: "Data Structures & Algorithms", instructor: "Dr. Sarah Smith", image: "datastructures", category: "Programming", level: .intermediate, rating: 4.9, progress: 0.25, duration: 25.0, totalLessons: 35, completedLessons: 9, lastAccessDate: Date()),
-        Course(id: "6", title: "Network Programming", instructor: "Prof. Karim Feki", image: "network", category: "Networking", level: .intermediate, rating: 4.5, progress: nil, duration: 16.0, totalLessons: 22, completedLessons: 0, lastAccessDate: nil)
-    ]
-    
-    // MARK: - Section 3A & 3B Courses
-    let section3ABCourses = [
-        Course(id: "7", title: "Théorie des langages (TLA)", instructor: "Dr. Mohamed Trabelsi", image: "language", category: "Theory", level: .advanced, rating: 4.8, progress: nil, duration: 20.0, totalLessons: 25, completedLessons: 0, lastAccessDate: nil),
-        Course(id: "8", title: "Flutter Flow", instructor: "Dr. Amina Saidi", image: "flutter", category: "Mobile Development", level: .advanced, rating: 4.7, progress: 0.60, duration: 28.0, totalLessons: 40, completedLessons: 24, lastAccessDate: Date()),
-        Course(id: "9", title: "Cloud Architecture", instructor: "Prof. Sami Rezgui", image: "cloud", category: "Cloud", level: .advanced, rating: 4.6, progress: nil, duration: 22.0, totalLessons: 32, completedLessons: 0, lastAccessDate: nil)
-    ]
-    
-    var sections: [ClassSection] {
-        [
-            ClassSection(name: "1A", displayName: "1A", color: .blue, courses: section1ACourses),
-            ClassSection(name: "2A", displayName: "2A", color: .purple, courses: section2ACourses),
-            ClassSection(name: "3A & 3B", displayName: "3A & 3B", color: .orange, courses: section3ABCourses)
-        ]
-    }
+    @StateObject private var viewModel = DIContainer.shared.makeClassesViewModel()
+    @State private var selectedFilterID: String = ClassesViewModel.FilterOption.allID
     
     var body: some View {
         NavigationView {
-            GeometryReader { geometry in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // Filter Pills
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(0..<filters.count, id: \.self) { index in
-                                    FilterPill(
-                                        title: filters[index],
-                                        isSelected: selectedFilter == index
-                                    ) {
-                                        withAnimation(.spring(response: 0.3)) {
-                                            selectedFilter = index
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                        
-                        // Content based on selected filter
-                        if selectedFilter == 0 {
-                            // All Sections View
-                            AllSectionsView(sections: sections, onSectionTap: { sectionName in
-                                if let index = filters.firstIndex(of: sectionName) {
-                                    withAnimation(.spring(response: 0.3)) {
-                                        selectedFilter = index
-                                    }
-                                }
-                            })
-                        } else {
-                            // Individual Section View
-                            if let selectedSection = sections[safe: selectedFilter - 1] {
-                                SectionCoursesView(section: selectedSection)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.bottom, DS.barHeight + 8)
+            Group {
+                if viewModel.isLoading {
+                    loadingState
+                } else if let message = viewModel.errorMessage {
+                    errorState(message: message)
+                } else {
+                    content
                 }
-                .background(Color(.systemGroupedBackground))
             }
             .navigationTitle("Classes")
             .navigationBarTitleDisplayMode(.large)
@@ -104,13 +33,131 @@ struct ClassesView: View {
                 }
             }
         }
+        .task {
+            await viewModel.loadClasses()
+            if let firstFilter = viewModel.filters.first?.id {
+                selectedFilterID = firstFilter
+            }
+        }
+    }
+    
+    private var content: some View {
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    filterPills
+                    sectionsContent
+                }
+                .padding(.vertical, 8)
+                .padding(.bottom, DS.barHeight + 8)
+            }
+            .background(Color(.systemGroupedBackground))
+        }
+    }
+    
+    private var filterPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(viewModel.filters) { filter in
+                    FilterPill(
+                        title: filter.title,
+                        isSelected: selectedFilterID == filter.id,
+                        accentColor: filter.accentColor
+                    ) {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedFilterID = filter.id
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    @ViewBuilder
+    private var sectionsContent: some View {
+        let sections = viewModel.sections(for: selectedFilterID)
+        if sections.isEmpty {
+            emptyState
+        } else if selectedFilterID == ClassesViewModel.FilterOption.allID {
+            AllSectionsView(sections: sections, onSectionTap: { filterID in
+                withAnimation(.spring(response: 0.3)) {
+                    selectedFilterID = filterID
+                }
+            })
+        } else if let section = sections.first {
+            SectionClassesView(section: section)
+        }
+    }
+    
+    private var loadingState: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle())
+            Text("Loading classes...")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private func errorState(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 44))
+                .foregroundColor(.brandWarning)
+            Text("Something went wrong")
+                .font(.system(size: 18, weight: .semibold))
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button(action: {
+                Task { await viewModel.loadClasses(force: true) }
+            }) {
+                Text("Try Again")
+                    .font(.system(size: 15, weight: .semibold))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(LinearGradient.brandPrimaryGradient)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+        }
+        .padding()
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "books.vertical.circle")
+                .font(.system(size: 44))
+                .foregroundColor(.secondary)
+            Text("No classes available")
+                .font(.system(size: 18, weight: .semibold))
+            Text("Please check back later or choose another filter.")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 40)
     }
 }
 
 struct FilterPill: View {
     let title: String
     let isSelected: Bool
+    let accentColor: Color?
     let action: () -> Void
+    
+    private var selectedGradient: LinearGradient {
+        if let accentColor {
+            return LinearGradient(
+                colors: [accentColor, accentColor.opacity(0.7)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        return LinearGradient.brandPrimaryGradient
+    }
     
     var body: some View {
         Button(action: action) {
@@ -122,85 +169,40 @@ struct FilterPill: View {
                 .background(
                     Group {
                         if isSelected {
-                            LinearGradient.brandPrimaryGradient
+                            selectedGradient
                         } else {
                             Color(.secondarySystemBackground)
                         }
                     }
                 )
                 .cornerRadius(20)
-                .shadow(color: isSelected ? Color.brandPrimary.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 4)
+                .shadow(color: (accentColor ?? .brandPrimary).opacity(isSelected ? 0.3 : 0), radius: 8, x: 0, y: 4)
         }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
-struct BeautifulCourseListCard: View {
-    let course: Course
-    let color: Color
+struct ClassCardView: View {
+    let classCard: ClassesViewModel.ClassCard
+    let sectionColor: Color
     
     var body: some View {
         HStack(spacing: 16) {
-            // Course Icon
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 70, height: 70)
-                .overlay(
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(.white)
-                )
-                .shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
+            ClassCardThumbnail(imageURLString: classCard.imageURLString, fallbackColor: sectionColor)
             
             VStack(alignment: .leading, spacing: 8) {
-                Text(course.title)
+                Text(classCard.title)
                     .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.primary)
                     .lineLimit(2)
                 
-                Text(course.instructor)
-                    .font(.system(size: 14, weight: .medium))
+                Text(classCard.description)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
-                
-                if let rating = course.rating {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.brandWarning)
-                        Text(String(format: "%.1f", rating))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                if let progress = course.progress {
-                    HStack(spacing: 8) {
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color(.tertiarySystemFill))
-                                    .frame(height: 6)
-                                
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(color)
-                                    .frame(width: geometry.size.width * progress, height: 6)
-                            }
-                        }
-                        .frame(height: 6)
-                        
-                        Text("\(Int(progress * 100))%")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(color)
-                    }
-                }
+                    .lineLimit(2)
             }
             
             Spacer()
-            
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.secondary)
@@ -214,43 +216,38 @@ struct BeautifulCourseListCard: View {
 
 // MARK: - All Sections View
 struct AllSectionsView: View {
-    let sections: [ClassSection]
+    let sections: [ClassesViewModel.ClassSectionViewData]
     let onSectionTap: (String) -> Void
     
     var body: some View {
         VStack(spacing: 28) {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: 16) {
-                    // Section Header
                     HStack {
-                        Text(section.displayName)
+                        Text(section.title)
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.primary)
-                        
                         Spacer()
-                        
-                        Text("\(section.courses.count) Courses")
+                        Text("\(section.classes.count) Classes")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondary)
                     }
                     .padding(.horizontal, 20)
                     
-                    // Preview: Show first 2 courses
                     VStack(spacing: 12) {
-                        ForEach(section.courses.prefix(2)) { course in
-                            NavigationLink(destination: OurCoursesView(section: section, courses: OurCoursesView.getCoursesForSection(section), className: course.title)) {
-                                BeautifulCourseListCard(course: course, color: section.color)
+                        ForEach(section.classes.prefix(2)) { classCard in
+                            NavigationLink(destination: ClassDetailPlaceholder(classCard: classCard, sectionColor: section.color)) {
+                                ClassCardView(classCard: classCard, sectionColor: section.color)
                                     .padding(.horizontal, 20)
                             }
                         }
                     }
                     
-                    // Navigation Button
                     Button(action: {
-                        onSectionTap(section.displayName)
+                        onSectionTap(section.id)
                     }) {
                         HStack(spacing: 8) {
-                            Text("Go to \(section.displayName)")
+                            Text("Go to \(section.title)")
                                 .font(.system(size: 15, weight: .semibold))
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 13, weight: .semibold))
@@ -270,29 +267,27 @@ struct AllSectionsView: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                .padding(.vertical, 0)
             }
         }
     }
 }
 
-// MARK: - Section Courses View
-struct SectionCoursesView: View {
-    let section: ClassSection
+// MARK: - Section Classes View
+struct SectionClassesView: View {
+    let section: ClassesViewModel.ClassSectionViewData
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Section Title with Course Count
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(section.displayName)
+                    Text(section.title)
                         .font(.system(size: 28, weight: .bold))
-                    Text("All courses in this section")
+                    Text("All classes in this section")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Text("\(section.courses.count)")
+                Text("\(section.classes.count)")
                     .font(.system(size: 32, weight: .bold))
                     .foregroundColor(section.color)
                     .opacity(0.3)
@@ -300,10 +295,9 @@ struct SectionCoursesView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
             
-            // All Courses in Section - Navigatable
-            ForEach(section.courses) { course in
-                NavigationLink(destination: OurCoursesView(section: section, courses: OurCoursesView.getCoursesForSection(section), className: course.title)) {
-                    BeautifulCourseListCard(course: course, color: section.color)
+            ForEach(section.classes) { classCard in
+                NavigationLink(destination: ClassDetailPlaceholder(classCard: classCard, sectionColor: section.color)) {
+                    ClassCardView(classCard: classCard, sectionColor: section.color)
                         .padding(.horizontal, 20)
                 }
             }
@@ -311,9 +305,79 @@ struct SectionCoursesView: View {
     }
 }
 
-// MARK: - Array Safe Subscript Extension
-extension Array {
-    subscript(safe index: Int) -> Element? {
-        return indices.contains(index) ? self[index] : nil
+// MARK: - Class Detail Placeholder
+struct ClassDetailPlaceholder: View {
+    let classCard: ClassesViewModel.ClassCard
+    let sectionColor: Color
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                ClassCardView(classCard: classCard, sectionColor: sectionColor)
+                Text(classCard.description)
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+        }
+        .navigationTitle(classCard.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Class Card Thumbnail
+private struct ClassCardThumbnail: View {
+    let imageURLString: String?
+    let fallbackColor: Color
+    
+    private var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [fallbackColor, fallbackColor.opacity(0.7)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(backgroundGradient)
+            thumbnailContent
+        }
+        .frame(width: 70, height: 70)
+        .shadow(color: fallbackColor.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+    
+    @ViewBuilder
+    private var thumbnailContent: some View {
+        if let imageURLString,
+           let url = URL(string: imageURLString) {
+            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 70, height: 70)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                case .empty:
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .tint(.white)
+                case .failure:
+                    fallbackIcon
+                @unknown default:
+                    fallbackIcon
+                }
+            }
+        } else {
+            fallbackIcon
+        }
+    }
+    
+    private var fallbackIcon: some View {
+        Image(systemName: "book.fill")
+            .font(.system(size: 26, weight: .semibold))
+            .foregroundColor(.white)
     }
 }

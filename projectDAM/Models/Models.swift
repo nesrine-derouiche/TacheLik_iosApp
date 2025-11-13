@@ -135,6 +135,39 @@ struct Course: Identifiable, Codable {
     }
 }
 
+// MARK: - Class Model
+struct ClassItem: Identifiable, Codable, Equatable {
+    let id: String
+    let title: String
+    let image: String?
+    let classOrder: String
+    let filterName: String
+    
+    var imageURL: URL? {
+        guard let image,
+              !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let baseURL = URL(string: AppConfig.baseURL) else {
+            return nil
+        }
+        return baseURL
+            .appendingPathComponent("uploads")
+            .appendingPathComponent("classes")
+            .appendingPathComponent(image)
+    }
+    
+    var imageURLString: String? {
+        imageURL?.absoluteString
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case image
+        case classOrder = "class_order"
+        case filterName = "filter_name"
+    }
+}
+
 // MARK: - User Profile Model
 struct UserProfile {
     var name: String
