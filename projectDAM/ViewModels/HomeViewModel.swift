@@ -71,23 +71,27 @@ final class HomeViewModel: ObservableObject {
     }
     
     /// Get continue learning courses (in progress)
+    /// Note: Progress tracking will be implemented with user-course relationship in future
     var continueLearningCourses: [Course] {
-        return courses.filter { ($0.progress ?? 0) > 0 && ($0.progress ?? 0) < 1.0 }
+        // For now, return all enrolled courses
+        // TODO: Implement progress tracking via backend API
+        return courses
     }
     
     // MARK: - Private Methods
     
     private func calculateStats() {
-        let completed = courses.filter { ($0.progress ?? 0) >= 1.0 }.count
+        // Note: Progress tracking needs to be implemented via backend API
+        // For now, using course count as enrolled courses
         let totalHours = courses.reduce(0.0) { $0 + $1.duration }
         
         userStats = ProfileStats(
-            coursesCompleted: completed,
-            coursesInProgress: courses.filter { ($0.progress ?? 0) > 0 && ($0.progress ?? 0) < 1.0 }.count,
+            coursesCompleted: 0, // TODO: Fetch from backend
+            coursesInProgress: courses.count, // All enrolled courses
             totalHours: Int(totalHours),
-            averageScore: 85, // Mock value
-            dayStreak: 7, // Mock value
-            classRank: "Top 10%" // Mock value
+            averageScore: 85, // TODO: Fetch from backend
+            dayStreak: 7, // TODO: Fetch from backend
+            classRank: "Top 10%" // TODO: Fetch from backend
         )
     }
 }

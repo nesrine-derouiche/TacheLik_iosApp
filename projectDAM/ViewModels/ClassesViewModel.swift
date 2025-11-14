@@ -36,6 +36,7 @@ final class ClassesViewModel: ObservableObject {
         let description: String
         let imageURLString: String?
         let sortOrder: Int
+        let classItem: ClassItem // Store original ClassItem for navigation
     }
     
     // MARK: - Published State
@@ -203,7 +204,8 @@ final class ClassesViewModel: ObservableObject {
             title: classItem.title,
             description: "Learn more about our \(classItem.title) class and discover how it can benefit you.",
             imageURLString: classItem.imageURLString,
-            sortOrder: sortValue(for: classItem)
+            sortOrder: sortValue(for: classItem),
+            classItem: classItem
         )
     }
 }

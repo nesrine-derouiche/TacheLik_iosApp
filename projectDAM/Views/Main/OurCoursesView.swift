@@ -1,162 +1,143 @@
+//
+//  OurCoursesView.swift
+//  projectDAM
+//
+//  Created on 11/14/2025.
+//
+
 import SwiftUI
-
-// MARK: - CourseDetail Model
-struct CourseDetail: Identifiable {
-    let id: String
-    let title: String
-    let description: String
-    let duration: Int // in minutes
-    let levelIndicator: Int // e.g., 5
-    let category: String
-    let icon: String
-    let gradientColors: [Color]
-}
-
-// MARK: - Temporary view section model
-/// Legacy structure used by OurCoursesView. Replace with real class detail data when lessons flow is updated.
-struct LegacyClassSection {
-    let name: String
-    let displayName: String
-    let color: Color
-}
 
 // MARK: - Our Courses View
 struct OurCoursesView: View {
-    let section: LegacyClassSection
-    let courses: [CourseDetail]
-    let className: String
+    // MARK: - Properties
+    let classItem: ClassItem
+    @StateObject private var viewModel: OurCoursesViewModel
+    @Environment(\.dismiss) private var dismiss
     
+    // MARK: - Initialization
+    init(classItem: ClassItem, courseService: CourseServiceProtocol) {
+        self.classItem = classItem
+        _viewModel = StateObject(wrappedValue: OurCoursesViewModel(courseService: courseService))
+    }
+    
+    // MARK: - Body
     var body: some View {
-        GeometryReader { geometry in
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(className)
-                                    .font(.system(size: 28, weight: .bold))
-                                Text("All \(className) Courses")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Text("\(courses.count)")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(section.color)
-                                .opacity(0.3)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                            
-                        // Section Info
-                        HStack(spacing: 12) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "book.fill")
-                                    .font(.system(size: 12, weight: .semibold))
-                                Text("\(courses.count) Courses")
-                                    .font(.system(size: 13, weight: .medium))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(section.color.opacity(0.1))
-                            .foregroundColor(section.color)
-                            .cornerRadius(8)
-                                
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-                    }
-                    .background(
-                        LinearGradient(
-                            colors: [section.color.opacity(0.08), section.color.opacity(0.02)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                        
-                    // Courses Grid
-                    VStack(spacing: 16) {
-                        ForEach(Array(courses.enumerated()), id: \.element.id) { index, course in
-                            let lesson = OurCoursesView.getLessonForCourse(course, in: section)
-                            if let lesson = lesson {
-                                NavigationLink(destination: LessonsView(lesson: lesson)) {
-                                    courseCardContent(course: course, sectionColor: section.color)
-                                }
-                            } else {
-                                courseCardContent(course: course, sectionColor: section.color)
-                            }
-                        }
-                    }
-                    .padding(20)
-                    .padding(.bottom, 20)
-                }
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+            
+            if viewModel.isLoading {
+                loadingView
+            } else if viewModel.showError {
+                errorView
+            } else if viewModel.hasNoCourses {
+                emptyStateView
+            } else {
+                coursesListView
             }
-            .background(Color(.systemGroupedBackground))
+        }
+        .navigationTitle(classItem.title)
+        .navigationBarTitleDisplayMode(.large)
+        .task {
+            await viewModel.fetchCourses(forClass: classItem.title)
+        }
+        .refreshable {
+            await viewModel.fetchCourses(forClass: classItem.title)
         }
     }
     
-    private func courseCardContent(course: CourseDetail, sectionColor: Color) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Course Header with Icon
-            HStack(spacing: 16) {
-                // Icon Background
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            LinearGradient(
-                                colors: course.gradientColors,
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    
-                    Image(systemName: course.icon)
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(.white)
+    // MARK: - View Components
+    
+    private var coursesListView: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                // Header Section
+                headerSection
+                
+                // Courses Grid
+                LazyVStack(spacing: 16) {
+                    ForEach(viewModel.courses) { course in
+                        courseCard(course)
+                    }
                 }
-                .frame(width: 90, height: 90)
-                .shadow(color: course.gradientColors.first?.opacity(0.3) ?? Color.black.opacity(0.1), radius: 12, x: 0, y: 6)
+                .padding(20)
+                .padding(.bottom, 20)
+            }
+        }
+    }
+    
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(classItem.title)
+                        .font(.system(size: 28, weight: .bold))
+                    Text("All \(classItem.title) Courses")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text("\(viewModel.courses.count)")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(classColor)
+                    .opacity(0.3)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            
+            // Section Info
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("\(viewModel.courses.count) Courses")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(classColor.opacity(0.1))
+                .foregroundColor(classColor)
+                .cornerRadius(8)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+        }
+        .background(
+            LinearGradient(
+                colors: [classColor.opacity(0.08), classColor.opacity(0.02)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+    }
+    
+    private func courseCard(_ course: Course) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Course Header with Image
+            HStack(spacing: 16) {
+                // Course Image
+                courseImageView(course)
                 
                 // Course Info
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(course.title)
+                    Text(course.name)
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
                     
-                    // Meta Info (Duration, Level, Category)
+                    // Meta Info
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 12) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "clock.fill")
-                                    .font(.system(size: 10, weight: .semibold))
-                                Text("\(course.duration) min")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 4) {
-                                Image(systemName: "chart.bar.fill")
-                                    .font(.system(size: 10, weight: .semibold))
-                                Text("Level \(course.levelIndicator)")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .foregroundColor(.secondary)
+                            metaInfoItem(icon: "clock.fill", text: "\(course.durationInMinutes) min")
+                            metaInfoItem(icon: "play.circle.fill", text: "\(course.nbVideos)")
                         }
                         
-                        // Category Tag
-                        Text(course.category)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(sectionColor)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(sectionColor.opacity(0.1))
-                            .cornerRadius(6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        // Level Badge
+                        levelBadge(course.level)
                     }
                 }
                 
@@ -168,229 +149,279 @@ struct OurCoursesView: View {
             }
             .padding(16)
             
-            // Divider
             Divider()
                 .padding(.horizontal, 16)
             
             // Description
-            VStack(alignment: .leading, spacing: 0) {
-                Text(course.description)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
+            Text(course.description)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(.secondary)
+                .lineLimit(3)
+                .padding(16)
+            
+            // Footer with instructor and price
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    Text(course.author.username)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if course.price > 0 {
+                    if course.courseReduction > 0 {
+                        HStack(spacing: 6) {
+                            Text("\(Int(course.price)) DT")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .strikethrough()
+                            Text("\(Int(course.price * (1 - Double(course.courseReduction) / 100))) DT")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(classColor)
+                        }
+                    } else {
+                        Text("\(Int(course.price)) DT")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(classColor)
+                    }
+                } else {
+                    Text("Free")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(6)
+                }
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+            
+            // Hot badge if applicable
+            if course.hot {
+                HStack {
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 10))
+                        Text("NEW")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.orange, Color.red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(8, corners: [.topLeft, .bottomRight])
+                }
+                .offset(y: -16)
+            }
         }
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
-}
-
-// MARK: - Sample Course Data
-extension OurCoursesView {
-    static func getCoursesForSection(_ section: LegacyClassSection) -> [CourseDetail] {
-        switch section.name {
-        case "1A":
-            return algorithmeCoursesData
-        case "2A":
-            return qtCoursesData
-        case "3A & 3B":
-            return tlaCoursesData
-        default:
-            return []
+    
+    private func courseImageView(_ course: Course) -> some View {
+        Group {
+            if let imageURL = course.imageURL {
+                AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 90, height: 90)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .shadow(color: classColor.opacity(0.3), radius: 12, x: 0, y: 6)
+                    case .empty:
+                        placeholderImage
+                    case .failure:
+                        placeholderImage
+                    @unknown default:
+                        placeholderImage
+                    }
+                }
+            } else {
+                placeholderImage
+            }
         }
     }
     
-    static func getLessonForCourse(_ course: CourseDetail, in section: LegacyClassSection) -> Lesson? {
-        switch course.id {
-        // 1A - Algorithme Lessons
-        case "algo-1":
-            return Lesson.algorithmeConditionsLesson
-        case "algo-2":
-            return Lesson.algorithmeStructuresLesson
-        case "algo-3":
-            return Lesson.algorithmeTableauxLesson
-        case "algo-4":
-            return Lesson.algorithmTriLesson
-        case "algo-5":
-            return Lesson.algorithmeStringLesson
-        case "algo-6":
-            return Lesson.algorithmeRevisionLesson
+    private var placeholderImage: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: gradientColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
             
-        // 2A - Qt Lessons
-        case "qt-1":
-            return Lesson.qtIntroductionLesson
-        case "qt-2":
-            return Lesson.qtSignalsLesson
-        case "qt-3":
-            return Lesson.qtWidgetsLesson
-        case "qt-4":
-            return Lesson.qtDatabaseLesson
+            Image(systemName: "book.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .frame(width: 90, height: 90)
+        .shadow(color: gradientColors.first?.opacity(0.3) ?? Color.black.opacity(0.1), radius: 12, x: 0, y: 6)
+    }
+    
+    private func metaInfoItem(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundColor(.secondary)
+    }
+    
+    private func levelBadge(_ level: Course.CourseLevel) -> some View {
+        Text(level.rawValue)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(classColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(classColor.opacity(0.1))
+            .cornerRadius(6)
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
+            Text("Loading courses...")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private var errorView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
             
-        // 3A & 3B - TLA Lessons
-        case "tla-1":
-            return Lesson.tlaIntroductionLesson
-        case "tla-2":
-            return Lesson.tlaaAutomatesLesson
-        case "tla-3":
-            return Lesson.tlaVerificationLesson
-        case "tla-4":
-            return Lesson.tlaApplicationsLesson
+            Text("Oops!")
+                .font(.system(size: 24, weight: .bold))
             
+            Text(viewModel.errorMessage ?? "Something went wrong")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            Button {
+                Task {
+                    await viewModel.retry(forClass: classItem.title)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Retry")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 12)
+                .background(classColor)
+                .cornerRadius(12)
+            }
+        }
+        .padding(40)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            
+            Text("No Courses Yet")
+                .font(.system(size: 24, weight: .bold))
+            
+            Text("There are no courses available for \(classItem.title) at the moment.")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+        .padding(40)
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var classColor: Color {
+        // Determine color based on filter name
+        switch classItem.filterName.uppercased() {
+        case "1A":
+            return Color(red: 0.2, green: 0.75, blue: 0.95)
+        case "2A":
+            return Color(red: 0.8, green: 0.4, blue: 1.0)
+        case "3A", "3B":
+            return Color(red: 1.0, green: 0.6, blue: 0.2)
         default:
-            return nil
+            return Color.blue
+        }
+    }
+    
+    private var gradientColors: [Color] {
+        switch classItem.filterName.uppercased() {
+        case "1A":
+            return [Color(red: 0.3, green: 0.8, blue: 1.0), Color(red: 0.0, green: 0.6, blue: 0.9)]
+        case "2A":
+            return [Color(red: 0.8, green: 0.4, blue: 1.0), Color(red: 0.7, green: 0.2, blue: 0.9)]
+        case "3A", "3B":
+            return [Color(red: 1.0, green: 0.6, blue: 0.2), Color(red: 0.95, green: 0.5, blue: 0.0)]
+        default:
+            return [Color.blue, Color.blue.opacity(0.7)]
         }
     }
 }
 
-// MARK: - Course Data for Each Section
+// MARK: - Corner Radius Extension
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
 
-let algorithmeCoursesData = [
-    CourseDetail(
-        id: "algo-1",
-        title: "Algorithmes & Conditions",
-        description: "Découvrez vos premiers pas en algorithmique à travers l'introduction, les conditions (if, else, switch) et des exercices pratiques. Idéal pour débuter et renforcer sa logique.",
-        duration: 39,
-        levelIndicator: 5,
-        category: "Introduction",
-        icon: "flowchart.fill",
-        gradientColors: [Color(red: 0.3, green: 0.8, blue: 1.0), Color(red: 0.0, green: 0.6, blue: 0.9)]
-    ),
-    CourseDetail(
-        id: "algo-2",
-        title: "Structures Répétitives en Algorithmes",
-        description: "Découvrez comment utiliser les boucles en algorithmique pour automatiser les calculs et résoudre efficacement des problèmes.",
-        duration: 34,
-        levelIndicator: 4,
-        category: "Introduction",
-        icon: "repeat.circle.fill",
-        gradientColors: [Color(red: 0.0, green: 0.7, blue: 0.9), Color(red: 0.1, green: 0.5, blue: 0.8)]
-    ),
-    CourseDetail(
-        id: "algo-3",
-        title: "Tableaux et Matrices en Algorithmique",
-        description: "Apprenez la manipulation des tableaux et matrices en algorithmique pas à pas.",
-        duration: 64,
-        levelIndicator: 8,
-        category: "Introduction",
-        icon: "square.grid.2x2.fill",
-        gradientColors: [Color(red: 0.2, green: 0.75, blue: 0.95), Color(red: 0.0, green: 0.55, blue: 0.85)]
-    ),
-    CourseDetail(
-        id: "algo-4",
-        title: "Tri et Recherche en Algorithmes",
-        description: "Découvrez les méthodes de tri et recherche en algorithmique, leurs principes et implémentations.",
-        duration: 26,
-        levelIndicator: 5,
-        category: "Introduction",
-        icon: "magnifyingglass.circle.fill",
-        gradientColors: [Color(red: 0.1, green: 0.8, blue: 0.92), Color(red: 0.05, green: 0.65, blue: 0.88)]
-    ),
-    CourseDetail(
-        id: "algo-5",
-        title: "Chaînes de Caractères en Algorithmes",
-        description: "Manipulez les chaînes de caractères - lecture, parcours et traitement textuel en algorithmique.",
-        duration: 21,
-        levelIndicator: 4,
-        category: "Introduction",
-        icon: "character.textbox",
-        gradientColors: [Color(red: 0.25, green: 0.78, blue: 0.98), Color(red: 0.05, green: 0.60, blue: 0.90)]
-    ),
-    CourseDetail(
-        id: "algo-6",
-        title: "Révision du DS - Algorithme",
-        description: "Révisez tous les algorithmes sur tache-lik.tn - préparez-vous efficacement !",
-        duration: 61,
-        levelIndicator: 3,
-        category: "Foundation",
-        icon: "book.circle.fill",
-        gradientColors: [Color(red: 0.15, green: 0.72, blue: 0.95), Color(red: 0.0, green: 0.50, blue: 0.80)]
-    )
-]
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
+    }
+}
 
-let qtCoursesData = [
-    CourseDetail(
-        id: "qt-1",
-        title: "Introduction to Qt Framework",
-        description: "Learn the basics of Qt framework for building cross-platform graphical applications with C++.",
-        duration: 45,
-        levelIndicator: 5,
-        category: "Foundation",
-        icon: "square.and.pencil",
-        gradientColors: [Color(red: 0.8, green: 0.4, blue: 1.0), Color(red: 0.7, green: 0.2, blue: 0.9)]
-    ),
-    CourseDetail(
-        id: "qt-2",
-        title: "Qt Signals and Slots",
-        description: "Master the signal and slot mechanism - the heart of Qt programming.",
-        duration: 38,
-        levelIndicator: 6,
-        category: "Intermediate",
-        icon: "bolt.circle.fill",
-        gradientColors: [Color(red: 0.75, green: 0.3, blue: 0.95), Color(red: 0.65, green: 0.1, blue: 0.85)]
-    ),
-    CourseDetail(
-        id: "qt-3",
-        title: "Qt Widget Design",
-        description: "Design beautiful and responsive user interfaces using Qt Widgets.",
-        duration: 52,
-        levelIndicator: 7,
-        category: "Intermediate",
-        icon: "rect.3.offscreen.bubble",
-        gradientColors: [Color(red: 0.85, green: 0.5, blue: 1.0), Color(red: 0.75, green: 0.3, blue: 0.92)]
-    ),
-    CourseDetail(
-        id: "qt-4",
-        title: "Qt Database Programming",
-        description: "Connect your Qt applications to databases and manage data efficiently.",
-        duration: 48,
-        levelIndicator: 8,
-        category: "Advanced",
-        icon: "cylinder.split.1x2.fill",
-        gradientColors: [Color(red: 0.78, green: 0.35, blue: 0.98), Color(red: 0.68, green: 0.15, blue: 0.88)]
-    )
-]
-
-let tlaCoursesData = [
-    CourseDetail(
-        id: "tla-1",
-        title: "Introduction à TLA+",
-        description: "Découvrez les fondamentaux de la spécification formelle avec TLA+.",
-        duration: 42,
-        levelIndicator: 6,
-        category: "Foundation",
-        icon: "function",
-        gradientColors: [Color(red: 1.0, green: 0.6, blue: 0.2), Color(red: 0.95, green: 0.5, blue: 0.0)]
-    ),
-    CourseDetail(
-        id: "tla-2",
-        title: "Automates et Transitions",
-        description: "Comprenez la théorie des automates et les transitions d'état en TLA+.",
-        duration: 55,
-        levelIndicator: 7,
-        category: "Intermediate",
-        icon: "arrow.triangle.2.circlepath",
-        gradientColors: [Color(red: 1.0, green: 0.65, blue: 0.3), Color(red: 0.98, green: 0.55, blue: 0.1)]
-    ),
-    CourseDetail(
-        id: "tla-3",
-        title: "Vérification Formelle",
-        description: "Apprenez les techniques de vérification formelle pour assurer la correction des algorithmes.",
-        duration: 67,
-        levelIndicator: 8,
-        category: "Advanced",
-        icon: "checkmark.circle.fill",
-        gradientColors: [Color(red: 1.0, green: 0.58, blue: 0.1), Color(red: 0.92, green: 0.45, blue: 0.0)]
-    ),
-    CourseDetail(
-        id: "tla-4",
-        title: "Applications Pratiques",
-        description: "Appliquez TLA+ à des problèmes réels et complexes de concurrence.",
-        duration: 59,
-        levelIndicator: 9,
-        category: "Advanced",
-        icon: "star.circle.fill",
-        gradientColors: [Color(red: 1.0, green: 0.62, blue: 0.2), Color(red: 0.96, green: 0.50, blue: 0.05)]
-    )
-]
+// MARK: - Preview
+#if DEBUG
+struct OurCoursesView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            OurCoursesView(
+                classItem: ClassItem(
+                    id: "class-1",
+                    title: "Algorithme",
+                    image: nil,
+                    classOrder: "1-1",
+                    filterName: "1A"
+                ),
+                courseService: MockCourseService()
+            )
+        }
+    }
+}
+#endif

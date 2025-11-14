@@ -236,7 +236,10 @@ struct AllSectionsView: View {
                     
                     VStack(spacing: 12) {
                         ForEach(section.classes.prefix(2)) { classCard in
-                            NavigationLink(destination: ClassDetailPlaceholder(classCard: classCard, sectionColor: section.color)) {
+                            NavigationLink(destination: OurCoursesView(
+                                classItem: classCard.classItem,
+                                courseService: DIContainer.shared.courseService
+                            )) {
                                 ClassCardView(classCard: classCard, sectionColor: section.color)
                                     .padding(.horizontal, 20)
                             }
@@ -296,32 +299,15 @@ struct SectionClassesView: View {
             .padding(.bottom, 8)
             
             ForEach(section.classes) { classCard in
-                NavigationLink(destination: ClassDetailPlaceholder(classCard: classCard, sectionColor: section.color)) {
+                NavigationLink(destination: OurCoursesView(
+                    classItem: classCard.classItem,
+                    courseService: DIContainer.shared.courseService
+                )) {
                     ClassCardView(classCard: classCard, sectionColor: section.color)
                         .padding(.horizontal, 20)
                 }
             }
         }
-    }
-}
-
-// MARK: - Class Detail Placeholder
-struct ClassDetailPlaceholder: View {
-    let classCard: ClassesViewModel.ClassCard
-    let sectionColor: Color
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                ClassCardView(classCard: classCard, sectionColor: sectionColor)
-                Text(classCard.description)
-                    .font(.system(size: 15))
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-        }
-        .navigationTitle(classCard.title)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

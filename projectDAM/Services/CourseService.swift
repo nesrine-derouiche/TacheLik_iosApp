@@ -12,6 +12,7 @@ import Combine
 protocol CourseServiceProtocol {
     func fetchCourses() async throws -> [Course]
     func fetchCourse(id: String) async throws -> Course
+    func fetchCoursesByClass(classTitle: String) async throws -> [Course]
     func enrollCourse(courseId: String) async throws
     func updateProgress(courseId: String, progress: Double) async throws
     func fetchUserCourses() async throws -> [Course]
@@ -36,24 +37,54 @@ final class CourseService: CourseServiceProtocol {
     
     /// Fetch all available courses
     func fetchCourses() async throws -> [Course] {
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting all approved courses at GET /course/approved")
+        }
         let response: CoursesResponse = try await networkService.request(
-            endpoint: "/courses",
+            endpoint: "/course/approved",
             method: .GET,
             body: nil,
-            headers: getAuthHeaders()
+            headers: nil
         )
+        if AppConfig.enableLogging {
+            print("✅ [CourseService] Received \(response.courses.count) courses")
+        }
         return response.courses
     }
     
     /// Fetch single course by ID
     func fetchCourse(id: String) async throws -> Course {
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting course \(id) at GET /course/id?courseId=\(id)")
+        }
         let response: CourseResponse = try await networkService.request(
-            endpoint: "/courses/\(id)",
+            endpoint: "/course/id?courseId=\(id)",
             method: .GET,
             body: nil,
-            headers: getAuthHeaders()
+            headers: nil
         )
+        if AppConfig.enableLogging {
+            print("✅ [CourseService] Received course: \(response.course.name)")
+        }
         return response.course
+    }
+    
+    /// Fetch courses by class title
+    func fetchCoursesByClass(classTitle: String) async throws -> [Course] {
+        let encodedTitle = classTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? classTitle
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting courses for class '\(classTitle)' at GET /course/class-name?className=\(encodedTitle)")
+        }
+        let response: CoursesResponse = try await networkService.request(
+            endpoint: "/course/class-name?className=\(encodedTitle)",
+            method: .GET,
+            body: nil,
+            headers: nil
+        )
+        if AppConfig.enableLogging {
+            print("✅ [CourseService] Received \(response.courses.count) courses for class '\(classTitle)'")
+        }
+        return response.courses
     }
     
     /// Enroll in a course
@@ -141,14 +172,17 @@ final class CourseService: CourseServiceProtocol {
 // MARK: - Request/Response Models
 private struct CoursesResponse: Decodable {
     let courses: [Course]
+    let success: Bool
 }
 
 private struct CourseResponse: Decodable {
     let course: Course
+    let success: Bool
 }
 
 private struct ClassesResponse: Decodable {
     let classes: [ClassItem]
+    let success: Bool
 }
 
 private struct EnrollRequest: Encodable {
@@ -167,12 +201,17 @@ final class MockCourseService: CourseServiceProtocol {
     
     func fetchCourses() async throws -> [Course] {
         try await Task.sleep(nanoseconds: 500_000_000)
-        return Course.sampleCourses
+        return []
     }
     
     func fetchCourse(id: String) async throws -> Course {
         try await Task.sleep(nanoseconds: 500_000_000)
-        return Course.sampleCourses.first { $0.id == id } ?? Course.sampleCourses[0]
+        throw NSError(domain: "MockCourseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Course not found"])
+    }
+    
+    func fetchCoursesByClass(classTitle: String) async throws -> [Course] {
+        try await Task.sleep(nanoseconds: 500_000_000)
+        return []
     }
     
     func enrollCourse(courseId: String) async throws {
@@ -185,7 +224,7 @@ final class MockCourseService: CourseServiceProtocol {
     
     func fetchUserCourses() async throws -> [Course] {
         try await Task.sleep(nanoseconds: 500_000_000)
-        return Array(Course.sampleCourses.prefix(3))
+        return []
     }
     
     func fetchClasses() async throws -> [ClassItem] {

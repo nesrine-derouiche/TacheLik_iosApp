@@ -114,24 +114,169 @@ private struct ImageBuffer: Decodable {
 }
 
 // MARK: - Course Model
-struct Course: Identifiable, Codable {
+struct Course: Identifiable, Codable, Equatable {
     let id: String
-    let title: String
-    let instructor: String
+    let name: String
     let image: String
-    let category: String
+    let description: String
+    let time: Double // in hours
+    let nbVideos: Int
+    let nbQuizzes: Int
+    let price: Double
     let level: CourseLevel
-    let rating: Double?
-    let progress: Double?
-    let duration: Double // in hours
-    let totalLessons: Int
-    let completedLessons: Int
-    let lastAccessDate: Date?
+    let previewVideoId: String?
+    let author: CourseAuthor
+    let classItem: CourseClass
+    let courseOrder: String
+    let courseReduction: Int
+    let hot: Bool
+    let approvalStatus: String
+    let folderId: String?
+    
+    // Computed properties for display
+    var title: String { name }
+    var instructor: String { author.username }
+    var category: String { level.rawValue }
+    var duration: Double { time }
+    var totalLessons: Int { nbVideos + nbQuizzes }
+    var durationInMinutes: Int { Int(time * 60) }
+    
+    // Image URL construction
+    var imageURL: URL? {
+        guard !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let baseURL = URL(string: AppConfig.baseURL) else {
+            return nil
+        }
+        // Remove /api from baseURL and construct uploads path
+        let uploadsBase = baseURL.deletingLastPathComponent()
+        return uploadsBase
+            .appendingPathComponent("uploads")
+            .appendingPathComponent("courses")
+            .appendingPathComponent(image)
+    }
+    
+    var imageURLString: String? {
+        imageURL?.absoluteString
+    }
     
     enum CourseLevel: String, Codable {
-        case beginner = "Beginner"
-        case intermediate = "Intermediate"
-        case advanced = "Advanced"
+        case introduction = "Introduction"
+        case foundation = "Foundation"
+        case mastery = "Mastery"
+        
+        // Legacy mapping
+        var displayName: String {
+            switch self {
+            case .introduction: return "Beginner"
+            case .foundation: return "Intermediate"
+            case .mastery: return "Advanced"
+            }
+        }
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, image, description, time, price, level, hot
+        case nbVideos = "nb_videos"
+        case nbQuizzes = "nb_quizzes"
+        case previewVideoId = "preview_video_id"
+        case author
+        case classItem = "class"
+        case courseOrder = "course_order"
+        case courseReduction = "course_reduction"
+        case approvalStatus = "approval_status"
+        case folderId = "folder_id"
+    }
+}
+
+// MARK: - Course Author Model
+struct CourseAuthor: Codable, Equatable {
+    let id: String
+    let username: String
+    let email: String
+    let role: String
+    let image: String?
+    
+    var imageURL: URL? {
+        guard let image,
+              !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !image.hasPrefix("data:"),
+              let baseURL = URL(string: AppConfig.baseURL) else {
+            return nil
+        }
+        let uploadsBase = baseURL.deletingLastPathComponent()
+        return uploadsBase
+            .appendingPathComponent("uploads")
+            .appendingPathComponent("users")
+            .appendingPathComponent(image)
+    }
+}
+
+// MARK: - Course Class Model
+struct CourseClass: Codable, Equatable {
+    let id: String
+    let title: String
+    let image: String?
+    let classOrder: String
+    let filterName: String
+    
+    var imageURL: URL? {
+        guard let image,
+              !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let baseURL = URL(string: AppConfig.baseURL) else {
+            return nil
+        }
+        let uploadsBase = baseURL.deletingLastPathComponent()
+        return uploadsBase
+            .appendingPathComponent("uploads")
+            .appendingPathComponent("classes")
+            .appendingPathComponent(image)
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, image
+        case classOrder = "class_order"
+        case filterName = "filter_name"
+    }
+    
+    init(id: String, title: String, image: String?, classOrder: String, filterName: String) {
+        self.id = id
+        self.title = title
+        self.image = image
+        self.classOrder = classOrder
+        self.filterName = filterName
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        image = try container.decodeIfPresent(String.self, forKey: .image)
+        classOrder = try container.decode(String.self, forKey: .classOrder)
+        
+        if let filterNameString = try? container.decode(String.self, forKey: .filterName) {
+            filterName = filterNameString
+        } else if let category = try? container.decode(CategoryReference.self, forKey: .filterName) {
+            filterName = category.filterName
+        } else {
+            filterName = "Unknown"
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(image, forKey: .image)
+        try container.encode(classOrder, forKey: .classOrder)
+        try container.encode(filterName, forKey: .filterName)
+    }
+    
+    private struct CategoryReference: Decodable {
+        let filterName: String
+        
+        enum CodingKeys: String, CodingKey {
+            case filterName = "filter_name"
+        }
     }
 }
 
@@ -201,95 +346,6 @@ struct UserStats {
 }
 
 
-// MARK: - Demo Data
-extension Course {
-    static let sampleCourses = [
-        Course(
-            id: "1",
-            title: "Advanced Web Development",
-            instructor: "Dr. Sami Rezgui",
-            image: "webdev",
-            category: "Programming",
-            level: .advanced,
-            rating: 4.8,
-            progress: 0.65,
-            duration: 24.5,
-            totalLessons: 20,
-            completedLessons: 13,
-            lastAccessDate: Date()
-        ),
-        Course(
-            id: "2",
-            title: "Data Structures & Algorithms",
-            instructor: "Prof. Leila Ben Amor",
-            image: "datastructures",
-            category: "Programming",
-            level: .intermediate,
-            rating: 4.7,
-            progress: 0.42,
-            duration: 18.0,
-            totalLessons: 15,
-            completedLessons: 7,
-            lastAccessDate: Date()
-        ),
-        Course(
-            id: "3",
-            title: "Cloud Computing Essentials",
-            instructor: "Dr. Hichem Ben Said",
-            image: "cloud",
-            category: "Cloud",
-            level: .beginner,
-            rating: 4.6,
-            progress: 0.0,
-            duration: 12.0,
-            totalLessons: 10,
-            completedLessons: 0,
-            lastAccessDate: nil
-        ),
-        Course(
-            id: "4",
-            title: "Cybersecurity Basics",
-            instructor: "Dr. Mohamed Trabelsi",
-            image: "security",
-            category: "Security",
-            level: .beginner,
-            rating: 4.9,
-            progress: 0.0,
-            duration: 15.0,
-            totalLessons: 12,
-            completedLessons: 0,
-            lastAccessDate: nil
-        ),
-        Course(
-            id: "5",
-            title: "Machine Learning Fundamentals",
-            instructor: "Dr. Sarah Smith",
-            image: "ml",
-            category: "AI",
-            level: .intermediate,
-            rating: 4.8,
-            progress: 0.25,
-            duration: 32.0,
-            totalLessons: 25,
-            completedLessons: 6,
-            lastAccessDate: Date()
-        ),
-        Course(
-            id: "6",
-            title: "Mobile App Development",
-            instructor: "Prof. John Doe",
-            image: "mobile",
-            category: "Programming",
-            level: .intermediate,
-            rating: 4.7,
-            progress: 0.0,
-            duration: 28.0,
-            totalLessons: 22,
-            completedLessons: 0,
-            lastAccessDate: nil
-        )
-    ]
-}
 
 extension UserProfile {
     static let demo = UserProfile(

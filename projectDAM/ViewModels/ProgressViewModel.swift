@@ -50,32 +50,39 @@ final class ProgressViewModel: ObservableObject {
     }
     
     /// Get courses in progress
+    /// Note: Progress tracking will be implemented with user-course relationship in future
     var coursesInProgress: [Course] {
-        return courses.filter { ($0.progress ?? 0) > 0 && ($0.progress ?? 0) < 1.0 }
+        // TODO: Implement progress tracking via backend API
+        return courses
     }
     
     /// Get completed courses
+    /// Note: Progress tracking will be implemented with user-course relationship in future
     var completedCourses: [Course] {
-        return courses.filter { ($0.progress ?? 0) >= 1.0 }
+        // TODO: Implement progress tracking via backend API
+        return []
     }
     
     /// Calculate overall progress percentage
+    /// Note: Progress tracking will be implemented with user-course relationship in future
     var overallProgress: Double {
-        guard !courses.isEmpty else { return 0 }
-        let totalProgress = courses.reduce(0.0) { $0 + ($1.progress ?? 0) }
-        return totalProgress / Double(courses.count)
+        // TODO: Implement progress tracking via backend API
+        return 0.0
     }
     
     // MARK: - Private Methods
     
     private func calculateStats() {
+        // Note: Progress tracking needs to be implemented via backend API
         let completed = completedCourses.count
-        let totalHours = courses.reduce(0.0) { $0 + ($1.duration * ($1.progress ?? 0)) }
+        let totalHours = courses.reduce(into: 0.0) { result, course in
+            result += course.duration
+        }
         
         userStats = UserStats(
             coursesCompleted: completed,
             totalHours: Int(totalHours),
-            currentStreak: 7 // Mock value
+            currentStreak: 7 // TODO: Fetch from backend
         )
     }
 }
