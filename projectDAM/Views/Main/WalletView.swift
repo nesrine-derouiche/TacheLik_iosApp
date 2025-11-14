@@ -4,8 +4,11 @@ struct WalletView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     @StateObject private var walletViewModel = DIContainer.shared.makeWalletViewModel()
     @State private var friendInviteCode: String = ""
-    @State private var showReferralSheet: Bool = false
+    @State private var showReferralSheet = false
     @State private var showAllTransactions = false
+    @State private var showD17Sheet = false
+    @State private var showCashSheet = false
+    @State private var showGiftCardSheet = false
     private let transactionDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -192,6 +195,15 @@ struct ReferralDetailSheet: View {
                 invitedByCode: invitedByCode
             )
         }
+        .sheet(isPresented: $showD17Sheet) {
+            D17PaymentSheet()
+        }
+        .sheet(isPresented: $showCashSheet) {
+            CashPaymentSheet()
+        }
+        .sheet(isPresented: $showGiftCardSheet) {
+            GiftCardSheet()
+        }
         .task(id: currentUserId) {
             guard let userId = currentUserId else { return }
             await walletViewModel.loadInitialTransactions(for: userId)
@@ -268,9 +280,15 @@ struct ReferralDetailSheet: View {
                 .font(.headline)
             
             HStack(spacing: 12) {
-                rechargeMethodCard(image: "D17", title: "D17")
-                rechargeMethodCard(image: "cash_payment", title: "cash_payment")
-                rechargeMethodCard(image: "gift_card", title: "gift_card")
+                Button { showD17Sheet = true } label: {
+                    rechargeMethodCard(image: "D17", title: "D17")
+                }
+                Button { showCashSheet = true } label: {
+                    rechargeMethodCard(image: "cash_payment", title: "Cash Payment")
+                }
+                Button { showGiftCardSheet = true } label: {
+                    rechargeMethodCard(image: "gift_card", title: "Gift Card")
+                }
             }
         }
     }
@@ -538,6 +556,302 @@ struct ReferralDetailSheet: View {
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
+        }
+    }
+}
+
+// MARK: - Payment Method Sheets
+struct D17PaymentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedAccount = "93 213 636"
+    @State private var amount = ""
+    @State private var authNumber = ""
+    @State private var senderPhone = ""
+    @State private var showImagePicker = false
+    
+    private let d17Accounts = ["93 213 636", "26 396 236"]
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image("D17")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                            Text("D17 Payment")
+                                .font(.title2.weight(.bold))
+                            Spacer()
+                        }
+                        Text("Send money to one of these numbers:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Account Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(d17Accounts, id: \.self) { account in
+                            Button {
+                                selectedAccount = account
+                            } label: {
+                                HStack {
+                                    Text(account)
+                                        .font(.title3.weight(.medium))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    if selectedAccount == account {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.brandPrimary)
+                                    }
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedAccount == account ? Color.brandPrimary : Color(.systemGray4), lineWidth: 2)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Form Fields
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Amount
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Amount")
+                                .font(.headline)
+                            TextField("Enter amount", text: $amount)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            Text("0/4 digits")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Authorization Number
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Authorization number")
+                                .font(.headline)
+                            HStack {
+                                TextField("Enter authorization number", text: $authNumber)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                Button {
+                                    showImagePicker = true
+                                } label: {
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.white)
+                                        .frame(width: 44, height: 44)
+                                        .background(Color.brandPrimary)
+                                        .cornerRadius(8)
+                                }
+                            }
+                        }
+                        
+                        // Sender's Phone
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Sender's phone")
+                                .font(.headline)
+                            TextField("Enter phone number", text: $senderPhone)
+                                .keyboardType(.phonePad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            Text("0/8 digits")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Submit Button
+                    Button {
+                        // Handle submission
+                        dismiss()
+                    } label: {
+                        Text("Submit")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.brandPrimary)
+                            .cornerRadius(12)
+                    }
+                    .disabled(amount.isEmpty || authNumber.isEmpty || senderPhone.isEmpty)
+                }
+                .padding()
+            }
+            .navigationTitle("D17 Payment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct CashPaymentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var cashAmount = ""
+    @State private var senderPhone = ""
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image("cash_payment")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                            Text("Cash Payment")
+                                .font(.title2.weight(.bold))
+                            Spacer()
+                        }
+                        Text("Submit your cash payment details")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Form Fields
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Cash Amount
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Cash Amount")
+                                .font(.headline)
+                            TextField("Enter amount", text: $cashAmount)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            Text("0/4 digits")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Sender's Phone
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Sender's phone")
+                                .font(.headline)
+                            TextField("Enter phone number", text: $senderPhone)
+                                .keyboardType(.phonePad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            Text("0/8 digits")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Submit Button
+                    Button {
+                        // Handle submission
+                        dismiss()
+                    } label: {
+                        Text("Submit")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.brandPrimary)
+                            .cornerRadius(12)
+                    }
+                    .disabled(cashAmount.isEmpty || senderPhone.isEmpty)
+                }
+                .padding()
+            }
+            .navigationTitle("Cash Payment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct GiftCardSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var giftCardCode = ["", "", "", ""]
+    @FocusState private var focusedField: Int?
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image("gift_card")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                            Text("Gift Card")
+                                .font(.title2.weight(.bold))
+                            Spacer()
+                        }
+                        Text("Enter your gift card code")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Gift Card Code Input
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Gift Card Code")
+                            .font(.headline)
+                        
+                        HStack(spacing: 12) {
+                            ForEach(0..<4, id: \.self) { index in
+                                TextField("", text: $giftCardCode[index])
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .multilineTextAlignment(.center)
+                                    .font(.title2.weight(.medium))
+                                    .frame(height: 60)
+                                    .focused($focusedField, equals: index)
+                                    .onChange(of: giftCardCode[index]) { newValue in
+                                        if newValue.count > 4 {
+                                            giftCardCode[index] = String(newValue.prefix(4))
+                                        }
+                                        if newValue.count == 4 && index < 3 {
+                                            focusedField = index + 1
+                                        }
+                                    }
+                            }
+                        }
+                        
+                        Text("0/16 characters")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Redeem Button
+                    Button {
+                        // Handle redemption
+                        dismiss()
+                    } label: {
+                        Text("Redeem")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.brandPrimary)
+                            .cornerRadius(12)
+                    }
+                    .disabled(giftCardCode.allSatisfy { $0.count == 4 } == false)
+                }
+                .padding()
+            }
+            .navigationTitle("Gift Card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .onAppear {
+            focusedField = 0
         }
     }
 }
