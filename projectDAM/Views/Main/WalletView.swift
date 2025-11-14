@@ -26,6 +26,7 @@ struct ReferralDetailSheet: View {
     let inviteLink: String
     let isAlreadyInvited: Bool
     let invitedByCode: String?
+    let invitationStats: InvitationStats?
     
     var body: some View {
         NavigationView {
@@ -63,17 +64,7 @@ struct ReferralDetailSheet: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Your Invite Link")
                             .font(.subheadline.weight(.semibold))
-                        HStack {
-                            Text(inviteLink)
-                                .font(.callout)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.brandPrimary)
-                        }
-                        .padding(14)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+                        InviteLinkRow(inviteLink: inviteLink)
                     }
                     .padding(20)
                     .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
@@ -92,7 +83,7 @@ struct ReferralDetailSheet: View {
                     }
                     .padding(.top, 4)
                     
-                    Text("Earn 2 points for every friend who makes a purchase!")
+                    Text("Earn \(invitationStats?.pointPerPurchase ?? 2) points for every friend who makes a purchase!")
                         .font(.footnote.weight(.semibold))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -115,10 +106,10 @@ struct ReferralDetailSheet: View {
     
     private var referralStatsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-            referralStatCard(title: "Friends Joined", value: "0")
-            referralStatCard(title: "Active Friends", value: "0")
-            referralStatCard(title: "Points Earned", value: "0")
-            referralStatCard(title: "Points per Join", value: "1")
+            referralStatCard(title: "Friends Joined", value: "\(invitationStats?.totalInvitations ?? 0)")
+            referralStatCard(title: "Active Friends", value: "\(invitationStats?.activeInvitations ?? 0)")
+            referralStatCard(title: "Points Earned", value: "\(invitationStats?.totalPoints ?? 0)")
+            referralStatCard(title: "Points per Join", value: "\(invitationStats?.pointPerInvitation ?? 1)")
         }
         .padding(20)
         .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
@@ -192,7 +183,8 @@ struct ReferralDetailSheet: View {
                 friendInviteCode: $friendInviteCode,
                 inviteLink: currentUser?.inviteLink ?? "No link available",
                 isAlreadyInvited: hasExistingInvite,
-                invitedByCode: invitedByCode
+                invitedByCode: invitedByCode,
+                invitationStats: walletViewModel.invitationStats
             )
         }
         .sheet(isPresented: $showD17Sheet) {
@@ -207,6 +199,7 @@ struct ReferralDetailSheet: View {
         .task(id: currentUserId) {
             guard let userId = currentUserId else { return }
             await walletViewModel.loadInitialTransactions(for: userId)
+            await walletViewModel.loadInvitationStats(for: userId)
         }
     }
     
@@ -254,24 +247,7 @@ struct ReferralDetailSheet: View {
     }
     
     private func accountRow(title: String, value: String) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(value)
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-                    .textSelection(.enabled)
-            }
-            Spacer()
-            Button {
-                UIPasteboard.general.string = value
-            } label: {
-                Image(systemName: "doc.on.doc")
-                    .foregroundColor(.brandPrimary)
-            }
-        }
+        AccountRowView(title: title, value: value)
     }
     
     private var rechargeSection: some View {
@@ -1035,6 +1011,75 @@ struct ImagePicker: UIViewControllerRepresentable {
         
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
+        }
+    }
+}
+
+struct AccountRowView: View {
+    let title: String
+    let value: String
+    @State private var isCopied = false
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(value)
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button {
+                UIPasteboard.general.string = value
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isCopied = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isCopied = false
+                    }
+                }
+            } label: {
+                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                    .foregroundColor(isCopied ? .green : .brandPrimary)
+                    .scaleEffect(isCopied ? 1.2 : 1.0)
+            }
+        }
+    }
+}
+
+struct InviteLinkRow: View {
+    let inviteLink: String
+    @State private var isCopied = false
+    
+    var body: some View {
+        Button {
+            UIPasteboard.general.string = inviteLink
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isCopied = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isCopied = false
+                }
+            }
+        } label: {
+            HStack {
+                Text(inviteLink)
+                    .font(.callout)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundColor(.primary)
+                Spacer()
+                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                    .foregroundColor(isCopied ? .green : .brandPrimary)
+                    .scaleEffect(isCopied ? 1.2 : 1.0)
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
         }
     }
 }

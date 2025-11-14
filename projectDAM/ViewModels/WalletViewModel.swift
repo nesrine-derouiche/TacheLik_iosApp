@@ -9,14 +9,21 @@ final class WalletViewModel: ObservableObject {
     @Published private(set) var hasMorePages: Bool = false
     @Published var errorMessage: String?
     
+    // Invitation stats
+    @Published private(set) var invitationStats: InvitationStats?
+    @Published private(set) var isLoadingInvitations: Bool = false
+    @Published var invitationErrorMessage: String?
+    
     private let transactionService: TransactionServiceProtocol
+    private let invitationService: InvitationServiceProtocol
     private var currentUserId: String?
     private var currentStartIndex: Int = 0
     private var totalPages: Int = 1
     private let serverPageSize: Int = 5
     
-    init(transactionService: TransactionServiceProtocol) {
+    init(transactionService: TransactionServiceProtocol, invitationService: InvitationServiceProtocol) {
         self.transactionService = transactionService
+        self.invitationService = invitationService
     }
     
     func loadInitialTransactions(for userId: String) async {
@@ -45,6 +52,25 @@ final class WalletViewModel: ObservableObject {
     
     func hasLoadedTransactions(for userId: String) -> Bool {
         currentUserId == userId && !transactions.isEmpty
+    }
+    
+    func loadInvitationStats(for userId: String) async {
+        guard !userId.isEmpty else { return }
+        isLoadingInvitations = true
+        invitationErrorMessage = nil
+        
+        do {
+            let stats = try await invitationService.fetchInvitationStats(for: userId)
+            invitationStats = stats
+        } catch {
+            invitationErrorMessage = error.localizedDescription
+        }
+        
+        isLoadingInvitations = false
+    }
+    
+    func refreshInvitationStats(for userId: String) async {
+        await loadInvitationStats(for: userId)
     }
     
     private func resetState(for userId: String) {
