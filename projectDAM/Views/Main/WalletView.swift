@@ -567,7 +567,8 @@ struct D17PaymentSheet: View {
     @State private var amount = ""
     @State private var authNumber = ""
     @State private var senderPhone = ""
-    @State private var showImagePicker = false
+    @State private var showReceiptSheet = false
+    @State private var receiptImage: UIImage?
     
     private let d17Accounts = ["93 213 636", "26 396 236"]
     
@@ -638,13 +639,13 @@ struct D17PaymentSheet: View {
                                 TextField("Enter authorization number", text: $authNumber)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
                                 Button {
-                                    showImagePicker = true
+                                    showReceiptSheet = true
                                 } label: {
-                                    Image(systemName: "camera.fill")
+                                    Image(systemName: receiptImage != nil ? "checkmark.circle.fill" : "camera.fill")
                                         .font(.system(size: 16))
                                         .foregroundColor(.white)
                                         .frame(width: 44, height: 44)
-                                        .background(Color.brandPrimary)
+                                        .background(receiptImage != nil ? Color.green : Color.brandPrimary)
                                         .cornerRadius(8)
                                 }
                             }
@@ -687,6 +688,9 @@ struct D17PaymentSheet: View {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+        .sheet(isPresented: $showReceiptSheet) {
+            D17ReceiptSheet(receiptImage: $receiptImage)
         }
     }
 }
@@ -852,6 +856,185 @@ struct GiftCardSheet: View {
         }
         .onAppear {
             focusedField = 0
+        }
+    }
+}
+
+struct D17ReceiptSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var receiptImage: UIImage?
+    @State private var showImagePicker = false
+    @State private var showCamera = false
+    @State private var tempImage: UIImage?
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("D17 Receipt")
+                            .font(.title2.weight(.bold))
+                        Spacer()
+                    }
+                }
+                
+                // Upload Area
+                VStack(spacing: 16) {
+                    if let image = tempImage ?? receiptImage {
+                        // Show uploaded image
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 300)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(.systemGray4), style: StrokeStyle(lineWidth: 2, dash: [8]))
+                            )
+                    } else {
+                        // Upload placeholder
+                        VStack(spacing: 16) {
+                            Image(systemName: "photo.badge.plus")
+                                .font(.system(size: 48))
+                                .foregroundColor(.secondary)
+                            
+                            VStack(spacing: 8) {
+                                Button {
+                                    showImagePicker = true
+                                } label: {
+                                    Text("Click to upload")
+                                        .foregroundColor(.brandPrimary)
+                                        .underline()
+                                }
+                                Text("or drag and drop")
+                                    .foregroundColor(.secondary)
+                                Text("PNG, JPG, GIF up to 10MB")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(.systemGray4), style: StrokeStyle(lineWidth: 2, dash: [8]))
+                        )
+                        .onTapGesture {
+                            showImagePicker = true
+                        }
+                    }
+                    
+                    // Camera and Gallery buttons
+                    HStack(spacing: 16) {
+                        Button {
+                            showCamera = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                Text("Camera")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        
+                        Button {
+                            showImagePicker = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "photo.fill")
+                                Text("Gallery")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+                
+                // Optional note
+                Text("Note : this picture is optional")
+                    .font(.subheadline)
+                    .foregroundColor(.red)
+                
+                Spacer()
+                
+                // Action buttons
+                HStack(spacing: 16) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray5))
+                            .cornerRadius(12)
+                    }
+                    
+                    Button {
+                        receiptImage = tempImage
+                        dismiss()
+                    } label: {
+                        Text("Save")
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.brandPrimary)
+                            .cornerRadius(12)
+                    }
+                }
+            }
+            .padding()
+            .navigationTitle("Receipt")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(image: $tempImage, sourceType: .photoLibrary)
+        }
+        .sheet(isPresented: $showCamera) {
+            ImagePicker(image: $tempImage, sourceType: .camera)
+        }
+    }
+}
+
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    let sourceType: UIImagePickerController.SourceType
+    @Environment(\.dismiss) private var dismiss
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: ImagePicker
+        
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.image = image
+            }
+            parent.dismiss()
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
         }
     }
 }
