@@ -5,6 +5,7 @@ struct WalletView: View {
     @StateObject private var walletViewModel = DIContainer.shared.makeWalletViewModel()
     @State private var friendInviteCode: String = ""
     @State private var showReferralSheet: Bool = false
+    @State private var showAllTransactions = false
     private let transactionDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -413,24 +414,42 @@ struct ReferralDetailSheet: View {
     
     private var transactionList: some View {
         VStack(spacing: 12) {
-            ForEach(walletViewModel.transactions) { transaction in
+            let displayedTransactions = showAllTransactions ? walletViewModel.transactions : Array(walletViewModel.transactions.prefix(3))
+            
+            ForEach(displayedTransactions) { transaction in
                 transactionRow(transaction)
             }
             
-            if walletViewModel.isLoadingMore {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            } else if walletViewModel.hasMorePages {
+            if !showAllTransactions && walletViewModel.transactions.count > 3 {
                 Button {
-                    Task { await walletViewModel.loadNextPage() }
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showAllTransactions = true
+                    }
                 } label: {
-                    Text("Load More")
+                    Text("Show More (\(walletViewModel.transactions.count - 3) more)")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.brandPrimary.opacity(0.1)))
                 }
-                .disabled(walletViewModel.isLoadingMore)
+            }
+            
+            if showAllTransactions {
+                if walletViewModel.isLoadingMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else if walletViewModel.hasMorePages {
+                    Button {
+                        Task { await walletViewModel.loadNextPage() }
+                    } label: {
+                        Text("Load More")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.brandPrimary.opacity(0.1)))
+                    }
+                    .disabled(walletViewModel.isLoadingMore)
+                }
             }
         }
     }
