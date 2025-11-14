@@ -143,16 +143,34 @@ struct Course: Identifiable, Codable, Equatable {
     
     // Image URL construction
     var imageURL: URL? {
-        guard !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let baseURL = URL(string: AppConfig.baseURL) else {
+        let trimmedImage = image.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedImage.isEmpty else {
             return nil
         }
-        // Remove /api from baseURL and construct uploads path
-        let uploadsBase = baseURL.deletingLastPathComponent()
-        return uploadsBase
-            .appendingPathComponent("uploads")
-            .appendingPathComponent("courses")
-            .appendingPathComponent(image)
+        // Allow fully-qualified URLs returned by the API
+        if let absoluteURL = URL(string: trimmedImage), absoluteURL.scheme != nil {
+            return absoluteURL
+        }
+        guard let apiURL = URL(string: AppConfig.baseURL) else {
+            return nil
+        }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("courses")
+        var pathComponents = trimmedImage
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" {
+            pathComponents.removeFirst()
+        }
+        if pathComponents.first == "courses" {
+            pathComponents.removeFirst()
+        }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     var imageURLString: String? {

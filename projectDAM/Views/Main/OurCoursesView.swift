@@ -50,185 +50,117 @@ struct OurCoursesView: View {
     
     private var coursesListView: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                // Header Section
+            VStack(spacing: 24) {
                 headerSection
                 
-                // Courses Grid
-                LazyVStack(spacing: 16) {
+                LazyVStack(spacing: 20, pinnedViews: []) {
                     ForEach(viewModel.courses) { course in
                         courseCard(course)
                     }
                 }
-                .padding(20)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 20)
             }
+            .padding(.vertical, 20)
+            .padding(.bottom, 60) // ensures last card clears the tab bar / home indicator
         }
     }
     
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(classItem.title)
-                        .font(.system(size: 28, weight: .bold))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("All \(classItem.title) Courses")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 26, weight: .heavy))
+                    Text("Curated learning path for \(classItem.filterName.uppercased())")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
                 
-                Text("\(viewModel.courses.count)")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(classColor)
-                    .opacity(0.3)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            
-            // Section Info
-            HStack(spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: "book.fill")
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("Total")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("\(viewModel.courses.count) Courses")
-                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text("\(viewModel.courses.count)")
+                        .font(.system(size: 36, weight: .heavy))
+                        .foregroundColor(classColor)
+                        .opacity(0.35)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(classColor.opacity(0.1))
-                .foregroundColor(classColor)
-                .cornerRadius(8)
-                
+            }
+            
+            Divider()
+                .background(classColor.opacity(0.15))
+                .padding(.vertical, 4)
+            
+            HStack(spacing: 12) {
+                headerBadge(icon: "book.fill", title: "\(viewModel.courses.count) Courses")
+                headerBadge(icon: "arrow.triangle.2.circlepath", title: "Updated daily")
                 Spacer()
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
         }
+        .padding(22)
         .background(
             LinearGradient(
-                colors: [classColor.opacity(0.08), classColor.opacity(0.02)],
+                colors: [classColor.opacity(0.16), classColor.opacity(0.05)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
+        .background(Color.white.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(classColor.opacity(0.12), lineWidth: 1)
+        )
+        .shadow(color: classColor.opacity(0.18), radius: 20, x: 0, y: 10)
+        .padding(.horizontal, 20)
     }
     
     private func courseCard(_ course: Course) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Course Header with Image
-            HStack(spacing: 16) {
-                // Course Image
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 18) {
                 courseImageView(course)
                 
-                // Course Info
                 VStack(alignment: .leading, spacing: 10) {
                     Text(course.name)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primary)
                         .lineLimit(2)
                     
-                    // Meta Info
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 12) {
-                            metaInfoItem(icon: "clock.fill", text: "\(course.durationInMinutes) min")
-                            metaInfoItem(icon: "play.circle.fill", text: "\(course.nbVideos)")
-                        }
-                        
-                        // Level Badge
-                        levelBadge(course.level)
+                    HStack(spacing: 18) {
+                        metaInfoItem(icon: "clock", text: "\(course.durationInMinutes) min")
+                        metaInfoItem(icon: "play.fill", text: "\(course.nbVideos)")
+                        Spacer(minLength: 10)
                     }
                 }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.secondary)
             }
-            .padding(16)
             
-            Divider()
-                .padding(.horizontal, 16)
-            
-            // Description
             Text(course.description)
-                .font(.system(size: 13, weight: .regular))
+                .font(.system(size: 13.5, weight: .regular))
                 .foregroundColor(.secondary)
                 .lineLimit(3)
-                .padding(16)
+                .multilineTextAlignment(.leading)
             
-            // Footer with instructor and price
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                    Text(course.author.username)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                if course.price > 0 {
-                    if course.courseReduction > 0 {
-                        HStack(spacing: 6) {
-                            Text("\(Int(course.price)) DT")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.secondary)
-                                .strikethrough()
-                            Text("\(Int(course.price * (1 - Double(course.courseReduction) / 100))) DT")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(classColor)
-                        }
-                    } else {
-                        Text("\(Int(course.price)) DT")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(classColor)
-                    }
-                } else {
-                    Text("Free")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.green)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(6)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            
-            // Hot badge if applicable
+            levelAndPriceRow(for: course)
+        }
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(.systemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.6))
+                )
+        )
+        .overlay(alignment: .topLeading) {
             if course.hot {
-                HStack {
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
-                        Text("NEW")
-                            .font(.system(size: 11, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.orange, Color.red],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(8, corners: [.topLeft, .bottomRight])
-                }
-                .offset(y: -16)
+                newRibbon
+                    .padding(.leading, 8)
+                    .padding(.top, 8)
             }
         }
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.04), radius: 20, x: 0, y: 10)
     }
     
     private func courseImageView(_ course: Course) -> some View {
@@ -239,13 +171,8 @@ struct OurCoursesView: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 90, height: 90)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .shadow(color: classColor.opacity(0.3), radius: 12, x: 0, y: 6)
-                    case .empty:
-                        placeholderImage
-                    case .failure:
+                            .scaledToFill()
+                    case .failure, .empty:
                         placeholderImage
                     @unknown default:
                         placeholderImage
@@ -255,45 +182,136 @@ struct OurCoursesView: View {
                 placeholderImage
             }
         }
+        .frame(width: 94, height: 94)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(classColor.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: classColor.opacity(0.25), radius: 18, x: 0, y: 10)
     }
     
     private var placeholderImage: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: gradientColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            LinearGradient(
+                colors: gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             
-            Image(systemName: "book.fill")
-                .font(.system(size: 28, weight: .semibold))
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 30, weight: .semibold))
                 .foregroundColor(.white)
         }
-        .frame(width: 90, height: 90)
-        .shadow(color: gradientColors.first?.opacity(0.3) ?? Color.black.opacity(0.1), radius: 12, x: 0, y: 6)
+    }
+    
+    private func levelAndPriceRow(for course: Course) -> some View {
+        HStack(alignment: .center) {
+            levelBadge(course.level)
+            Spacer()
+            priceTag(for: course)
+        }
+    }
+
+    private func priceTag(for course: Course) -> some View {
+        let finalPrice = course.courseReduction > 0 ? Int(course.price * (1 - Double(course.courseReduction) / 100)) : Int(course.price)
+        return priceTagChip(background: course.price > 0 ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(LinearGradient(colors: [Color.green.opacity(0.95), Color.green.opacity(0.75)], startPoint: .leading, endPoint: .trailing)),
+                            strokeColor: course.price > 0 ? classColor.opacity(0.15) : Color.clear) {
+            if course.price > 0 {
+                HStack(spacing: 6) {
+                    Image("T-Credits")
+                        .resizable()
+                        .renderingMode(.original)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 15, height: 15)
+                    Text("\(finalPrice)")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(classColor)
+                }
+            } else {
+                Text("Free")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: course.price)
+    }
+
+    private func priceTagChip<Content: View>(background: AnyShapeStyle, strokeColor: Color, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .frame(width: tagSize.width, height: tagSize.height)
+            .background(
+                Capsule()
+                    .fill(background)
+                    .overlay(
+                        Capsule()
+                            .stroke(strokeColor, lineWidth: strokeColor == .clear ? 0 : 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
+            )
+    }
+    
+    private var newRibbon: some View {
+        Text("NEW")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .background(
+                LinearGradient(
+                    colors: [Color(red: 1.0, green: 0.46, blue: 0.45), Color(red: 1.0, green: 0.32, blue: 0.25)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .clipShape(Capsule())
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+            )
+            .shadow(color: Color(red: 1.0, green: 0.45, blue: 0.25).opacity(0.25), radius: 8, x: 0, y: 4)
+    }
+    
+    private func headerBadge(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.8))
+        .foregroundColor(.black.opacity(0.7))
+        .clipShape(Capsule())
     }
     
     private func metaInfoItem(icon: String, text: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+        HStack(spacing: 8) {
+            Circle()
+                .fill(classColor.opacity(0.15))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(classColor)
+                )
             Text(text)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
         }
-        .foregroundColor(.secondary)
     }
     
     private func levelBadge(_ level: Course.CourseLevel) -> some View {
         Text(level.rawValue)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 13, weight: .semibold))
             .foregroundColor(classColor)
             .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .frame(width: tagSize.width, height: tagSize.height)
             .background(classColor.opacity(0.1))
-            .cornerRadius(6)
+            .clipShape(Capsule())
     }
     
     private var loadingView: some View {
@@ -386,6 +404,10 @@ struct OurCoursesView: View {
         default:
             return [Color.blue, Color.blue.opacity(0.7)]
         }
+    }
+
+    private var tagSize: CGSize {
+        CGSize(width: 104, height: 34)
     }
 }
 
