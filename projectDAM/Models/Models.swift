@@ -113,6 +113,45 @@ private struct ImageBuffer: Decodable {
     let data: [UInt8]
 }
 
+// MARK: - Payment Transactions
+struct PaymentTransaction: Identifiable, Decodable {
+    let id: String
+    let type: String
+    let amount: String
+    let date: Date
+    let description: String
+    let status: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, type, amount, date, description, status
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        type = try container.decode(String.self, forKey: .type)
+        amount = try container.decode(String.self, forKey: .amount)
+        description = try container.decode(String.self, forKey: .description)
+        status = try container.decode(String.self, forKey: .status)
+        
+        let dateString = try container.decode(String.self, forKey: .date)
+        if let parsedDate = ISO8601DateFormatter().date(from: dateString) {
+            date = parsedDate
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .date, in: container, debugDescription: "Invalid date format: \(dateString)")
+        }
+    }
+}
+
+struct PaginatedTransactionsResponse: Decodable {
+    let transactions: [PaymentTransaction]
+    let total: Int
+    let page: Int
+    let limit: Int
+    let totalPages: Int
+    let success: Bool?
+}
+
 // MARK: - Course Model
 struct Course: Identifiable, Codable {
     let id: String

@@ -2,8 +2,15 @@ import SwiftUI
 
 struct WalletView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
+    @StateObject private var walletViewModel = DIContainer.shared.makeWalletViewModel()
     @State private var friendInviteCode: String = ""
     @State private var showReferralSheet: Bool = false
+    private let transactionDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
     
     private var currentUser: User? {
         authService.currentUser
@@ -147,6 +154,10 @@ struct ReferralDetailSheet: View {
         invitedByCode != nil
     }
     
+    private var currentUserId: String? {
+        currentUser?.id
+    }
+    
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
@@ -179,6 +190,10 @@ struct ReferralDetailSheet: View {
                 isAlreadyInvited: hasExistingInvite,
                 invitedByCode: invitedByCode
             )
+        }
+        .task(id: currentUserId) {
+            guard let userId = currentUserId else { return }
+            await walletViewModel.loadInitialTransactions(for: userId)
         }
     }
     
@@ -320,13 +335,25 @@ struct ReferralDetailSheet: View {
     
     private var historySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Transaction History")
-                .font(.headline)
+            HStack {
+                Text("Transaction History")
+                    .font(.headline)
+                Spacer()
+                if walletViewModel.isInitialLoading {
+                    ProgressView()
+                }
+            }
             
-            VStack(spacing: 12) {
-                historyRow(title: "Course Purchase", amount: "-20 T-Credits", date: "Nov 1, 2025")
-                historyRow(title: "Referral Bonus", amount: "+10 T-Credits", date: "Oct 21, 2025")
-                historyRow(title: "Wallet Recharge", amount: "+50 T-Credits", date: "Oct 10, 2025")
+            Group {
+                if walletViewModel.isInitialLoading {
+                    historySkeleton
+                } else if let error = walletViewModel.errorMessage {
+                    historyErrorState(message: error)
+                } else if walletViewModel.transactions.isEmpty {
+                    historyEmptyState
+                } else {
+                    transactionList
+                }
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
@@ -334,20 +361,122 @@ struct ReferralDetailSheet: View {
         }
     }
     
-    private func historyRow(title: String, amount: String, date: String) -> some View {
-        HStack {
+    private var historySkeleton: some View {
+        VStack(spacing: 16) {
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(height: 46)
+            }
+        }
+    }
+    
+    private var historyEmptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 28))
+                .foregroundColor(.secondary)
+            Text("No transactions yet")
+                .font(.subheadline.weight(.semibold))
+            Text("Your future payments, rewards, and purchases will show up here.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+    }
+    
+    private func historyErrorState(message: String) -> some View {
+        VStack(spacing: 10) {
+            Text("Couldn't load transactions")
+                .font(.subheadline.weight(.semibold))
+            Text(message)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            if let userId = currentUserId {
+                Button {
+                    Task { await walletViewModel.refreshTransactions(for: userId) }
+                } label: {
+                    Text("Retry")
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.brandPrimary.opacity(0.15)))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+    
+    private var transactionList: some View {
+        VStack(spacing: 12) {
+            ForEach(walletViewModel.transactions) { transaction in
+                transactionRow(transaction)
+            }
+            
+            if walletViewModel.isLoadingMore {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            } else if walletViewModel.hasMorePages {
+                Button {
+                    Task { await walletViewModel.loadNextPage() }
+                } label: {
+                    Text("Load More")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.brandPrimary.opacity(0.1)))
+                }
+                .disabled(walletViewModel.isLoadingMore)
+            }
+        }
+    }
+    
+    private func transactionRow(_ transaction: PaymentTransaction) -> some View {
+        let formatted = formattedAmount(for: transaction)
+        return HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                Text(transaction.description)
                     .font(.subheadline)
-                Text(date)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                Text(formattedDate(for: transaction))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Text(amount)
+            Text(formatted.text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(amount.hasPrefix("-") ? .red : .green)
+                .foregroundColor(formatted.color)
         }
+        .padding(.vertical, 4)
+    }
+
+    private func formattedAmount(for transaction: PaymentTransaction) -> (text: String, color: Color) {
+        let rawAmount = Double(transaction.amount) ?? 0
+        let isDebit: Bool
+        if rawAmount != 0 {
+            isDebit = rawAmount < 0
+        } else {
+            isDebit = transaction.type.contains("buy") || transaction.type.contains("withdraw")
+        }
+        let absoluteValue = abs(rawAmount)
+        let amountString: String
+        if absoluteValue == 0 {
+            amountString = "0.00"
+        } else {
+            amountString = String(format: "%.2f", absoluteValue)
+        }
+        let prefix = isDebit ? "-" : "+"
+        let color: Color = isDebit ? .red : .brandSuccess
+        return ("\(prefix)\(amountString) T-Credits", color)
+    }
+    
+    private func formattedDate(for transaction: PaymentTransaction) -> String {
+        transactionDateFormatter.string(from: transaction.date)
     }
     
     private var tutorialsSection: some View {
