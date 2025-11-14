@@ -117,7 +117,7 @@ private struct ImageBuffer: Decodable {
 struct PaymentTransaction: Identifiable, Decodable {
     let id: String
     let type: String
-    let amount: String
+    let amount: Double
     let date: Date
     let description: String
     let status: String
@@ -130,15 +130,30 @@ struct PaymentTransaction: Identifiable, Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
-        amount = try container.decode(String.self, forKey: .amount)
+        if let numericAmount = try? container.decode(Double.self, forKey: .amount) {
+            amount = numericAmount
+        } else if let amountString = try? container.decode(String.self, forKey: .amount),
+                  let parsed = Double(amountString) {
+            amount = parsed
+        } else {
+            amount = 0
+        }
         description = try container.decode(String.self, forKey: .description)
         status = try container.decode(String.self, forKey: .status)
         
         let dateString = try container.decode(String.self, forKey: .date)
-        if let parsedDate = ISO8601DateFormatter().date(from: dateString) {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let parsedDate = formatter.date(from: dateString) {
             date = parsedDate
         } else {
-            throw DecodingError.dataCorruptedError(forKey: .date, in: container, debugDescription: "Invalid date format: \(dateString)")
+            // Fallback to standard ISO8601 without fractional seconds
+            let fallbackFormatter = ISO8601DateFormatter()
+            if let fallbackDate = fallbackFormatter.date(from: dateString) {
+                date = fallbackDate
+            } else {
+                throw DecodingError.dataCorruptedError(forKey: .date, in: container, debugDescription: "Invalid date format: \(dateString)")
+            }
         }
     }
 }
@@ -150,6 +165,40 @@ struct PaginatedTransactionsResponse: Decodable {
     let limit: Int
     let totalPages: Int
     let success: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case transactions, total, page, limit, totalPages, success
+    }
+
+    init(transactions: [PaymentTransaction], total: Int, page: Int, limit: Int, totalPages: Int, success: Bool?) {
+        self.transactions = transactions
+        self.total = total
+        self.page = page
+        self.limit = limit
+        self.totalPages = totalPages
+        self.success = success
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        transactions = try container.decode([PaymentTransaction].self, forKey: .transactions)
+        total = PaginatedTransactionsResponse.decodeInt(from: container, forKey: .total)
+        page = PaginatedTransactionsResponse.decodeInt(from: container, forKey: .page)
+        limit = PaginatedTransactionsResponse.decodeInt(from: container, forKey: .limit)
+        totalPages = PaginatedTransactionsResponse.decodeInt(from: container, forKey: .totalPages)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+    }
+
+    private static func decodeInt(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) -> Int {
+        if let intValue = try? container.decode(Int.self, forKey: key) {
+            return intValue
+        }
+        if let stringValue = try? container.decode(String.self, forKey: key),
+           let parsed = Int(stringValue) {
+            return parsed
+        }
+        return 0
+    }
 }
 
 // MARK: - Course Model

@@ -108,6 +108,12 @@ final class NetworkService: NetworkServiceProtocol {
                 let decoded = try JSONDecoder().decode(T.self, from: data)
                 return decoded
             } catch {
+                if AppConfig.enableLogging {
+                    print("❌ [NetworkService] Decoding error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("❌ [NetworkService] Raw response: \(jsonString)")
+                    }
+                }
                 throw NetworkError.decodingError
             }
         case 401:
