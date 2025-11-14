@@ -230,10 +230,10 @@ struct ReferralDetailSheet: View {
                 .font(.headline)
             
             VStack(spacing: 12) {
-                accountRow(title: "D17 Account 1", value: "--------")
-                accountRow(title: "D17 Account 2", value: "--------")
-                accountRow(title: "Bank Account 1", value: "--------")
-                accountRow(title: "Bank Account 2", value: "--------")
+                accountRow(title: "Amen Bank - ABIDI MOHAMED", value: "07 116 0163105509356 39")
+                accountRow(title: "Attijari Bank - OUSSEMA ISSAOUI", value: "04 034 1200080184930 40")
+                accountRow(title: "D17 - Tache-lik", value: "93 213 636")
+                accountRow(title: "D17 - Tache-lik", value: "26 396 236")
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
@@ -246,13 +246,19 @@ struct ReferralDetailSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline)
+                    .fontWeight(.medium)
                 Text(value)
                     .font(.callout)
                     .foregroundColor(.secondary)
+                    .textSelection(.enabled)
             }
             Spacer()
-            Image(systemName: "doc.on.doc")
-                .foregroundColor(.brandPrimary)
+            Button {
+                UIPasteboard.general.string = value
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .foregroundColor(.brandPrimary)
+            }
         }
     }
     
@@ -504,9 +510,9 @@ struct ReferralDetailSheet: View {
                 .font(.headline)
             
             VStack(spacing: 12) {
-                tutorialRow(title: "How T-Credits Work")
-                tutorialRow(title: "How to Recharge via D17")
-                tutorialRow(title: "How to Use Gift Cards")
+                tutorialRow(title: "How to pay with D17", videoId: "IIYaIZzD0EM")
+                tutorialRow(title: "How to pay with Cash", videoId: "xiVpbl6HpOI")
+                tutorialRow(title: "How to pay with Gift Card", videoId: "HQjmhTtyWNI")
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
@@ -514,14 +520,24 @@ struct ReferralDetailSheet: View {
         }
     }
     
-    private func tutorialRow(title: String) -> some View {
-        HStack {
-            Image(systemName: "play.circle.fill")
-                .font(.system(size: 24))
-                .foregroundColor(.brandPrimary)
-            Text(title)
-                .font(.subheadline)
-            Spacer()
+    private func tutorialRow(title: String, videoId: String) -> some View {
+        Button {
+            if let url = URL(string: "https://www.youtube.com/watch?v=\(videoId)") {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            HStack {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.brandPrimary)
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
         }
     }
 }
