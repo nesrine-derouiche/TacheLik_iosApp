@@ -188,13 +188,13 @@ struct ReferralDetailSheet: View {
             )
         }
         .sheet(isPresented: $showD17Sheet) {
-            D17PaymentSheet()
+            D17PaymentSheet(walletViewModel: walletViewModel)
         }
         .sheet(isPresented: $showCashSheet) {
-            CashPaymentSheet()
+            CashPaymentSheet(walletViewModel: walletViewModel)
         }
         .sheet(isPresented: $showGiftCardSheet) {
-            GiftCardSheet()
+            GiftCardSheet(walletViewModel: walletViewModel)
         }
         .task(id: currentUserId) {
             guard let userId = currentUserId else { return }
@@ -546,6 +546,8 @@ struct D17PaymentSheet: View {
     @State private var showReceiptSheet = false
     @State private var receiptImage: UIImage?
     
+    let walletViewModel: WalletViewModel
+    
     private let d17Accounts = ["93 213 636", "26 396 236"]
     
     var body: some View {
@@ -642,8 +644,14 @@ struct D17PaymentSheet: View {
                     
                     // Submit Button
                     Button {
-                        // Handle submission
-                        dismiss()
+                        Task {
+                            // Handle submission - placeholder for future implementation
+                            // After successful submission, refresh transactions
+                            if let currentUser = DIContainer.shared.authService.getCurrentUser() {
+                                await walletViewModel.refreshTransactions(for: currentUser.id)
+                            }
+                            dismiss()
+                        }
                     } label: {
                         Text("Submit")
                             .font(.headline)
@@ -675,6 +683,14 @@ struct CashPaymentSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var cashAmount = ""
     @State private var senderPhone = ""
+    @State private var isSubmitting = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var isSuccess = false
+    
+    let walletViewModel: WalletViewModel
+    private let cashPaymentService = DIContainer.shared.cashPaymentService
+    private let authService = DIContainer.shared.authService
     
     var body: some View {
         NavigationView {
@@ -703,9 +719,16 @@ struct CashPaymentSheet: View {
                             Text("Cash Amount")
                                 .font(.headline)
                             TextField("Enter amount", text: $cashAmount)
-                                .keyboardType(.decimalPad)
+                                .keyboardType(.numberPad)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                            Text("0/4 digits")
+                                .onChange(of: cashAmount) { newValue in
+                                    // Only allow positive integers (no decimals)
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if filtered != newValue {
+                                        cashAmount = filtered
+                                    }
+                                }
+                            Text("\(cashAmount.count)/10 chars")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -715,28 +738,46 @@ struct CashPaymentSheet: View {
                             Text("Sender's phone")
                                 .font(.headline)
                             TextField("Enter phone number", text: $senderPhone)
-                                .keyboardType(.phonePad)
+                                .keyboardType(.numberPad)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                            Text("0/8 digits")
+                                .onChange(of: senderPhone) { newValue in
+                                    // Only allow numbers and limit to 8 digits
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if filtered.count <= 8 {
+                                        senderPhone = filtered
+                                    } else {
+                                        senderPhone = String(filtered.prefix(8))
+                                    }
+                                }
+                            Text("\(senderPhone.count)/8 digits")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(senderPhone.count == 8 ? .green : .secondary)
                         }
                     }
                     
                     // Submit Button
                     Button {
-                        // Handle submission
-                        dismiss()
+                        Task {
+                            await submitCashPayment()
+                        }
                     } label: {
-                        Text("Submit")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.brandPrimary)
-                            .cornerRadius(12)
+                        if isSubmitting {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Submitting...")
+                            }
+                        } else {
+                            Text("Submit")
+                        }
                     }
-                    .disabled(cashAmount.isEmpty || senderPhone.isEmpty)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brandPrimary)
+                    .cornerRadius(12)
+                    .disabled(cashAmount.isEmpty || senderPhone.count != 8 || isSubmitting)
                 }
                 .padding()
             }
@@ -748,6 +789,50 @@ struct CashPaymentSheet: View {
                 }
             }
         }
+        .alert("Cash Payment", isPresented: $showAlert) {
+            Button("OK") {
+                if isSuccess {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func submitCashPayment() async {
+        guard let currentUser = authService.getCurrentUser(),
+              let amount = Int(cashAmount),
+              amount > 0,
+              senderPhone.count == 8 else {
+            alertMessage = "Please enter a valid positive integer amount and 8-digit phone number"
+            showAlert = true
+            return
+        }
+        
+        isSubmitting = true
+        
+        do {
+            let response = try await cashPaymentService.requestCashPayment(
+                amount: amount,
+                userId: currentUser.id,
+                senderPhone: senderPhone
+            )
+            
+            isSuccess = true
+            alertMessage = "Cash payment request created successfully!\nTransaction ID: \(response.Transaction.id)"
+            showAlert = true
+            
+            // Refresh transactions after successful payment
+            await walletViewModel.refreshTransactions(for: currentUser.id)
+            
+        } catch {
+            isSuccess = false
+            alertMessage = "Failed to create cash payment request: \(error.localizedDescription)"
+            showAlert = true
+        }
+        
+        isSubmitting = false
     }
 }
 
@@ -755,6 +840,8 @@ struct GiftCardSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var giftCardCode = ["", "", "", ""]
     @FocusState private var focusedField: Int?
+    
+    let walletViewModel: WalletViewModel
     
     var body: some View {
         NavigationView {
@@ -807,8 +894,14 @@ struct GiftCardSheet: View {
                     
                     // Redeem Button
                     Button {
-                        // Handle redemption
-                        dismiss()
+                        Task {
+                            // Handle redemption - placeholder for future implementation
+                            // After successful redemption, refresh transactions
+                            if let currentUser = DIContainer.shared.authService.getCurrentUser() {
+                                await walletViewModel.refreshTransactions(for: currentUser.id)
+                            }
+                            dismiss()
+                        }
                     } label: {
                         Text("Redeem")
                             .font(.headline)
