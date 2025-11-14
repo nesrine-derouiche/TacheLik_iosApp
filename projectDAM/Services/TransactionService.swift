@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Transaction Service Protocol
 protocol TransactionServiceProtocol {
-    func fetchTransactions(userId: String, page: Int, limit: Int) async throws -> PaginatedTransactionsResponse
+    func fetchTransactions(userId: String, start: Int) async throws -> PaginatedTransactionsResponse
 }
 
 // MARK: - Transaction Service Implementation
@@ -15,18 +15,17 @@ final class TransactionService: TransactionServiceProtocol {
         self.authService = authService
     }
     
-    func fetchTransactions(userId: String, page: Int, limit: Int) async throws -> PaginatedTransactionsResponse {
+    func fetchTransactions(userId: String, start: Int) async throws -> PaginatedTransactionsResponse {
         struct TransactionsRequest: Encodable {
             let userId: String
-            let page: Int
-            let limit: Int
+            let start: Int
         }
         
-        let request = TransactionsRequest(userId: userId, page: page, limit: limit)
+        let request = TransactionsRequest(userId: userId, start: start)
         let requestData = try JSONEncoder().encode(request)
         
         if AppConfig.enableLogging {
-            print("📡 [TransactionService] Fetching transactions page: \(page), limit: \(limit) for user: \(userId)")
+            print("📡 [TransactionService] Fetching transactions starting at index: \(start) for user: \(userId)")
         }
         do {
             let response: PaginatedTransactionsResponse = try await networkService.request(

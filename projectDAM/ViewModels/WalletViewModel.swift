@@ -11,9 +11,9 @@ final class WalletViewModel: ObservableObject {
     
     private let transactionService: TransactionServiceProtocol
     private var currentUserId: String?
-    private var currentPage: Int = 1
+    private var currentStartIndex: Int = 0
     private var totalPages: Int = 1
-    private let pageSize: Int = 10
+    private let serverPageSize: Int = 5
     
     init(transactionService: TransactionServiceProtocol) {
         self.transactionService = transactionService
@@ -26,20 +26,21 @@ final class WalletViewModel: ObservableObject {
         } else if !transactions.isEmpty {
             return
         }
-        await fetchTransactions(page: 1, reset: true)
+        await fetchTransactions(start: 0, reset: true)
     }
     
     func refreshTransactions(for userId: String) async {
         guard !userId.isEmpty else { return }
         resetState(for: userId)
-        await fetchTransactions(page: 1, reset: true)
+        await fetchTransactions(start: 0, reset: true)
     }
     
     func loadNextPage() async {
         guard !isLoadingMore,
               hasMorePages,
               let userId = currentUserId else { return }
-        await fetchTransactions(page: currentPage + 1, reset: false, userIdOverride: userId)
+        let nextStart = currentStartIndex + serverPageSize
+        await fetchTransactions(start: nextStart, reset: false, userIdOverride: userId)
     }
     
     func hasLoadedTransactions(for userId: String) -> Bool {
@@ -48,14 +49,14 @@ final class WalletViewModel: ObservableObject {
     
     private func resetState(for userId: String) {
         currentUserId = userId
-        currentPage = 1
+        currentStartIndex = 0
         totalPages = 1
         hasMorePages = false
         transactions.removeAll()
         errorMessage = nil
     }
     
-    private func fetchTransactions(page: Int, reset: Bool, userIdOverride: String? = nil) async {
+    private func fetchTransactions(start: Int, reset: Bool, userIdOverride: String? = nil) async {
         guard let userId = userIdOverride ?? currentUserId else { return }
         if reset {
             isInitialLoading = true
@@ -65,15 +66,15 @@ final class WalletViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            let response = try await transactionService.fetchTransactions(userId: userId, page: page, limit: pageSize)
+            let response = try await transactionService.fetchTransactions(userId: userId, start: start)
             if reset {
                 transactions = response.transactions
             } else {
                 transactions.append(contentsOf: response.transactions)
             }
-            currentPage = response.page
+            currentStartIndex = start
             totalPages = response.totalPages
-            hasMorePages = currentPage < totalPages
+            hasMorePages = response.page < response.totalPages
         } catch {
             errorMessage = error.localizedDescription
         }
