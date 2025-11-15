@@ -108,6 +108,7 @@ private struct StudentTabBar: View {
     @Binding var selected: MainTabView.StudentTab
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     
     var body: some View {
         GeometryReader { geo in
@@ -162,17 +163,21 @@ private struct StudentTabBar: View {
                 
                 StudentTabButton(
                     icon: "gearshape.fill",
-                    title: "Settings",
+                    title: "Profile",
                     tab: .settings,
                     selected: $selected,
                     compact: compact,
                     tint: .brandWarning,
                     animation: animation,
-                    tabWidth: tabWidth
+                    tabWidth: tabWidth,
+                    avatarConfig: .init(
+                        imageSource: profileImageSource,
+                        initials: profileInitials
+                    )
                 )
             }
             .padding(.horizontal, compact ? 8 : 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, compact ? 5 : 6)
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
@@ -212,9 +217,34 @@ private struct StudentTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
+    
+    private var currentUser: User? {
+        authService.currentUser
+    }
+    
+    private var profileImageSource: String? {
+        guard let source = currentUser?.image, !source.isEmpty else { return nil }
+        return source
+    }
+    
+    private var profileInitials: String {
+        let fallback = "YOU"
+        guard let username = currentUser?.username, !username.isEmpty else { return fallback }
+        let components = username.split(separator: " ")
+        let initials = components.compactMap { $0.first }.prefix(2)
+        if initials.isEmpty {
+            return String(username.prefix(2)).uppercased()
+        }
+        return initials.map { String($0) }.joined().uppercased()
+    }
 }
 
 private struct StudentTabButton: View {
+    struct AvatarConfig {
+        let imageSource: String?
+        let initials: String
+    }
+    
     let icon: String
     let title: String
     let tab: MainTabView.StudentTab
@@ -223,10 +253,48 @@ private struct StudentTabButton: View {
     let tint: Color
     let animation: Namespace.ID
     let tabWidth: CGFloat
+    let avatarConfig: AvatarConfig?
+    
+    init(
+        icon: String,
+        title: String,
+        tab: MainTabView.StudentTab,
+        selected: Binding<MainTabView.StudentTab>,
+        compact: Bool,
+        tint: Color,
+        animation: Namespace.ID,
+        tabWidth: CGFloat,
+        avatarConfig: AvatarConfig? = nil
+    ) {
+        self.icon = icon
+        self.title = title
+        self.tab = tab
+        self._selected = selected
+        self.compact = compact
+        self.tint = tint
+        self.animation = animation
+        self.tabWidth = tabWidth
+        self.avatarConfig = avatarConfig
+    }
     
     @State private var isPressed = false
     
     var isSelected: Bool { selected == tab }
+    private var iconBackgroundSize: CGFloat {
+        let base = compact ? 36.0 : 40.0
+        return isSelected ? base + 6 : base
+    }
+    private var iconSize: CGFloat {
+        let base = compact ? 18.0 : 20.0
+        return isSelected ? base + 1.5 : base
+    }
+    private var avatarDiameter: CGFloat {
+        max(iconBackgroundSize - 6, 30)
+    }
+    private var iconContainerHeight: CGFloat {
+        iconBackgroundSize + 2
+    }
+    private var labelSpacing: CGFloat { compact ? 4 : 5 }
     
     var body: some View {
         Button {
@@ -236,7 +304,7 @@ private struct StudentTabButton: View {
                 selected = tab
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: labelSpacing) {
                 ZStack {
                     if isSelected {
                         Circle()
@@ -247,40 +315,51 @@ private struct StudentTabButton: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
+                            .frame(width: iconBackgroundSize, height: iconBackgroundSize)
                             .matchedGeometryEffect(id: "STUDENT_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
                     
-                    Image(systemName: icon)
-                        .font(.system(size: isSelected ? 24 : 22, weight: .semibold))
-                        .foregroundStyle(
-                            isSelected ?
-                                LinearGradient(
-                                    colors: [tint, tint.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ) :
-                                LinearGradient(
-                                    colors: [Color.secondary, Color.secondary],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                    if let avatarConfig {
+                        ProfileAvatarView(
+                            imageSource: avatarConfig.imageSource,
+                            initials: avatarConfig.initials,
+                            tint: tint,
+                            isSelected: isSelected,
+                            diameter: avatarDiameter
                         )
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: iconSize, weight: .semibold))
+                            .foregroundStyle(
+                                isSelected ?
+                                    LinearGradient(
+                                        colors: [tint, tint.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ) :
+                                    LinearGradient(
+                                        colors: [Color.secondary, Color.secondary],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                            )
+                            .scaleEffect(isPressed ? 0.85 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    }
                 }
-                .frame(height: 32)
+                .frame(height: iconContainerHeight)
                 
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
             }
             .frame(width: tabWidth)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(TabButtonPressStyle())
@@ -295,6 +374,91 @@ private struct StudentTabButton: View {
                     isPressed = false
                 }
         )
+    }
+}
+
+private struct ProfileAvatarView: View {
+    let imageSource: String?
+    let initials: String
+    let tint: Color
+    let isSelected: Bool
+    let diameter: CGFloat
+    
+    private var strokeWidth: CGFloat { isSelected ? 2.2 : 1.6 }
+    
+    var body: some View {
+        avatarContent
+            .frame(width: diameter, height: diameter)
+            .background(Color.clear)
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(tint.opacity(isSelected ? 0.9 : 0.35), lineWidth: strokeWidth)
+            )
+            .shadow(color: tint.opacity(isSelected ? 0.35 : 0.12), radius: isSelected ? 10 : 6, x: 0, y: 4)
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+    
+    @ViewBuilder
+    private var avatarContent: some View {
+        if let image = decodedBase64Image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .transition(.opacity)
+        } else if let url = remoteURL {
+            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.25))) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .transition(.opacity)
+                case .failure:
+                    placeholder
+                case .empty:
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                @unknown default:
+                    placeholder
+                }
+            }
+        } else {
+            placeholder
+        }
+    }
+    
+    private var placeholder: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [tint.opacity(0.85), tint.opacity(0.55)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                Text(initials)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+            )
+    }
+    
+    private var remoteURL: URL? {
+        guard let source = imageSource,
+              !source.isEmpty,
+              !source.hasPrefix("data:image") else { return nil }
+        return URL(string: source)
+    }
+    
+    private var decodedBase64Image: UIImage? {
+        guard let source = imageSource,
+              source.hasPrefix("data:image"),
+              let cleaned = source.components(separatedBy: "base64,").last,
+              let data = Data(base64Encoded: cleaned, options: .ignoreUnknownCharacters),
+              let image = UIImage(data: data) else { return nil }
+        return image
     }
 }
 

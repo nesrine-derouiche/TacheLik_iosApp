@@ -49,7 +49,7 @@ struct DS {
     
     // MARK: - Layout
     static let maxFormWidth: CGFloat = 500
-    static let barHeight: CGFloat = 70
+    static let barHeight: CGFloat = 64
 }
 
 // MARK: - Color Extensions for Easy Access (Tache-lik Brand)
