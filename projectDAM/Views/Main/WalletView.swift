@@ -545,8 +545,14 @@ struct D17PaymentSheet: View {
     @State private var senderPhone = ""
     @State private var showReceiptSheet = false
     @State private var receiptImage: UIImage?
+    @State private var isSubmitting = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var isSuccess = false
     
     let walletViewModel: WalletViewModel
+    private let d17PaymentService = DIContainer.shared.d17PaymentService
+    private let authService = DIContainer.shared.authService
     
     private let d17Accounts = ["93 213 636", "26 396 236"]
     
@@ -602,9 +608,16 @@ struct D17PaymentSheet: View {
                             Text("Amount")
                                 .font(.headline)
                             TextField("Enter amount", text: $amount)
-                                .keyboardType(.decimalPad)
+                                .keyboardType(.numberPad)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                            Text("0/4 digits")
+                                .onChange(of: amount) { newValue in
+                                    // Only allow positive integers (no decimals)
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if filtered != newValue {
+                                        amount = filtered
+                                    }
+                                }
+                            Text("\(amount.count)/10 digits")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -634,34 +647,46 @@ struct D17PaymentSheet: View {
                             Text("Sender's phone")
                                 .font(.headline)
                             TextField("Enter phone number", text: $senderPhone)
-                                .keyboardType(.phonePad)
+                                .keyboardType(.numberPad)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                            Text("0/8 digits")
+                                .onChange(of: senderPhone) { newValue in
+                                    // Only allow numbers and limit to 8 digits
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if filtered.count <= 8 {
+                                        senderPhone = filtered
+                                    } else {
+                                        senderPhone = String(filtered.prefix(8))
+                                    }
+                                }
+                            Text("\(senderPhone.count)/8 digits")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(senderPhone.count == 8 ? .green : .secondary)
                         }
                     }
                     
                     // Submit Button
                     Button {
                         Task {
-                            // Handle submission - placeholder for future implementation
-                            // After successful submission, refresh transactions
-                            if let currentUser = DIContainer.shared.authService.getCurrentUser() {
-                                await walletViewModel.refreshTransactions(for: currentUser.id)
-                            }
-                            dismiss()
+                            await submitD17Payment()
                         }
                     } label: {
-                        Text("Submit")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.brandPrimary)
-                            .cornerRadius(12)
+                        if isSubmitting {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Submitting...")
+                            }
+                        } else {
+                            Text("Submit")
+                        }
                     }
-                    .disabled(amount.isEmpty || authNumber.isEmpty || senderPhone.isEmpty)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brandPrimary)
+                    .cornerRadius(12)
+                    .disabled(!isFormValid || isSubmitting)
                 }
                 .padding()
             }
@@ -676,6 +701,65 @@ struct D17PaymentSheet: View {
         .sheet(isPresented: $showReceiptSheet) {
             D17ReceiptSheet(receiptImage: $receiptImage)
         }
+        .alert("D17 Payment", isPresented: $showAlert) {
+            Button("OK") {
+                if isSuccess {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private var isFormValid: Bool {
+        (Int(amount) ?? 0) > 0 && !authNumber.isEmpty && senderPhone.count == 8
+    }
+    
+    private func submitD17Payment() async {
+        guard let currentUser = authService.getCurrentUser(),
+              let intAmount = Int(amount),
+              intAmount > 0,
+              !authNumber.isEmpty,
+              senderPhone.count == 8 else {
+            alertMessage = "Please enter a valid positive integer amount, authorization number, and 8-digit phone number."
+            isSuccess = false
+            showAlert = true
+            return
+        }
+        
+        isSubmitting = true
+        
+        do {
+            var imageData: Data? = nil
+            if let image = receiptImage {
+                // Compress to JPEG to avoid exceeding backend max_allowed_packet size
+                imageData = image.jpegData(compressionQuality: 0.4)
+            }
+            let response = try await d17PaymentService.requestD17Payment(
+                userId: currentUser.id,
+                amount: intAmount,
+                authNumber: authNumber,
+                senderPhone: senderPhone,
+                receiptImage: imageData,
+                receiptFileName: imageData != nil ? "d17_receipt.jpg" : nil,
+                receiptMimeType: imageData != nil ? "image/jpeg" : nil
+            )
+            
+            isSuccess = response.success
+            if response.success {
+                alertMessage = "D17 payment request created successfully!\nTransaction ID: \(response.Transaction.id)"
+                await walletViewModel.refreshTransactions(for: currentUser.id)
+            } else {
+                alertMessage = response.message
+            }
+        } catch {
+            isSuccess = false
+            alertMessage = "Failed to create D17 payment request: \(error.localizedDescription)"
+        }
+        
+        showAlert = true
+        isSubmitting = false
     }
 }
 
