@@ -27,6 +27,14 @@ struct ReferralDetailSheet: View {
     let isAlreadyInvited: Bool
     let invitedByCode: String?
     let invitationStats: InvitationStats?
+    let walletViewModel: WalletViewModel
+    
+    @State private var isSubmittingInvite = false
+    @State private var showInviteAlert = false
+    @State private var inviteAlertMessage = ""
+    @State private var inviteSuccess = false
+    
+    private let authService = DIContainer.shared.authService
     
     var body: some View {
         NavigationView {
@@ -71,16 +79,29 @@ struct ReferralDetailSheet: View {
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     
                     Button {
-                        // Invite friends action placeholder
+                        if isAlreadyInvited {
+                            // Invite friends action placeholder (share link)
+                        } else {
+                            Task { await submitFriendCode() }
+                        }
                     } label: {
-                        Text("Invite Friends")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.brandPrimary)
-                            .cornerRadius(20)
+                        if !isAlreadyInvited && isSubmittingInvite {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Submitting...")
+                            }
+                        } else {
+                            Text(isAlreadyInvited ? "Invite Friends" : "Submit")
+                        }
                     }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brandPrimary)
+                    .cornerRadius(20)
+                    .disabled(!isAlreadyInvited && (friendInviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingInvite))
                     .padding(.top, 4)
                     
                     Text("Earn \(invitationStats?.pointPerPurchase ?? 2) points for every friend who makes a purchase!")
@@ -101,6 +122,15 @@ struct ReferralDetailSheet: View {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+        .alert("Friend Code", isPresented: $showInviteAlert) {
+            Button("OK") {
+                if inviteSuccess {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(inviteAlertMessage)
         }
     }
     
@@ -128,6 +158,45 @@ struct ReferralDetailSheet: View {
         .frame(maxWidth: .infinity)
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+    }
+    
+    private func submitFriendCode() async {
+        let code = friendInviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else {
+            inviteAlertMessage = "Please enter your friend's invite code before submitting."
+            inviteSuccess = false
+            showInviteAlert = true
+            return
+        }
+        
+        guard let currentUser = authService.getCurrentUser() else {
+            inviteAlertMessage = "You must be logged in to submit a friend code."
+            inviteSuccess = false
+            showInviteAlert = true
+            return
+        }
+        
+        isSubmittingInvite = true
+        
+        do {
+            try await authService.setUserInvitedByLink(userId: currentUser.id, link: code)
+            
+            // Refresh user (to update credit and invitedBy), invites, and transactions
+            try? await authService.refreshUserData()
+            if let refreshedUser = authService.getCurrentUser() {
+                await walletViewModel.refreshInvitationStats(for: refreshedUser.id)
+                await walletViewModel.refreshTransactions(for: refreshedUser.id)
+            }
+            
+            inviteAlertMessage = "Invitation created successfully. Your rewards have been applied."
+            inviteSuccess = true
+        } catch {
+            inviteAlertMessage = error.localizedDescription
+            inviteSuccess = false
+        }
+        
+        showInviteAlert = true
+        isSubmittingInvite = false
     }
 }
     
@@ -184,7 +253,8 @@ struct ReferralDetailSheet: View {
                 inviteLink: currentUser?.inviteLink ?? "No link available",
                 isAlreadyInvited: hasExistingInvite,
                 invitedByCode: invitedByCode,
-                invitationStats: walletViewModel.invitationStats
+                invitationStats: walletViewModel.invitationStats,
+                walletViewModel: walletViewModel
             )
         }
         .sheet(isPresented: $showD17Sheet) {
