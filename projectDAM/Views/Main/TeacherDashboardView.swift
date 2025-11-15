@@ -8,10 +8,20 @@
 import SwiftUI
 
 struct TeacherDashboardView: View {
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
+    @State private var isShowingWalletAlert = false
     @State private var totalStudents = 342
     @State private var activeCourses = 5
     @State private var avgRating = 4.8
     @State private var totalQuestions = 23
+    
+    private var currentUser: User? {
+        authService.currentUser
+    }
+    
+    private var userCredits: Int {
+        currentUser?.credit ?? 0
+    }
     
     var body: some View {
         NavigationView {
@@ -42,11 +52,22 @@ struct TeacherDashboardView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Teacher Dashboard")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.brandPrimary)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    UnifiedTopAppBarLogoView()
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    UnifiedTopAppBarActions(
+                        userCredits: userCredits,
+                        isShowingWalletAlert: $isShowingWalletAlert,
+                        searchAction: {},
+                        notificationsAction: {}
+                    )
+                }
+            }
+            .alert("Wallet", isPresented: $isShowingWalletAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Wallet Screen will be developed soon.")
             }
         }
         .navigationViewStyle(.stack)
@@ -55,7 +76,7 @@ struct TeacherDashboardView: View {
     // MARK: - Header Section
     private func headerSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Welcome, Instructor")
+            Text("Welcome, \(currentUser?.username ?? "Instructor")")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(.primary)
             

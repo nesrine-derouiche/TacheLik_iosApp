@@ -3,9 +3,14 @@ import SwiftUI
 struct HomeView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
+    @State private var isShowingWalletAlert = false
     
     private var currentUser: User? {
         authService.currentUser
+    }
+    
+    private var userCredits: Int {
+        currentUser?.credit ?? 0
     }
     
     private var userInitials: String {
@@ -127,87 +132,50 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Image("tache_lik_logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 32)
-                        .rotationEffect(.degrees(-45))
+                    UnifiedTopAppBarLogoView()
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {}) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.primary)
-                        }
-                        Button(action: {}) {
-                            ZStack {
-                                Circle()
-                                    .fill(LinearGradient.brandPrimaryGradient)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 8, y: -8)
-                                Image(systemName: "bell.fill")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.primary)
-                            }
-                        }
-                        
-                        Button(action: {
-                            // Navigate to profile
-                        }) {
-                            if let imageUrl = currentUser?.image, !imageUrl.isEmpty {
-                                // Display user image
-                                if imageUrl.hasPrefix("data:image") {
-                                    // Handle base64 data URL
-                                    if let data = Data(base64Encoded: imageUrl.replacingOccurrences(of: "data:image/jpeg;base64,", with: "")),
-                                       let uiImage = UIImage(data: data) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 36, height: 36)
-                                            .clipShape(Circle())
-                                            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
-                                    } else {
-                                        avatarPlaceholder
-                                    }
-                                } else {
-                                    // Handle regular URL
-                                    AsyncImage(url: URL(string: imageUrl)) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 36, height: 36)
-                                                .clipShape(Circle())
-                                                .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
-                                        case .failure, .empty:
-                                            avatarPlaceholder
-                                        @unknown default:
-                                            avatarPlaceholder
-                                        }
-                                    }
-                                }
-                            } else {
-                                avatarPlaceholder
-                            }
-                        }
-                    }
+                    UnifiedTopAppBarActions(
+                        userCredits: userCredits,
+                        isShowingWalletAlert: $isShowingWalletAlert
+                    )
                 }
+            }
+            .alert("Wallet", isPresented: $isShowingWalletAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Wallet Screen will be developed soon.")
             }
         }
     }
+}
+
+struct TCreditsWalletChip: View {
+    let credits: Int
+    @Environment(\.colorScheme) private var colorScheme
     
-    private var avatarPlaceholder: some View {
-        Circle()
-            .fill(LinearGradient.brandPrimaryGradient)
-            .frame(width: 36, height: 36)
-            .overlay(
-                Text(userInitials)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-            )
-            .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(Color.brandPrimary)
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Image("T-Credits")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                )
+                .shadow(color: Color.brandPrimary.opacity(colorScheme == .dark ? 0.3 : 0.12), radius: 4, x: 0, y: 2)
+            
+            Text("\(credits)")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(.primary)
+                .padding(.trailing, 2)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
     }
 }
 
