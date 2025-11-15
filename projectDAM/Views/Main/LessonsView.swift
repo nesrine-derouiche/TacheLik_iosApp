@@ -2,206 +2,374 @@ import SwiftUI
 
 // MARK: - Lessons View
 struct LessonsView: View {
-    let lesson: Lesson
-    @State private var selectedVideo: VideoContent?
-    @State private var isVideoListExpanded = true
-    @State private var selectedVideoIndex: Int = 0
+    @StateObject private var viewModel: LessonsViewModel
+    @State private var selectedVideoId: String?
+    @Namespace private var videoNamespace
     
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: DS.paddingMD) {
-                // Header
-                headerSection
-                
-                // Video Player Section
-                videoPlayerSection
-                
-                // Video List (Expandable)
-                videoListSection
-                
-                // Teacher Section
-                TeacherProfileCard(teacher: lesson.teacher)
-                    .padding(.horizontal, DS.paddingMD)
-                
-                // Lesson Description (if available)
-                if let description = lesson.description, !description.isEmpty {
-                    lessonDescriptionSection(description)
-                }
-                
-                Spacer(minLength: DS.paddingXL)
-            }
-            .padding(.vertical, DS.paddingMD)
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle(lesson.title)
-        .navigationBarTitleDisplayMode(.inline)
+    // MARK: - Initializers
+    init(courseId: String, accessType: LessonAccessType, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
+        _viewModel = StateObject(wrappedValue: LessonsViewModel(courseId: courseId, accessType: accessType, lessonService: lessonService))
     }
     
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: DS.paddingSM) {
+    init(viewModel: LessonsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+    
+    // MARK: - Body
+    var body: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+            content
+        }
+        .navigationTitle(viewModel.lessonTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await viewModel.loadLesson() }
+        .refreshable { await viewModel.loadLesson(force: true) }
+        .onChange(of: viewModel.visibleVideos, perform: handleVideoListChange)
+    }
+    
+    // MARK: - Content States
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.isLoading && viewModel.lesson == nil {
+            loadingState
+        } else if let error = viewModel.errorMessage, viewModel.lesson == nil {
+            errorState(message: error)
+        } else if let lesson = viewModel.lesson {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    headerSection(for: lesson)
+                    metadataSection(for: lesson)
+                    videoHeroSection
+                    videoTimelineSection
+                    TeacherProfileCard(teacher: lesson.teacher)
+                        .padding(.horizontal, DS.paddingMD)
+                    if let description = lesson.description, !description.isEmpty {
+                        lessonDescriptionSection(description)
+                    }
+                    footerSection(for: lesson)
+                }
+                .padding(.vertical, 24)
+            }
+        } else {
+            emptyState
+        }
+    }
+    
+    // MARK: - Sections
+    private func headerSection(for lesson: Lesson) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                accessBadge
+                if let updatedText = formattedDate(lesson.updatedDate) {
+                    infoPill(icon: "clock.arrow.circlepath", text: "Updated \(updatedText)")
+                }
+            }
+            .padding(.horizontal, DS.paddingMD)
+            
             Text(lesson.title)
-                .font(.system(size: 26, weight: .bold))
-                .lineLimit(2)
-                .foregroundColor(.primary)
+                .font(.system(size: 30, weight: .black, design: .rounded))
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, DS.paddingMD)
         }
-        .padding(.top, DS.paddingSM)
-        .padding(.bottom, DS.paddingMD)
     }
     
-    // MARK: - Video Player Section
-    private var videoPlayerSection: some View {
-        VStack(spacing: 0) {
-            // Video Placeholder
-            ZStack {
-                RoundedRectangle(cornerRadius: DS.cornerRadiusMD)
-                    .fill(Color.black)
-                
-                VStack(spacing: DS.paddingMD) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 56, weight: .semibold))
-                        .foregroundColor(.white)
-                    
-                    VStack(spacing: 4) {
-                        Text((selectedVideo ?? lesson.videos.first)?.title ?? "Video")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                        
-                        Text("Ready to play")
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
+    private func metadataSection(for lesson: Lesson) -> some View {
+        let totalMinutes = lesson.videos.reduce(0) { $0 + $1.duration } / 60
+        let stats: [(String, String, String)] = [
+            ("play.rectangle.fill", "Videos", "\(lesson.videos.count)"),
+            ("clock.fill", "Runtime", "\(totalMinutes) min"),
+            ("book.fill", "Course", lesson.courseId ?? "—")
+        ]
+        
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(stats, id: \.1) { stat in
+                    statCard(icon: stat.0, title: stat.1, value: stat.2)
                 }
             }
-            .frame(height: 200)
-            .padding(DS.paddingMD)
-            
-            // Video Info Bar
-            HStack(spacing: DS.paddingSM) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text((selectedVideo ?? lesson.videos.first)?.title ?? "Video")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    Text((selectedVideo ?? lesson.videos.first)?.formattedDuration ?? "00:00")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                HStack(spacing: DS.paddingSM) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.brandPrimary))
-                    
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.brandPrimary)
-                }
-            }
-            .padding(DS.paddingMD)
-            .background(Color(.systemBackground))
+            .padding(.horizontal, DS.paddingMD)
         }
-        .background(Color(.systemBackground))
-        .cornerRadius(DS.cornerRadiusMD)
-        .padding(.horizontal, DS.paddingMD)
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
     
-    // MARK: - Video List Section
-    private var videoListSection: some View {
-        VStack(spacing: 0) {
-            // Header with Toggle
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                    isVideoListExpanded.toggle()
-                }
-            }) {
-                HStack(spacing: DS.paddingMD) {
-                    HStack(spacing: DS.paddingSM) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Circle().fill(Color.brandPrimary))
-                        
-                        Text("\(lesson.videos.count) Videos")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.primary)
+    private var videoHeroSection: some View {
+        let currentVideo = selectedVideo
+        return VStack(alignment: .leading, spacing: 16) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.brandPrimary, Color.brandPrimaryHover],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(height: 220)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(currentVideo?.title ?? "Select a video")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    
+                    HStack(spacing: 12) {
+                        infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
+                            .foregroundColor(.white.opacity(0.9))
+                        Button {
+                            // Share placeholder
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.white.opacity(0.15))
+                                .clipShape(Circle())
+                        }
                     }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.secondary)
-                        .rotationEffect(.degrees(isVideoListExpanded ? 0 : -90))
                 }
-                .padding(DS.paddingMD)
-                .background(Color(.systemBackground))
-                .contentShape(Rectangle())
+                .padding(24)
             }
             
-            // Video List
-            if isVideoListExpanded {
-                Divider()
+            if let video = currentVideo {
+                Button {
+                    // Will integrate video playback later
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.fill")
+                        Text("Start Lesson")
+                    }
+                    .font(.system(size: 16, weight: .bold))
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+                }
+                .padding(.horizontal, DS.paddingMD)
+                .transition(.opacity)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedVideoId)
+        .padding(.horizontal, DS.paddingMD)
+    }
+    
+    private var videoTimelineSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Lesson Timeline")
+                    .font(.system(size: 18, weight: .semibold))
+                Spacer()
+                if viewModel.hasMoreVideos {
+                    infoPill(icon: "arrow.down", text: "More incoming")
+                }
+            }
+            .padding([.horizontal, .bottom], DS.paddingMD)
+            
+            if viewModel.visibleVideos.isEmpty {
+                EmptyStateCard(message: "Videos will appear here once available.")
                     .padding(.horizontal, DS.paddingMD)
-                
+                    .padding(.bottom, DS.paddingMD)
+            } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(lesson.videos.enumerated()), id: \.element.id) { index, video in
+                    ForEach(Array(viewModel.visibleVideos.enumerated()), id: \.element.id) { index, video in
                         VideoListItemView(
                             video: video,
-                            isSelected: selectedVideo?.id == video.id || (selectedVideo == nil && index == 0),
+                            isSelected: selectedVideoId == video.id,
                             index: index + 1
                         )
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedVideo = video
-                                selectedVideoIndex = index
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                selectedVideoId = video.id
                             }
                         }
+                        .onAppear {
+                            viewModel.loadMoreVideosIfNeeded(currentVideoId: video.id)
+                        }
                         
-                        if index < lesson.videos.count - 1 {
+                        if index < viewModel.visibleVideos.count - 1 {
                             Divider()
                                 .padding(.horizontal, DS.paddingMD)
                         }
                     }
                 }
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .move(edge: .top)),
-                    removal: .opacity.combined(with: .move(edge: .top))
-                ))
+            }
+            
+            if viewModel.hasMoreVideos {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Fetching more videos…")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, DS.paddingMD)
+                .padding(.vertical, 12)
             }
         }
         .background(Color(.systemBackground))
-        .cornerRadius(DS.cornerRadiusMD)
+        .cornerRadius(24)
         .padding(.horizontal, DS.paddingMD)
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 4)
     }
     
-    // MARK: - Lesson Description Section
     private func lessonDescriptionSection(_ description: String) -> some View {
-        VStack(alignment: .leading, spacing: DS.paddingSM) {
-            Text("About this lesson")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Overview")
+                .font(.system(size: 17, weight: .semibold))
                 .textCase(.uppercase)
-                .tracking(0.5)
-            
-            Text(description)
-                .font(.system(size: 14, weight: .regular))
                 .foregroundColor(.secondary)
-                .lineSpacing(2)
+            Text(description)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(.primary)
+                .lineSpacing(4)
         }
         .padding(DS.paddingMD)
         .background(Color(.systemBackground))
-        .cornerRadius(DS.cornerRadiusMD)
+        .cornerRadius(24)
         .padding(.horizontal, DS.paddingMD)
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+    }
+    
+    private func footerSection(for lesson: Lesson) -> some View {
+        VStack(spacing: 6) {
+            Text("Need this lesson offline?")
+                .font(.system(size: 16, weight: .semibold))
+            Text("Future versions will let you download sessions and continue without internet.")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color.brandPrimary.opacity(0.08))
+        )
+        .padding(.horizontal, DS.paddingMD)
+    }
+    
+    // MARK: - States
+    private var loadingState: some View {
+        VStack(spacing: 20) {
+            ShimmerCard(height: 200)
+            ShimmerCard(height: 140)
+            ShimmerCard(height: 120)
+        }
+        .padding(24)
+    }
+    
+    private func errorState(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.orange)
+            Text("We couldn't load this lesson")
+                .font(.system(size: 20, weight: .semibold))
+            Text(message)
+                .font(.system(size: 15))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: { Task { await viewModel.retry() } }) {
+                Text("Retry")
+                    .font(.system(size: 16, weight: .bold))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .background(Color.brandPrimary)
+                    .foregroundColor(.white)
+                    .cornerRadius(16)
+            }
+        }
+        .padding(32)
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "book")
+                .font(.system(size: 44))
+                .foregroundColor(.secondary)
+            Text("Lesson unavailable")
+                .font(.system(size: 20, weight: .semibold))
+            Text("This course doesn't expose a lesson yet. Check again soon.")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+        }
+        .padding(32)
+    }
+    
+    // MARK: - Helpers
+    private var accessBadge: some View {
+        let label = viewModel.accessType == .publicCourse ? "Free Lesson" : "Premium Lesson"
+        let colors: [Color] = viewModel.accessType == .publicCourse
+        ? [Color.green.opacity(0.9), Color.green.opacity(0.7)]
+        : [Color.purple.opacity(0.9), Color.purple.opacity(0.7)]
+        
+        return Text(label)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            )
+    }
+    
+    private func infoPill(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(text)
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.2))
+        .clipShape(Capsule())
+    }
+    
+    private func statCard(icon: String, title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.brandPrimary)
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: 17, weight: .heavy))
+        }
+        .padding(16)
+        .frame(width: 140, alignment: .leading)
+        .background(Color(.systemBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+    }
+    
+    private func formattedDate(_ isoString: String?) -> String? {
+        guard let isoString else { return nil }
+        let formatter = ISO8601DateFormatter()
+        guard let date = formatter.date(from: isoString) else { return nil }
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateStyle = .medium
+        return displayFormatter.string(from: date)
+    }
+    
+    private func handleVideoListChange(_ videos: [VideoContent]) {
+        guard let first = videos.first else {
+            selectedVideoId = nil
+            return
+        }
+        if let current = selectedVideoId, videos.contains(where: { $0.id == current }) {
+            return
+        }
+        selectedVideoId = first.id
+    }
+    
+    private var selectedVideo: VideoContent? {
+        guard let id = selectedVideoId else { return viewModel.visibleVideos.first }
+        return viewModel.visibleVideos.first(where: { $0.id == id }) ?? viewModel.visibleVideos.first
     }
 }
 
@@ -215,145 +383,117 @@ struct VideoListItemView: View {
     
     var body: some View {
         HStack(spacing: DS.paddingMD) {
-            // Video Number/Icon
             ZStack {
                 Circle()
-                    .fill(isSelected ? 
-                        LinearGradient(
-                            colors: [Color.brandPrimary, Color.brandPrimaryHover],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ) : LinearGradient(
-                            colors: [Color(.secondarySystemBackground), Color(.tertiarySystemBackground)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                    .fill(
+                        isSelected
+                        ? LinearGradient(colors: [Color.brandPrimary, Color.brandPrimaryHover], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(colors: [Color(.secondarySystemBackground), Color(.tertiarySystemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
-                
                 if isSelected {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
                 } else {
                     Text("\(index)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondary)
                 }
             }
-            .frame(width: 40, height: 40)
-            .shadow(color: isSelected ? Color.brandPrimary.opacity(0.3) : Color.clear, radius: 6, x: 0, y: 2)
+            .frame(width: 42, height: 42)
+            .shadow(color: isSelected ? Color.brandPrimary.opacity(0.25) : .clear, radius: 8, x: 0, y: 2)
             
-            // Video Info
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(video.title)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
                     .foregroundColor(.primary)
                     .lineLimit(2)
-                
+                if let description = video.description, !description.isEmpty {
+                    Text(description)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
                 Text(video.formattedDuration)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
             
             Spacer()
-            
-            // Indicator
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.brandPrimary)
-                    .transition(.scale.combined(with: .opacity))
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .opacity(0.5)
-            }
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "chevron.right")
+                .font(.system(size: isSelected ? 18 : 12, weight: .semibold))
+                .foregroundColor(isSelected ? .brandPrimary : .secondary)
+                .opacity(isSelected ? 1 : 0.4)
         }
         .padding(DS.paddingMD)
         .contentShape(Rectangle())
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .onLongPressGesture(minimumDuration: 0.1, perform: {}) { isPressing in
-            withAnimation(.spring(response: 0.2)) {
-                isPressed = isPressing
-            }
+        .scaleEffect(isPressed ? 0.98 : 1)
+        .onLongPressGesture(minimumDuration: 0.1, perform: {}) { pressing in
+            withAnimation(.spring(response: 0.2)) { isPressed = pressing }
         }
     }
 }
 
-// MARK: - Sample Data
-extension Lesson {
-    static let sampleLesson = Lesson(
-        id: "lesson-1",
-        title: "Introduction et Création de Projet | FlutterFlow : Les Fondations",
-        description: "Découvrez les bases de FlutterFlow dans ce cours complet. Apprenez à créer votre premier projet, configurer votre environnement de développement, et comprendre les principes fondamentaux de FlutterFlow. Ce cours couvre tout ce que vous devez savoir pour commencer avec FlutterFlow et construire des applications mobiles magnifiques sans écrire de code.",
-        teacher: Teacher(
-            id: "teacher-1",
-            name: "Dr. Mohamed Trabelsi",
-            email: "m.trabelsi@esprit.tn",
-            bio: "Expert en développement mobile et théorie des langages",
-            profileImage: nil,
-            socialLinks: [
-                SocialLink(id: "s1", platform: .email, url: "mailto:m.trabelsi@esprit.tn"),
-                SocialLink(id: "s2", platform: .linkedin, url: "https://linkedin.com"),
-                SocialLink(id: "s3", platform: .github, url: "https://github.com"),
-                SocialLink(id: "s4", platform: .website, url: "https://example.com")
-            ]
-        ),
-        videos: [
-            VideoContent(
-                id: "vid-1",
-                title: "Partie 1 : Introduction et Création de Projet",
-                duration: 252,
-                videoUrl: "https://youtube.com/watch?v=example1",
-                thumbnailUrl: nil,
-                description: "Introduction complète aux fondamentaux de FlutterFlow",
-                orderIndex: 0
-            ),
-            VideoContent(
-                id: "vid-2",
-                title: "Partie 2 : Widgets de Base – Exercice d'Application",
-                duration: 525,
-                videoUrl: "https://youtube.com/watch?v=example2",
-                thumbnailUrl: nil,
-                description: "Apprenez les widgets de base et pratiquez avec des exercices",
-                orderIndex: 1
-            ),
-            VideoContent(
-                id: "vid-3",
-                title: "Partie 3 : Actions",
-                duration: 216,
-                videoUrl: "https://youtube.com/watch?v=example3",
-                thumbnailUrl: nil,
-                description: "Maîtrisez les actions dans FlutterFlow",
-                orderIndex: 2
-            ),
-            VideoContent(
-                id: "vid-4",
-                title: "Partie 4 : Navigation",
-                duration: 198,
-                videoUrl: "https://youtube.com/watch?v=example4",
-                thumbnailUrl: nil,
-                description: "Implémentez la navigation entre les écrans",
-                orderIndex: 3
-            ),
-            VideoContent(
-                id: "vid-5",
-                title: "Partie 5 : Création de Projet Firebase – Activation du Storage",
-                duration: 412,
-                videoUrl: "https://youtube.com/watch?v=example5",
-                thumbnailUrl: nil,
-                description: "Configurez Firebase et utilisez le stockage cloud",
-                orderIndex: 4
+// MARK: - Utility Views
+private struct ShimmerCard: View {
+    var height: CGFloat
+    @State private var phase: CGFloat = -1
+    
+    var body: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color(.secondarySystemBackground))
+            .frame(height: height)
+            .overlay(
+                GeometryReader { geometry in
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.6), Color.white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: geometry.size.width * phase)
+                }
+                .mask(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .frame(height: height)
+                )
             )
-        ],
-        courseId: "course-1",
-        createdDate: "2024-01-15",
-        updatedDate: "2024-11-09"
-    )
+            .onAppear {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    phase = 1.5
+                }
+            }
+    }
+}
+
+private struct EmptyStateCard: View {
+    let message: String
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 26))
+                .foregroundColor(.secondary)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(Color(.tertiarySystemBackground))
+        .cornerRadius(18)
+    }
 }
 
 // MARK: - Preview
 #Preview {
-    LessonsView(lesson: .sampleLesson)
+    NavigationView {
+        LessonsView(
+            viewModel: LessonsViewModel(
+                courseId: "course-1a",
+                accessType: .publicCourse,
+                lessonService: MockLessonService(lesson: .sampleLesson)
+            )
+        )
+    }
 }

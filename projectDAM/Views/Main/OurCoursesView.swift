@@ -15,7 +15,7 @@ struct OurCoursesView: View {
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - Initialization
-    init(classItem: ClassItem, courseService: CourseServiceProtocol) {
+    init(classItem: ClassItem, courseService: CourseServiceProtocol = DIContainer.shared.courseService) {
         self.classItem = classItem
         _viewModel = StateObject(wrappedValue: OurCoursesViewModel(courseService: courseService))
     }
@@ -55,10 +55,18 @@ struct OurCoursesView: View {
                 
                 LazyVStack(spacing: 20, pinnedViews: []) {
                     ForEach(viewModel.visibleCourses) { course in
-                        courseCard(course)
-                            .onAppear {
-                                viewModel.loadMoreCoursesIfNeeded(currentCourseID: course.id)
-                            }
+                        NavigationLink {
+                            LessonsView(
+                                courseId: course.id,
+                                accessType: accessType(for: course)
+                            )
+                        } label: {
+                            courseCard(course)
+                        }
+                        .buttonStyle(.plain)
+                        .onAppear {
+                            viewModel.loadMoreCoursesIfNeeded(currentCourseID: course.id)
+                        }
                     }
                     if viewModel.canLoadMoreCourses {
                         CoursesLoadMoreIndicator(accentColor: classColor)
@@ -417,6 +425,10 @@ struct OurCoursesView: View {
 
     private var tagSize: CGSize {
         CGSize(width: 104, height: 34)
+    }
+
+    private func accessType(for course: Course) -> LessonAccessType {
+        course.price > 0 ? .privateCourse : .publicCourse
     }
 }
 

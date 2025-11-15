@@ -44,11 +44,11 @@ struct SplashView: View {
                         HStack(spacing: 0) {
                             Text("T")
                                 .foregroundColor(Color(red: 0.867, green: 0.341, blue: 0.275)) // #DD5746
-                                .font(.custom("Nunito-Bold", size: 48))
+                                .font(.custom("Nunito-ExtraBold", size: 48))
                             
                             Text("ache-lik")
                                 .foregroundColor(Color(red: 0.282, green: 0.576, blue: 0.686)) // #4793af
-                                .font(.custom("Nunito-Bold", size: 48))
+                                .font(.custom("Nunito-ExtraBold", size: 48))
                         }
                     }
                     .opacity(textOpacity)

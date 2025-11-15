@@ -18,6 +18,7 @@ final class DIContainer {
     let networkService: NetworkServiceProtocol
     let authService: AuthServiceProtocol
     let courseService: CourseServiceProtocol
+    let lessonService: LessonServiceProtocol
     let profileService: ProfileServiceProtocol
     let socketService: SocketServiceProtocol
     let roleManager: RoleManager
@@ -34,6 +35,11 @@ final class DIContainer {
         self.networkService = NetworkService()
         self.authService = AuthService(networkService: networkService)
         self.courseService = CourseService(networkService: networkService, authService: authService)
+        self.lessonService = LessonService(
+            networkService: networkService,
+            authService: authService,
+            courseService: courseService
+        )
         self.profileService = ProfileService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
@@ -68,6 +74,15 @@ final class DIContainer {
     /// Create ClassesViewModel with injected dependencies
     func makeClassesViewModel() -> ClassesViewModel {
         return ClassesViewModel(courseService: courseService)
+    }
+
+    /// Create LessonsViewModel with injected dependencies
+    func makeLessonsViewModel(courseId: String, accessType: LessonAccessType) -> LessonsViewModel {
+        return LessonsViewModel(
+            courseId: courseId,
+            accessType: accessType,
+            lessonService: lessonService
+        )
     }
     
     /// Create ProgressViewModel with injected dependencies

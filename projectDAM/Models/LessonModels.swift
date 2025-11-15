@@ -73,7 +73,7 @@ struct SocialLink: Identifiable, Codable {
 }
 
 // MARK: - Video Content Model
-struct VideoContent: Identifiable, Codable {
+struct VideoContent: Identifiable, Codable, Equatable {
     let id: String
     let title: String
     let duration: Int // in seconds
@@ -122,6 +122,48 @@ struct VideoPlayerState: Identifiable {
     var isPlaying: Bool = false
     var currentTime: Double = 0
     var totalDuration: Double = 0
+}
+
+// MARK: - Preview / Mock Helpers
+extension Lesson {
+    static let sampleLesson = Lesson(
+        id: "lesson-sample-1",
+        title: "Introduction et Création de Projet | FlutterFlow",
+        description: "Découvrez les bases de FlutterFlow dans ce cours complet.",
+        teacher: Teacher(
+            id: "teacher-sample-1",
+            name: "Dr. Mohamed Trabelsi",
+            email: "m.trabelsi@esprit.tn",
+            bio: "Expert en développement mobile et théorie des langages",
+            profileImage: nil,
+            socialLinks: [
+                SocialLink(id: "social-1", platform: .email, url: "mailto:m.trabelsi@esprit.tn")
+            ]
+        ),
+        videos: [
+            VideoContent(
+                id: "video-sample-1",
+                title: "Partie 1 : Introduction",
+                duration: 252,
+                videoUrl: "https://youtube.com/watch?v=example1",
+                thumbnailUrl: nil,
+                description: "Tour d'horizon de FlutterFlow",
+                orderIndex: 0
+            ),
+            VideoContent(
+                id: "video-sample-2",
+                title: "Partie 2 : Widgets de Base",
+                duration: 525,
+                videoUrl: "https://youtube.com/watch?v=example2",
+                thumbnailUrl: nil,
+                description: "Découverte des widgets essentiels",
+                orderIndex: 1
+            )
+        ],
+        courseId: "course-sample-1",
+        createdDate: "2024-01-15",
+        updatedDate: "2024-11-09"
+    )
 }
 
 // MARK: - Sample Lessons Data for All Courses

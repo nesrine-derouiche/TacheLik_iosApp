@@ -10,12 +10,20 @@
 		0475F0502EBF7D72005B54B9 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 0475F04F2EBF7D72005B54B9 /* SocketIO */; };
 		04D8E26D2EC0FF7F00AC81A0 /* Config.local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */; };
 		04D8E26F2EC0FF9F00AC81A0 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */; };
+		D9EEFED62EC80EBF001E370E /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9EEFED22EC80EBF001E370E /* Nunito-Bold.ttf */; };
+		D9EEFED72EC80EBF001E370E /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9EEFED52EC80EBF001E370E /* Nunito-SemiBold.ttf */; };
+		D9EEFED82EC80EBF001E370E /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9EEFED32EC80EBF001E370E /* Nunito-ExtraBold.ttf */; };
+		D9EEFED92EC80EBF001E370E /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9EEFED42EC80EBF001E370E /* Nunito-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
 		04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		261CBA9E2EBE51AD003C55BA /* projectDAM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = projectDAM.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D9EEFED22EC80EBF001E370E /* Nunito-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Bold.ttf"; sourceTree = "<group>"; };
+		D9EEFED32EC80EBF001E370E /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-ExtraBold.ttf"; sourceTree = "<group>"; };
+		D9EEFED42EC80EBF001E370E /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
+		D9EEFED52EC80EBF001E370E /* Nunito-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-SemiBold.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -54,6 +62,10 @@
 		261CBA952EBE51AD003C55BA = {
 			isa = PBXGroup;
 			children = (
+				D9EEFED22EC80EBF001E370E /* Nunito-Bold.ttf */,
+				D9EEFED32EC80EBF001E370E /* Nunito-ExtraBold.ttf */,
+				D9EEFED42EC80EBF001E370E /* Nunito-Regular.ttf */,
+				D9EEFED52EC80EBF001E370E /* Nunito-SemiBold.ttf */,
 				261CBAA02EBE51AD003C55BA /* projectDAM */,
 				261CBA9F2EBE51AD003C55BA /* Products */,
 				04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */,
@@ -139,6 +151,10 @@
 			files = (
 				04D8E26D2EC0FF7F00AC81A0 /* Config.local.xcconfig in Resources */,
 				04D8E26F2EC0FF9F00AC81A0 /* Config.xcconfig in Resources */,
+				D9EEFED62EC80EBF001E370E /* Nunito-Bold.ttf in Resources */,
+				D9EEFED72EC80EBF001E370E /* Nunito-SemiBold.ttf in Resources */,
+				D9EEFED82EC80EBF001E370E /* Nunito-ExtraBold.ttf in Resources */,
+				D9EEFED92EC80EBF001E370E /* Nunito-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
