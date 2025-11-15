@@ -19,7 +19,22 @@ struct OurCoursesView: View {
         self.classItem = classItem
         _viewModel = StateObject(wrappedValue: OurCoursesViewModel(courseService: courseService))
     }
+
+// MARK: - Adaptive Badge Stack
+private struct AdaptiveBadgeStack<Content: View>: View {
+    let spacing: CGFloat
+    @ViewBuilder let content: Content
     
+    var body: some View {
+        VStack(spacing: spacing) {
+            content
+                .frame(maxWidth: .infinity)
+                .layoutPriority(1)
+        }
+        .multilineTextAlignment(.center)
+    }
+}
+
     // MARK: - Body
     var body: some View {
         ZStack {
@@ -377,21 +392,95 @@ struct OurCoursesView: View {
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "book.closed.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-            
-            Text("No Courses Yet")
-                .font(.system(size: 24, weight: .bold))
-            
-            Text("There are no courses available for \(classItem.title) at the moment.")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+        GeometryReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(colors: gradientColors.map { $0.opacity(0.2) }, startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 160, height: 160)
+                        Circle()
+                            .stroke(classColor.opacity(0.15), lineWidth: 1.5)
+                            .frame(width: 190, height: 190)
+                        ZStack {
+                            Image(systemName: "book.closed.fill")
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(classColor.opacity(0.85))
+                                .font(.system(size: 56, weight: .bold))
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundColor(classColor.opacity(0.9))
+                                .offset(x: 24, y: -28)
+                        }
+                    }
+                    .padding(.top, 10)
+                    
+                    VStack(spacing: 10) {
+                        Text("Courses Coming Soon")
+                            .font(.system(size: 26, weight: .heavy))
+                            .multilineTextAlignment(.center)
+                        Text("We're curating the best \(classItem.title) experiences for you. Check back shortly or explore other classes in the meantime.")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12)
+                    }
+                    
+                    VStack(spacing: 16) {
+                        AdaptiveBadgeStack(spacing: 12) {
+                            availabilityPill(icon: "clock.badge.questionmark", text: "Not published yet")
+                            availabilityPill(icon: "sparkles", text: "New modules soon")
+                        }
+                        .padding(.horizontal, 12)
+                        
+                        Button {
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "magnifyingglass")
+                                Text("Browse other classes")
+                            }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(classColor)
+                            .clipShape(Capsule())
+                            .shadow(color: classColor.opacity(0.4), radius: 14, x: 0, y: 8)
+                        }
+                    }
+                }
+                .frame(maxWidth: min(proxy.size.width - 32, 420))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                        .fill(Color.white.opacity(0.35))
+                        .shadow(color: Color.black.opacity(0.04), radius: 30, x: 0, y: 12)
+                )
+                .padding(.horizontal, max(16, (proxy.size.width - 420) / 2))
+                .frame(minHeight: proxy.size.height - 32)
+            }
+            .frame(width: proxy.size.width)
+            .padding(.horizontal, 8)
         }
-        .padding(40)
+    }
+
+    private func availabilityPill(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+            Text(text)
+        }
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundColor(classColor)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(classColor.opacity(0.12))
+        .clipShape(Capsule())
+        .multilineTextAlignment(.center)
+        .lineLimit(2)
+        .minimumScaleFactor(0.9)
+        .fixedSize(horizontal: false, vertical: true)
     }
     
     // MARK: - Computed Properties

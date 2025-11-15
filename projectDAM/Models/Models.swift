@@ -214,6 +214,36 @@ struct CourseAuthor: Codable, Equatable {
     let role: String
     let image: String?
     
+    enum CodingKeys: String, CodingKey {
+        case id, username, email, role, image
+    }
+    
+    init(id: String, username: String, email: String, role: String, image: String?) {
+        self.id = id
+        self.username = username
+        self.email = email
+        self.role = role
+        self.image = image
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        username = try container.decode(String.self, forKey: .username)
+        email = try container.decode(String.self, forKey: .email)
+        role = try container.decode(String.self, forKey: .role)
+        
+        if let imageString = try? container.decode(String.self, forKey: .image) {
+            image = imageString
+        } else if let buffer = try? container.decode(ImageBuffer.self, forKey: .image) {
+            let data = Data(buffer.data)
+            let base64String = data.base64EncodedString()
+            image = "data:image/jpeg;base64,\(base64String)"
+        } else {
+            image = nil
+        }
+    }
+    
     var imageURL: URL? {
         guard let image,
               !image.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
