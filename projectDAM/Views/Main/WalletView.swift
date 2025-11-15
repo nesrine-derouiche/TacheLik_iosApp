@@ -1058,6 +1058,8 @@ struct GiftCardSheet: View {
             if response.success {
                 alertMessage = "Gift card redeemed successfully!\nAdded credit: \(response.credit) T-Credits\nTransaction ID: \(response.Transaction.id)"
                 await walletViewModel.refreshTransactions(for: currentUser.id)
+                // Refresh user data so wallet balance (credit) updates immediately
+                try? await authService.refreshUserData()
             } else {
                 alertMessage = response.message
             }
