@@ -80,13 +80,13 @@ struct ClassesView: View {
         if sections.isEmpty {
             emptyState
         } else if selectedFilterID == ClassesViewModel.FilterOption.allID {
-            AllSectionsView(sections: sections, onSectionTap: { filterID in
+            AllSectionsView(viewModel: viewModel, sections: sections, onSectionTap: { filterID in
                 withAnimation(.spring(response: 0.3)) {
                     selectedFilterID = filterID
                 }
             })
         } else if let section = sections.first {
-            SectionClassesView(section: section)
+            SectionClassesView(viewModel: viewModel, section: section)
         }
     }
     
@@ -216,11 +216,12 @@ struct ClassCardView: View {
 
 // MARK: - All Sections View
 struct AllSectionsView: View {
+    @ObservedObject var viewModel: ClassesViewModel
     let sections: [ClassesViewModel.ClassSectionViewData]
     let onSectionTap: (String) -> Void
     
     var body: some View {
-        VStack(spacing: 28) {
+        LazyVStack(spacing: 28, pinnedViews: []) {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -234,14 +235,18 @@ struct AllSectionsView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    VStack(spacing: 12) {
-                        ForEach(section.classes.prefix(2)) { classCard in
+                    LazyVStack(spacing: 12, pinnedViews: []) {
+                        let previewCards = viewModel.previewClasses(for: section.id, limit: 2)
+                        ForEach(previewCards) { classCard in
                             NavigationLink(destination: OurCoursesView(
                                 classItem: classCard.classItem,
                                 courseService: DIContainer.shared.courseService
                             )) {
                                 ClassCardView(classCard: classCard, sectionColor: section.color)
                                     .padding(.horizontal, 20)
+                            }
+                            .onAppear {
+                                viewModel.loadMoreClassesIfNeeded(sectionID: section.id, currentClassID: classCard.id)
                             }
                         }
                     }
@@ -270,6 +275,9 @@ struct AllSectionsView: View {
                     }
                     .padding(.horizontal, 20)
                 }
+                .onAppear {
+                    viewModel.loadMoreSectionsIfNeeded(currentSectionID: section.id)
+                }
             }
         }
     }
@@ -277,6 +285,7 @@ struct AllSectionsView: View {
 
 // MARK: - Section Classes View
 struct SectionClassesView: View {
+    @ObservedObject var viewModel: ClassesViewModel
     let section: ClassesViewModel.ClassSectionViewData
     
     var body: some View {
@@ -298,16 +307,51 @@ struct SectionClassesView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
             
-            ForEach(section.classes) { classCard in
-                NavigationLink(destination: OurCoursesView(
-                    classItem: classCard.classItem,
-                    courseService: DIContainer.shared.courseService
-                )) {
-                    ClassCardView(classCard: classCard, sectionColor: section.color)
-                        .padding(.horizontal, 20)
+            LazyVStack(spacing: 12, pinnedViews: []) {
+                ForEach(viewModel.visibleClasses(for: section.id)) { classCard in
+                    NavigationLink(destination: OurCoursesView(
+                        classItem: classCard.classItem,
+                        courseService: DIContainer.shared.courseService
+                    )) {
+                        ClassCardView(classCard: classCard, sectionColor: section.color)
+                            .padding(.horizontal, 20)
+                    }
+                    .onAppear {
+                        viewModel.loadMoreClassesIfNeeded(sectionID: section.id, currentClassID: classCard.id)
+                    }
+                }
+                if viewModel.canLoadMoreClasses(for: section.id) {
+                    LoadMoreIndicator(accentColor: section.color)
+                        .onAppear {
+                            if let lastID = viewModel.visibleClasses(for: section.id).last?.id {
+                                viewModel.loadMoreClassesIfNeeded(sectionID: section.id, currentClassID: lastID)
+                            }
+                        }
                 }
             }
         }
+    }
+}
+
+// MARK: - Load More Indicator
+struct LoadMoreIndicator: View {
+    let accentColor: Color
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: accentColor))
+            Text("Loading more")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
     }
 }
 

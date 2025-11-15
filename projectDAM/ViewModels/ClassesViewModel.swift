@@ -42,6 +42,8 @@ final class ClassesViewModel: ObservableObject {
     // MARK: - Published State
     @Published private(set) var filters: [FilterOption] = []
     @Published private(set) var sections: [ClassSectionViewData] = []
+    @Published private var visibleSectionCount: Int = 0
+    @Published private var visibleClassCounts: [String: Int] = [:]
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
@@ -57,6 +59,10 @@ final class ClassesViewModel: ObservableObject {
     }
     
     private let fallbackColors: [Color] = [.blue, .purple, .orange, .green, .pink, .teal, .indigo]
+    private let initialSectionBatchSize = 2
+    private let sectionBatchSize = 2
+    private let initialClassBatchSize = 3
+    private let classBatchSize = 3
     private let knownFilters: [String: (title: String, color: Color, sortOrder: Int)] = [
         "1a": (title: "1A", color: .blue, sortOrder: 0),
         "2a": (title: "2A", color: .purple, sortOrder: 1),
@@ -86,6 +92,8 @@ final class ClassesViewModel: ObservableObject {
             let builtSections = buildSections(from: classes)
             let builtFilters = buildFilters(from: builtSections)
             sections = builtSections
+            resetVisibleSections()
+            resetVisibleClasses()
             filters = builtFilters
             print("✅ Classes loaded: \(classes.count) classes across \(builtSections.count) sections")
         } catch {
@@ -97,16 +105,63 @@ final class ClassesViewModel: ObservableObject {
     }
     
     func sections(for filterID: String) -> [ClassSectionViewData] {
+        let baseSections: [ClassSectionViewData]
         if filterID == FilterOption.allID {
-            return sections
+            baseSections = Array(sections.prefix(visibleSectionCount))
+        } else {
+            baseSections = sections.filter { $0.id == filterID }
         }
-        return sections.filter { $0.id == filterID }
+        return baseSections
     }
-    
+
     func hasData(for filterID: String) -> Bool {
         !sections(for: filterID).isEmpty
     }
-    
+
+    func visibleClasses(for sectionID: String) -> [ClassCard] {
+        guard let section = sections.first(where: { $0.id == sectionID }) else { return [] }
+        let limit = visibleClassCounts[sectionID] ?? section.classes.count
+        return Array(section.classes.prefix(limit))
+    }
+
+    func previewClasses(for sectionID: String, limit: Int) -> [ClassCard] {
+        let classes = visibleClasses(for: sectionID)
+        return Array(classes.prefix(limit))
+    }
+
+    func canLoadMoreClasses(for sectionID: String) -> Bool {
+        guard let section = sections.first(where: { $0.id == sectionID }) else { return false }
+        let currentCount = visibleClassCounts[sectionID] ?? 0
+        return currentCount < section.classes.count
+    }
+
+    func loadMoreSectionsIfNeeded(currentSectionID: String) {
+        guard let currentIndex = sections.firstIndex(where: { $0.id == currentSectionID }) else { return }
+        if currentIndex >= visibleSectionCount - 1 {
+            let newCount = min(visibleSectionCount + sectionBatchSize, sections.count)
+            if newCount > visibleSectionCount {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    visibleSectionCount = newCount
+                }
+            }
+        }
+    }
+
+    func loadMoreClassesIfNeeded(sectionID: String, currentClassID: String) {
+        guard let section = sections.first(where: { $0.id == sectionID }) else { return }
+        let classes = section.classes
+        guard let currentIndex = classes.firstIndex(where: { $0.id == currentClassID }) else { return }
+        let currentVisibleCount = visibleClassCounts[sectionID] ?? initialClassBatchSize
+        if currentIndex >= currentVisibleCount - 2 {
+            let newCount = min(currentVisibleCount + classBatchSize, classes.count)
+            if newCount > currentVisibleCount {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    visibleClassCounts[sectionID] = newCount
+                }
+            }
+        }
+    }
+
     // MARK: - Builders
     private func buildSections(from classes: [ClassItem]) -> [ClassSectionViewData] {
         var buckets: [String: (meta: FilterMetadata, items: [ClassItem])] = [:]
@@ -140,6 +195,19 @@ final class ClassesViewModel: ObservableObject {
             return lhs.sortOrder < rhs.sortOrder
         }
         return result
+    }
+    
+    // MARK: - Visibility Helpers
+    private func resetVisibleSections() {
+        visibleSectionCount = min(initialSectionBatchSize, sections.count)
+    }
+    
+    private func resetVisibleClasses() {
+        var counts: [String: Int] = [:]
+        for section in sections {
+            counts[section.id] = min(initialClassBatchSize, section.classes.count)
+        }
+        visibleClassCounts = counts
     }
     
     private func buildFilters(from sections: [ClassSectionViewData]) -> [FilterOption] {

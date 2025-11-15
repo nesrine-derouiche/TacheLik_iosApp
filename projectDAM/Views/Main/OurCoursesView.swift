@@ -26,7 +26,7 @@ struct OurCoursesView: View {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            if viewModel.isLoading {
+            if viewModel.isLoading && viewModel.visibleCourses.isEmpty {
                 loadingView
             } else if viewModel.showError {
                 errorView
@@ -54,8 +54,17 @@ struct OurCoursesView: View {
                 headerSection
                 
                 LazyVStack(spacing: 20, pinnedViews: []) {
-                    ForEach(viewModel.courses) { course in
+                    ForEach(viewModel.visibleCourses) { course in
                         courseCard(course)
+                            .onAppear {
+                                viewModel.loadMoreCoursesIfNeeded(currentCourseID: course.id)
+                            }
+                    }
+                    if viewModel.canLoadMoreCourses {
+                        CoursesLoadMoreIndicator(accentColor: classColor)
+                            .onAppear {
+                                viewModel.loadMoreCoursesIfNeeded(currentCourseID: viewModel.visibleCourses.last?.id)
+                            }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -315,13 +324,13 @@ struct OurCoursesView: View {
     }
     
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.2)
-            Text("Loading courses...")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
+        VStack(spacing: 20) {
+            ForEach(0..<3, id: \.self) { index in
+                ShimmerCourseCardPlaceholder(accentColor: classColor.opacity(0.4 + Double(index) * 0.1))
+                    .padding(.horizontal, 20)
+            }
         }
+        .padding(.top, 30)
     }
     
     private var errorView: some View {
@@ -408,6 +417,87 @@ struct OurCoursesView: View {
 
     private var tagSize: CGSize {
         CGSize(width: 104, height: 34)
+    }
+}
+
+// MARK: - Supporting Views
+private struct ShimmerCourseCardPlaceholder: View {
+    let accentColor: Color
+    @State private var phase: CGFloat = -1
+    
+    var body: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color(.systemBackground))
+            .overlay(shimmerOverlay)
+            .frame(height: 150)
+            .shadow(color: Color.black.opacity(0.04), radius: 20, x: 0, y: 10)
+            .onAppear {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    phase = 1.5
+                }
+            }
+    }
+    
+    private var shimmerOverlay: some View {
+        GeometryReader { geometry in
+            let gradient = LinearGradient(
+                colors: [accentColor.opacity(0.25), accentColor.opacity(0.1), accentColor.opacity(0.25)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            Rectangle()
+                .fill(gradient)
+                .rotationEffect(.degrees(12))
+                .offset(x: geometry.size.width * phase)
+        }
+        .mask(
+            VStack(spacing: 16) {
+                HStack(spacing: 16) {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 94, height: 94)
+                    VStack(alignment: .leading, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 18)
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 14)
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 120, height: 14)
+                    }
+                }
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 14)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 34)
+            }
+            .padding(22)
+        )
+    }
+}
+
+private struct CoursesLoadMoreIndicator: View {
+    let accentColor: Color
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: accentColor))
+            Text("Loading more")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
     }
 }
 
