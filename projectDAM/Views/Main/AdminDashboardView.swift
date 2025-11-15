@@ -8,12 +8,22 @@
 import SwiftUI
 
 struct AdminDashboardView: View {
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
+    @State private var isShowingWalletAlert = false
     @State private var totalStudents = 2847
     @State private var totalMentors = 47
     @State private var activeCourses = 128
     @State private var completionRate = 73
     @State private var pendingApprovals = 3
     @State private var chartData: [Double] = [65, 68, 70, 72, 73, 75, 74]
+    
+    private var currentUser: User? {
+        authService.currentUser
+    }
+    
+    private var userCredits: Int {
+        currentUser?.credit ?? 0
+    }
     
     var body: some View {
         NavigationView {
@@ -47,11 +57,20 @@ struct AdminDashboardView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Admin Dashboard")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.brandPrimary)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    UnifiedTopAppBarLogoView()
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    UnifiedTopAppBarActions(
+                        userCredits: userCredits,
+                        isShowingWalletAlert: $isShowingWalletAlert
+                    )
+                }
+            }
+            .alert("Wallet", isPresented: $isShowingWalletAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Wallet Screen will be developed soon.")
             }
         }
         .navigationViewStyle(.stack)
@@ -60,7 +79,7 @@ struct AdminDashboardView: View {
     // MARK: - Header Section
     private func headerSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Welcome back, Admin")
+            Text("Welcome back, \(currentUser?.username ?? "Admin")")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(.primary)
             
