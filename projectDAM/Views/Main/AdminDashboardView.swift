@@ -10,6 +10,7 @@ import SwiftUI
 struct AdminDashboardView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     @State private var isShowingWalletAlert = false
+    @State private var activeQuickAction: AdminQuickAction?
     @State private var totalStudents = 2847
     @State private var totalMentors = 47
     @State private var activeCourses = 128
@@ -39,7 +40,10 @@ struct AdminDashboardView: View {
                         
                         // Stats Cards Grid
                         statsGrid()
-                        
+
+                        // Quick Actions Row
+                        quickActionsSection()
+
                         // Pending Approvals Section
                         pendingApprovalsSection()
                         
@@ -71,6 +75,13 @@ struct AdminDashboardView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Wallet Screen will be developed soon.")
+            }
+            .alert(item: $activeQuickAction) { action in
+                Alert(
+                    title: Text(action.title),
+                    message: Text(action.placeholderMessage),
+                    dismissButton: .default(Text("Awesome"))
+                )
             }
         }
         .navigationViewStyle(.stack)
@@ -132,6 +143,55 @@ struct AdminDashboardView: View {
                     trendColor: .brandSuccess
                 )
             }
+        }
+    }
+    
+    // MARK: - Quick Actions Section
+    private func quickActionsSection() -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Quick Actions")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                    Text("Jump into the tools you need most")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer(minLength: 12)
+                
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.brandPrimary)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.brandPrimary.opacity(0.08))
+                    )
+            }
+            
+            HStack(spacing: 16) {
+                ForEach(AdminQuickAction.allCases) { action in
+                    AdminQuickActionTile(action: action) {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                            activeQuickAction = action
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, DS.paddingMD / 2)
+            .padding(.horizontal, DS.paddingMD)
+            .background(
+                RoundedRectangle(cornerRadius: DS.cornerRadiusMD + 6)
+                    .fill(Color(.systemBackground).opacity(0.7))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.cornerRadiusMD + 6)
+                            .stroke(Color.brandPrimary.opacity(0.08), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: 12)
+            )
         }
     }
     
@@ -504,6 +564,124 @@ private struct ActivityItemView: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+// MARK: - Admin Quick Action Models & Components
+private enum AdminQuickAction: String, CaseIterable, Identifiable {
+    case classes
+    case category
+    case store
+    case wallet
+    
+    var id: String { rawValue }
+    
+    var title: String {
+        switch self {
+        case .classes: return "Classes"
+        case .category: return "Category"
+        case .store: return "Store"
+        case .wallet: return "Wallet"
+        }
+    }
+    
+    var subtitle: String {
+        switch self {
+        case .classes: return "Manage cohorts"
+        case .category: return "Edit course tags"
+        case .store: return "Review assets"
+        case .wallet: return "Track balances"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .classes: return "rectangle.grid.2x2.fill"
+        case .category: return "square.grid.3x3.fill"
+        case .store: return "cart.fill"
+        case .wallet: return "creditcard.fill"
+        }
+    }
+    
+    var accentColor: Color {
+        switch self {
+        case .classes: return .brandPrimary
+        case .category: return .brandSecondary
+        case .store: return .brandWarning
+        case .wallet: return .brandSuccess
+        }
+    }
+    
+    var gradient: LinearGradient {
+        LinearGradient(
+            colors: [accentColor.opacity(0.28), accentColor.opacity(0.08)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    var placeholderMessage: String {
+        switch self {
+        case .classes:
+            return "Classes management is coming soon. Stay tuned for a delightful workflow!"
+        case .category:
+            return "Category curation will soon let you reshape the catalog in seconds."
+        case .store:
+            return "Store operations are almost ready. Keep an eye out for inventory insights."
+        case .wallet:
+            return "Wallet insights will appear here once the financial suite ships."
+        }
+    }
+}
+
+private struct AdminQuickActionTile: View {
+    let action: AdminQuickAction
+    let onTap: () -> Void
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.14)) { isPressed = true }
+            onTap()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.easeOut(duration: 0.25)) { isPressed = false }
+            }
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(action.accentColor.opacity(0.12))
+                        .frame(width: 56, height: 56)
+                        .overlay(
+                            Circle()
+                                .stroke(action.accentColor.opacity(0.18), lineWidth: 1)
+                        )
+                        .shadow(color: action.accentColor.opacity(0.12), radius: 12, x: 0, y: 6)
+                    Image(systemName: action.icon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(action.accentColor)
+                }
+                
+                Text(action.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
+                
+                Text("Coming soon")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(action.accentColor.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DS.paddingMD / 2)
+            .contentShape(Rectangle())
+            .scaleEffect(isPressed ? 0.94 : 1)
+            .animation(.spring(response: 0.5, dampingFraction: 0.85), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(action.title)
+        .accessibilityHint(action.subtitle)
     }
 }
 
