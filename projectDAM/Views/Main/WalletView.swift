@@ -78,31 +78,29 @@ struct ReferralDetailSheet: View {
                     .background(RoundedRectangle(cornerRadius: 20).fill(Color(.systemBackground)))
                     .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                     
-                    Button {
-                        if isAlreadyInvited {
-                            // Invite friends action placeholder (share link)
-                        } else {
+                    if !isAlreadyInvited {
+                        Button {
                             Task { await submitFriendCode() }
-                        }
-                    } label: {
-                        if !isAlreadyInvited && isSubmittingInvite {
-                            HStack {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("Submitting...")
+                        } label: {
+                            if isSubmittingInvite {
+                                HStack {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Submitting...")
+                                }
+                            } else {
+                                Text("Submit")
                             }
-                        } else {
-                            Text(isAlreadyInvited ? "Invite Friends" : "Submit")
                         }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.brandPrimary)
+                        .cornerRadius(20)
+                        .disabled(friendInviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingInvite)
+                        .padding(.top, 4)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.brandPrimary)
-                    .cornerRadius(20)
-                    .disabled(!isAlreadyInvited && (friendInviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingInvite))
-                    .padding(.top, 4)
                     
                     Text("Earn \(invitationStats?.pointPerPurchase ?? 2) points for every friend who makes a purchase!")
                         .font(.footnote.weight(.semibold))
