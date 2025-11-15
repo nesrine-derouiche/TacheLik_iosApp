@@ -842,6 +842,13 @@ struct GiftCardSheet: View {
     @FocusState private var focusedField: Int?
     
     let walletViewModel: WalletViewModel
+    @State private var isSubmitting = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var isSuccess = false
+    
+    private let giftCardService = DIContainer.shared.giftCardService
+    private let authService = DIContainer.shared.authService
     
     var body: some View {
         NavigationView {
@@ -887,31 +894,34 @@ struct GiftCardSheet: View {
                             }
                         }
                         
-                        Text("0/16 characters")
+                        Text("\(totalCode.count)/16 characters")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(totalCode.count == 16 ? .green : .secondary)
                     }
                     
                     // Redeem Button
                     Button {
                         Task {
-                            // Handle redemption - placeholder for future implementation
-                            // After successful redemption, refresh transactions
-                            if let currentUser = DIContainer.shared.authService.getCurrentUser() {
-                                await walletViewModel.refreshTransactions(for: currentUser.id)
-                            }
-                            dismiss()
+                            await redeemGiftCard()
                         }
                     } label: {
-                        Text("Redeem")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.brandPrimary)
-                            .cornerRadius(12)
+                        if isSubmitting {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Redeeming...")
+                            }
+                        } else {
+                            Text("Redeem")
+                        }
                     }
-                    .disabled(giftCardCode.allSatisfy { $0.count == 4 } == false)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brandPrimary)
+                    .cornerRadius(12)
+                    .disabled(totalCode.count != 16 || isSubmitting)
                 }
                 .padding()
             }
@@ -926,6 +936,54 @@ struct GiftCardSheet: View {
         .onAppear {
             focusedField = 0
         }
+        .alert("Gift Card", isPresented: $showAlert) {
+            Button("OK") {
+                if isSuccess {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private var totalCode: String {
+        giftCardCode.joined()
+    }
+    
+    private func redeemGiftCard() async {
+        guard totalCode.count == 16 else {
+            alertMessage = "Gift card code must be exactly 16 characters long."
+            isSuccess = false
+            showAlert = true
+            return
+        }
+        
+        guard let currentUser = authService.getCurrentUser() else {
+            alertMessage = "You must be logged in to redeem a gift card."
+            isSuccess = false
+            showAlert = true
+            return
+        }
+        
+        isSubmitting = true
+        
+        do {
+            let response = try await giftCardService.redeemGiftCard(code: totalCode, userId: currentUser.id)
+            isSuccess = response.success
+            if response.success {
+                alertMessage = "Gift card redeemed successfully!\nAdded credit: \(response.credit) T-Credits\nTransaction ID: \(response.Transaction.id)"
+                await walletViewModel.refreshTransactions(for: currentUser.id)
+            } else {
+                alertMessage = response.message
+            }
+        } catch {
+            isSuccess = false
+            alertMessage = "Failed to redeem gift card: \(error.localizedDescription)"
+        }
+        
+        showAlert = true
+        isSubmitting = false
     }
 }
 
