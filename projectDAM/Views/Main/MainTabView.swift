@@ -239,12 +239,12 @@ private struct StudentTabBar: View {
     }
 }
 
+private struct TabAvatarConfig {
+    let imageSource: String?
+    let initials: String
+}
+
 private struct StudentTabButton: View {
-    struct AvatarConfig {
-        let imageSource: String?
-        let initials: String
-    }
-    
     let icon: String
     let title: String
     let tab: MainTabView.StudentTab
@@ -253,7 +253,7 @@ private struct StudentTabButton: View {
     let tint: Color
     let animation: Namespace.ID
     let tabWidth: CGFloat
-    let avatarConfig: AvatarConfig?
+    let avatarConfig: TabAvatarConfig?
     
     init(
         icon: String,
@@ -264,7 +264,7 @@ private struct StudentTabButton: View {
         tint: Color,
         animation: Namespace.ID,
         tabWidth: CGFloat,
-        avatarConfig: AvatarConfig? = nil
+        avatarConfig: TabAvatarConfig? = nil
     ) {
         self.icon = icon
         self.title = title
@@ -467,6 +467,7 @@ private struct AdminTabBar: View {
     @Binding var selected: MainTabView.AdminTab
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     
     var body: some View {
         GeometryReader { geo in
@@ -510,17 +511,21 @@ private struct AdminTabBar: View {
                 
                 AdminTabButton(
                     icon: "gearshape.fill",
-                    title: "Settings",
+                    title: "Profile",
                     tab: .settings,
                     selected: $selected,
                     compact: compact,
                     tint: .brandError,
                     animation: animation,
-                    tabWidth: tabWidth
+                    tabWidth: tabWidth,
+                    avatarConfig: .init(
+                        imageSource: profileImageSource,
+                        initials: profileInitials
+                    )
                 )
             }
             .padding(.horizontal, compact ? 8 : 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, compact ? 5 : 6)
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
@@ -560,6 +565,26 @@ private struct AdminTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
+    
+    private var currentUser: User? {
+        authService.currentUser
+    }
+    
+    private var profileImageSource: String? {
+        guard let source = currentUser?.image, !source.isEmpty else { return nil }
+        return source
+    }
+    
+    private var profileInitials: String {
+        let fallback = "YOU"
+        guard let username = currentUser?.username, !username.isEmpty else { return fallback }
+        let components = username.split(separator: " ")
+        let initials = components.compactMap { $0.first }.prefix(2)
+        if initials.isEmpty {
+            return String(username.prefix(2)).uppercased()
+        }
+        return initials.map { String($0) }.joined().uppercased()
+    }
 }
 
 private struct AdminTabButton: View {
@@ -571,10 +596,48 @@ private struct AdminTabButton: View {
     let tint: Color
     let animation: Namespace.ID
     let tabWidth: CGFloat
+    let avatarConfig: TabAvatarConfig?
+    
+    init(
+        icon: String,
+        title: String,
+        tab: MainTabView.AdminTab,
+        selected: Binding<MainTabView.AdminTab>,
+        compact: Bool,
+        tint: Color,
+        animation: Namespace.ID,
+        tabWidth: CGFloat,
+        avatarConfig: TabAvatarConfig? = nil
+    ) {
+        self.icon = icon
+        self.title = title
+        self.tab = tab
+        self._selected = selected
+        self.compact = compact
+        self.tint = tint
+        self.animation = animation
+        self.tabWidth = tabWidth
+        self.avatarConfig = avatarConfig
+    }
     
     @State private var isPressed = false
     
     var isSelected: Bool { selected == tab }
+    private var iconBackgroundSize: CGFloat {
+        let base = compact ? 36.0 : 40.0
+        return isSelected ? base + 6 : base
+    }
+    private var iconSize: CGFloat {
+        let base = compact ? 18.0 : 20.0
+        return isSelected ? base + 1.5 : base
+    }
+    private var avatarDiameter: CGFloat {
+        max(iconBackgroundSize - 6, 30)
+    }
+    private var iconContainerHeight: CGFloat {
+        iconBackgroundSize + 2
+    }
+    private var labelSpacing: CGFloat { compact ? 4 : 5 }
     
     var body: some View {
         Button {
@@ -584,7 +647,7 @@ private struct AdminTabButton: View {
                 selected = tab
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: labelSpacing) {
                 ZStack {
                     if isSelected {
                         Circle()
@@ -595,40 +658,51 @@ private struct AdminTabButton: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
+                            .frame(width: iconBackgroundSize, height: iconBackgroundSize)
                             .matchedGeometryEffect(id: "ADMIN_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
                     
-                    Image(systemName: icon)
-                        .font(.system(size: isSelected ? 24 : 22, weight: .semibold))
-                        .foregroundStyle(
-                            isSelected ?
-                                LinearGradient(
-                                    colors: [tint, tint.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ) :
-                                LinearGradient(
-                                    colors: [Color.secondary, Color.secondary],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                    if let avatarConfig {
+                        ProfileAvatarView(
+                            imageSource: avatarConfig.imageSource,
+                            initials: avatarConfig.initials,
+                            tint: tint,
+                            isSelected: isSelected,
+                            diameter: avatarDiameter
                         )
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: iconSize, weight: .semibold))
+                            .foregroundStyle(
+                                isSelected ?
+                                    LinearGradient(
+                                        colors: [tint, tint.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ) :
+                                    LinearGradient(
+                                        colors: [Color.secondary, Color.secondary],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                            )
+                            .scaleEffect(isPressed ? 0.85 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    }
                 }
-                .frame(height: 32)
+                .frame(height: iconContainerHeight)
                 
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
             }
             .frame(width: tabWidth)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(TabButtonPressStyle())
@@ -651,6 +725,7 @@ private struct TeacherTabBar: View {
     @Binding var selected: MainTabView.TeacherTab
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
+    @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     
     var body: some View {
         GeometryReader { geo in
@@ -687,24 +762,28 @@ private struct TeacherTabBar: View {
                     tab: .messages,
                     selected: $selected,
                     compact: compact,
-                    tint: .brandSuccess,
+                    tint: .brandWarning,
                     animation: animation,
                     tabWidth: tabWidth
                 )
                 
                 TeacherTabButton(
                     icon: "gearshape.fill",
-                    title: "Settings",
+                    title: "Profile",
                     tab: .settings,
                     selected: $selected,
                     compact: compact,
                     tint: .brandWarning,
                     animation: animation,
-                    tabWidth: tabWidth
+                    tabWidth: tabWidth,
+                    avatarConfig: .init(
+                        imageSource: profileImageSource,
+                        initials: profileInitials
+                    )
                 )
             }
             .padding(.horizontal, compact ? 8 : 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, compact ? 5 : 6)
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
@@ -744,6 +823,26 @@ private struct TeacherTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
+    
+    private var currentUser: User? {
+        authService.currentUser
+    }
+    
+    private var profileImageSource: String? {
+        guard let source = currentUser?.image, !source.isEmpty else { return nil }
+        return source
+    }
+    
+    private var profileInitials: String {
+        let fallback = "YOU"
+        guard let username = currentUser?.username, !username.isEmpty else { return fallback }
+        let components = username.split(separator: " ")
+        let initials = components.compactMap { $0.first }.prefix(2)
+        if initials.isEmpty {
+            return String(username.prefix(2)).uppercased()
+        }
+        return initials.map { String($0) }.joined().uppercased()
+    }
 }
 
 private struct TeacherTabButton: View {
@@ -755,10 +854,48 @@ private struct TeacherTabButton: View {
     let tint: Color
     let animation: Namespace.ID
     let tabWidth: CGFloat
+    let avatarConfig: TabAvatarConfig?
+    
+    init(
+        icon: String,
+        title: String,
+        tab: MainTabView.TeacherTab,
+        selected: Binding<MainTabView.TeacherTab>,
+        compact: Bool,
+        tint: Color,
+        animation: Namespace.ID,
+        tabWidth: CGFloat,
+        avatarConfig: TabAvatarConfig? = nil
+    ) {
+        self.icon = icon
+        self.title = title
+        self.tab = tab
+        self._selected = selected
+        self.compact = compact
+        self.tint = tint
+        self.animation = animation
+        self.tabWidth = tabWidth
+        self.avatarConfig = avatarConfig
+    }
     
     @State private var isPressed = false
     
     var isSelected: Bool { selected == tab }
+    private var iconBackgroundSize: CGFloat {
+        let base = compact ? 36.0 : 40.0
+        return isSelected ? base + 6 : base
+    }
+    private var iconSize: CGFloat {
+        let base = compact ? 18.0 : 20.0
+        return isSelected ? base + 1.5 : base
+    }
+    private var avatarDiameter: CGFloat {
+        max(iconBackgroundSize - 6, 30)
+    }
+    private var iconContainerHeight: CGFloat {
+        iconBackgroundSize + 2
+    }
+    private var labelSpacing: CGFloat { compact ? 4 : 5 }
     
     var body: some View {
         Button {
@@ -768,7 +905,7 @@ private struct TeacherTabButton: View {
                 selected = tab
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: labelSpacing) {
                 ZStack {
                     if isSelected {
                         Circle()
@@ -779,40 +916,51 @@ private struct TeacherTabButton: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
+                            .frame(width: iconBackgroundSize, height: iconBackgroundSize)
                             .matchedGeometryEffect(id: "TEACHER_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
                     
-                    Image(systemName: icon)
-                        .font(.system(size: isSelected ? 24 : 22, weight: .semibold))
-                        .foregroundStyle(
-                            isSelected ?
-                                LinearGradient(
-                                    colors: [tint, tint.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ) :
-                                LinearGradient(
-                                    colors: [Color.secondary, Color.secondary],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                    if let avatarConfig {
+                        ProfileAvatarView(
+                            imageSource: avatarConfig.imageSource,
+                            initials: avatarConfig.initials,
+                            tint: tint,
+                            isSelected: isSelected,
+                            diameter: avatarDiameter
                         )
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: iconSize, weight: .semibold))
+                            .foregroundStyle(
+                                isSelected ?
+                                    LinearGradient(
+                                        colors: [tint, tint.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ) :
+                                    LinearGradient(
+                                        colors: [Color.secondary, Color.secondary],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                            )
+                            .scaleEffect(isPressed ? 0.85 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    }
                 }
-                .frame(height: 32)
+                .frame(height: iconContainerHeight)
                 
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
             }
             .frame(width: tabWidth)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(TabButtonPressStyle())
