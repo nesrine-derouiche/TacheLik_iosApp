@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     // MARK: - Student Tabs
-    enum StudentTab: Int, CaseIterable { case home, classes, explore, progress, settings }
+    enum StudentTab: Int, CaseIterable { case home, classes, explore, wallet, settings }
     
     // MARK: - Admin Tabs
     enum AdminTab: Int, CaseIterable { case dashboard, requests, users, settings }
@@ -49,7 +49,7 @@ struct MainTabView: View {
         case .home: HomeView()
         case .classes: ClassesView()
         case .explore: ExploreView()
-        case .progress: LearningProgressView()
+        case .wallet: WalletView()
         case .settings: SettingsView()
         }
     }
@@ -151,9 +151,9 @@ private struct StudentTabBar: View {
                 )
                 
                 StudentTabButton(
-                    icon: "chart.line.uptrend.xyaxis",
-                    title: "Progress",
-                    tab: .progress,
+                    icon: "creditcard.fill",
+                    title: "Wallet",
+                    tab: .wallet,
                     selected: $selected,
                     compact: compact,
                     tint: .brandSuccess,

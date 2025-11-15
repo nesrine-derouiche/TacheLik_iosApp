@@ -22,6 +22,11 @@ final class DIContainer {
     let profileService: ProfileServiceProtocol
     let socketService: SocketServiceProtocol
     let roleManager: RoleManager
+    let transactionService: TransactionServiceProtocol
+    let invitationService: InvitationServiceProtocol
+    let cashPaymentService: CashPaymentServiceProtocol
+    let giftCardService: GiftCardServiceProtocol
+    let d17PaymentService: D17PaymentServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -41,6 +46,11 @@ final class DIContainer {
             courseService: courseService
         )
         self.profileService = ProfileService(networkService: networkService, authService: authService)
+        self.transactionService = TransactionService(networkService: networkService, authService: authService)
+        self.invitationService = InvitationService(networkService: networkService, authService: authService)
+        self.cashPaymentService = CashPaymentService(networkService: networkService, authService: authService)
+        self.giftCardService = GiftCardService(networkService: networkService, authService: authService)
+        self.d17PaymentService = D17PaymentService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig
@@ -102,5 +112,9 @@ final class DIContainer {
             profileService: profileService,
             authService: authService
         )
+    }
+    
+    func makeWalletViewModel() -> WalletViewModel {
+        return WalletViewModel(transactionService: transactionService, invitationService: invitationService)
     }
 }
