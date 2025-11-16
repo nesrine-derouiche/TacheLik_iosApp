@@ -13,6 +13,7 @@ protocol CourseServiceProtocol {
     func fetchCourses() async throws -> [Course]
     func fetchCourse(id: String) async throws -> Course
     func fetchCoursesByClass(classTitle: String) async throws -> [Course]
+    func fetchOwnedCourseIdsForClass(classTitle: String) async throws -> [String]
     func enrollCourse(courseId: String) async throws
     func updateProgress(courseId: String, progress: Double) async throws
     func fetchUserCourses() async throws -> [Course]
@@ -85,6 +86,37 @@ final class CourseService: CourseServiceProtocol {
             print("✅ [CourseService] Received \(response.courses.count) courses for class '\(classTitle)'")
         }
         return response.courses
+    }
+    
+    /// Fetch IDs of courses owned by the current user for a given class title
+    func fetchOwnedCourseIdsForClass(classTitle: String) async throws -> [String] {
+        guard let user = authService.getCurrentUser() else {
+            if AppConfig.enableLogging {
+                print("❌ [CourseService] Cannot fetch owned courses: no current user")
+            }
+            throw NetworkError.unauthorized
+        }
+        let encodedTitle = classTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? classTitle
+        if AppConfig.enableLogging {
+            print("📡 [CourseService] Requesting owned courses for user=\(user.id) class='\(classTitle)' at GET /course-ownership/user-class-owned-courses")
+        }
+        do {
+            let response: OwnedCoursesByClassResponse = try await networkService.request(
+                endpoint: "/course-ownership/user-class-owned-courses?userId=\(user.id)&className=\(encodedTitle)",
+                method: .GET,
+                body: nil,
+                headers: getAuthHeaders()
+            )
+            if AppConfig.enableLogging {
+                print("✅ [CourseService] Received \(response.ownedCourseIds.count) owned course IDs for class '\(classTitle)'")
+            }
+            return response.ownedCourseIds
+        } catch NetworkError.serverError(let code, _) where code == 404 {
+            if AppConfig.enableLogging {
+                print("ℹ️ [CourseService] No owned courses for user=\(user.id) in class '\(classTitle)' (404)")
+            }
+            return []
+        }
     }
     
     /// Enroll in a course
@@ -185,6 +217,11 @@ private struct ClassesResponse: Decodable {
     let success: Bool
 }
 
+private struct OwnedCoursesByClassResponse: Decodable {
+    let ownedCourseIds: [String]
+    let success: Bool
+}
+
 private struct EnrollRequest: Encodable {
     let courseId: String
 }
@@ -211,6 +248,11 @@ final class MockCourseService: CourseServiceProtocol {
     
     func fetchCoursesByClass(classTitle: String) async throws -> [Course] {
         try await Task.sleep(nanoseconds: 500_000_000)
+        return []
+    }
+    
+    func fetchOwnedCourseIdsForClass(classTitle: String) async throws -> [String] {
+        try await Task.sleep(nanoseconds: 200_000_000)
         return []
     }
     

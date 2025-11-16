@@ -246,27 +246,55 @@ private struct AdaptiveBadgeStack<Content: View>: View {
     }
 
     private func priceTag(for course: Course) -> some View {
-        let finalPrice = course.courseReduction > 0 ? Int(course.price * (1 - Double(course.courseReduction) / 100)) : Int(course.price)
-        return priceTagChip(background: course.price > 0 ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(LinearGradient(colors: [Color.green.opacity(0.95), Color.green.opacity(0.75)], startPoint: .leading, endPoint: .trailing)),
-                            strokeColor: course.price > 0 ? classColor.opacity(0.15) : Color.clear) {
-            if course.price > 0 {
-                HStack(spacing: 6) {
-                    Image("T-Credits")
-                        .resizable()
-                        .renderingMode(.original)
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 15, height: 15)
-                    Text("\(finalPrice)")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(classColor)
-                }
-            } else {
-                Text("Free")
-                    .font(.system(size: 13, weight: .bold))
+        let isOwned = viewModel.ownedCourseIds.contains(course.id)
+        if isOwned {
+            return AnyView(
+                priceTagChip(
+                    background: AnyShapeStyle(
+                        LinearGradient(
+                            colors: [Color.green.opacity(0.95), Color.green.opacity(0.75)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    ),
+                    strokeColor: Color.clear
+                ) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Owned")
+                            .font(.system(size: 13, weight: .bold))
+                    }
                     .foregroundColor(.white)
-            }
+                }
+                .animation(.easeInOut(duration: 0.2), value: isOwned)
+            )
         }
-        .animation(.easeInOut(duration: 0.2), value: course.price)
+        let finalPrice = course.courseReduction > 0 ? Int(course.price * (1 - Double(course.courseReduction) / 100)) : Int(course.price)
+        return AnyView(
+            priceTagChip(
+                background: course.price > 0 ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(LinearGradient(colors: [Color.green.opacity(0.95), Color.green.opacity(0.75)], startPoint: .leading, endPoint: .trailing)),
+                strokeColor: course.price > 0 ? classColor.opacity(0.15) : Color.clear
+            ) {
+                if course.price > 0 {
+                    HStack(spacing: 6) {
+                        Image("T-Credits")
+                            .resizable()
+                            .renderingMode(.original)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 15, height: 15)
+                        Text("\(finalPrice)")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(classColor)
+                    }
+                } else {
+                    Text("Free")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: course.price)
+        )
     }
 
     private func priceTagChip<Content: View>(background: AnyShapeStyle, strokeColor: Color, @ViewBuilder content: () -> Content) -> some View {
