@@ -1,14 +1,9 @@
 import SwiftUI
 import YouTubePlayerKit
 
-/// Thin SwiftUI wrapper around YouTubePlayerKit that embeds a YouTube video by ID.
+/// Thin SwiftUI wrapper around YouTubePlayerKit that embeds a provided YouTubePlayer instance.
 struct EmbeddedYouTubePlayerView: View {
-    private let player: YouTubePlayer
-
-    init(videoId: String) {
-        print("[EmbeddedYouTubePlayerView] Init with videoId=\(videoId)")
-        self.player = YouTubePlayer(source: .video(id: videoId))
-    }
+    let player: YouTubePlayer
 
     var body: some View {
         YouTubePlayerView(player) { state in

@@ -1,11 +1,12 @@
 import SwiftUI
+import YouTubePlayerKit
 
 // MARK: - Lessons View
 struct LessonsView: View {
     @StateObject private var viewModel: LessonsViewModel
     @State private var selectedVideoId: String?
     @Namespace private var videoNamespace
-    @State private var showInlinePlayer = false
+    @StateObject private var youtubePlayer = YouTubePlayer()
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -98,11 +99,8 @@ struct LessonsView: View {
     private var videoHeroSection: some View {
         let currentVideo = selectedVideo
         return VStack(alignment: .leading, spacing: 16) {
-            if viewModel.accessType == .publicCourse,
-               let video = currentVideo,
-               let youtubeId = video.youtubeVideoId,
-               showInlinePlayer {
-                EmbeddedYouTubePlayerView(videoId: youtubeId)
+            if viewModel.accessType == .publicCourse {
+                EmbeddedYouTubePlayerView(player: youtubePlayer)
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             } else {
@@ -140,31 +138,6 @@ struct LessonsView: View {
                     .padding(24)
                 }
             }
-            
-            if let video = currentVideo {
-                Button {
-                    // Will integrate video playback later
-                    if viewModel.accessType == .publicCourse,
-                       video.youtubeVideoId != nil {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showInlinePlayer = true
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "play.fill")
-                        Text("Start Lesson")
-                    }
-                    .font(.system(size: 16, weight: .bold))
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-                }
-                .padding(.horizontal, DS.paddingMD)
-                .transition(.opacity)
-            }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedVideoId)
         .padding(.horizontal, DS.paddingMD)
@@ -198,6 +171,7 @@ struct LessonsView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 selectedVideoId = video.id
                             }
+                            updateYouTubePlayer(with: video)
                         }
                         .onAppear {
                             viewModel.loadMoreVideosIfNeeded(currentVideoId: video.id)
@@ -381,11 +355,27 @@ struct LessonsView: View {
             return
         }
         selectedVideoId = first.id
+        updateYouTubePlayer(with: first)
     }
     
     private var selectedVideo: VideoContent? {
         guard let id = selectedVideoId else { return viewModel.visibleVideos.first }
         return viewModel.visibleVideos.first(where: { $0.id == id }) ?? viewModel.visibleVideos.first
+    }
+
+    private func updateYouTubePlayer(with video: VideoContent) {
+        guard viewModel.accessType == .publicCourse,
+              let youtubeId = video.youtubeVideoId else {
+            return
+        }
+        print("[LessonsView] Updating YouTube player with id=\(youtubeId) for video id=\(video.id)")
+        Task {
+            do {
+                try await youtubePlayer.load(source: .video(id: youtubeId))
+            } catch {
+                print("[LessonsView] Failed to load YouTube video id=\(youtubeId): \(error)")
+            }
+        }
     }
 }
 
