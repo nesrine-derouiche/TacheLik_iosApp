@@ -1,10 +1,12 @@
 import SwiftUI
+import YouTubePlayerKit
 
 // MARK: - Lessons View
 struct LessonsView: View {
     @StateObject private var viewModel: LessonsViewModel
     @State private var selectedVideoId: String?
     @Namespace private var videoNamespace
+    @StateObject private var youtubePlayer = YouTubePlayer()
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -97,57 +99,44 @@ struct LessonsView: View {
     private var videoHeroSection: some View {
         let currentVideo = selectedVideo
         return VStack(alignment: .leading, spacing: 16) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.brandPrimary, Color.brandPrimaryHover],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+            if viewModel.accessType == .publicCourse {
+                EmbeddedYouTubePlayerView(player: youtubePlayer)
                     .frame(height: 220)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(currentVideo?.title ?? "Select a video")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            } else {
+                ZStack(alignment: .bottomLeading) {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.brandPrimary, Color.brandPrimaryHover],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(height: 220)
                     
-                    HStack(spacing: 12) {
-                        infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
-                            .foregroundColor(.white.opacity(0.9))
-                        Button {
-                            // Share placeholder
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.white)
-                                .padding(10)
-                                .background(Color.white.opacity(0.15))
-                                .clipShape(Circle())
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(currentVideo?.title ?? "Select a video")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                        
+                        HStack(spacing: 12) {
+                            infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
+                                .foregroundColor(.white.opacity(0.9))
+                            Button {
+                                // Share placeholder
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .background(Color.white.opacity(0.15))
+                                    .clipShape(Circle())
+                            }
                         }
                     }
+                    .padding(24)
                 }
-                .padding(24)
-            }
-            
-            if let video = currentVideo {
-                Button {
-                    // Will integrate video playback later
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "play.fill")
-                        Text("Start Lesson")
-                    }
-                    .font(.system(size: 16, weight: .bold))
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
-                }
-                .padding(.horizontal, DS.paddingMD)
-                .transition(.opacity)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedVideoId)
@@ -182,6 +171,7 @@ struct LessonsView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 selectedVideoId = video.id
                             }
+                            updateYouTubePlayer(with: video)
                         }
                         .onAppear {
                             viewModel.loadMoreVideosIfNeeded(currentVideoId: video.id)
@@ -365,11 +355,27 @@ struct LessonsView: View {
             return
         }
         selectedVideoId = first.id
+        updateYouTubePlayer(with: first)
     }
     
     private var selectedVideo: VideoContent? {
         guard let id = selectedVideoId else { return viewModel.visibleVideos.first }
         return viewModel.visibleVideos.first(where: { $0.id == id }) ?? viewModel.visibleVideos.first
+    }
+
+    private func updateYouTubePlayer(with video: VideoContent) {
+        guard viewModel.accessType == .publicCourse,
+              let youtubeId = video.youtubeVideoId else {
+            return
+        }
+        print("[LessonsView] Updating YouTube player with id=\(youtubeId) for video id=\(video.id)")
+        Task {
+            do {
+                try await youtubePlayer.load(source: .video(id: youtubeId))
+            } catch {
+                print("[LessonsView] Failed to load YouTube video id=\(youtubeId): \(error)")
+            }
+        }
     }
 }
 

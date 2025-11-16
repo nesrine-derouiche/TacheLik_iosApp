@@ -94,6 +94,33 @@ struct VideoContent: Identifiable, Codable, Equatable {
         let seconds = duration % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
+
+    var youtubeVideoId: String? {
+        let trimmed = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            print("[VideoContent] Empty videoUrl for id=\(id)")
+            return nil
+        }
+
+        if let url = URL(string: trimmed), let host = url.host, (host.contains("youtube.com") || host.contains("youtu.be")) {
+            if host.contains("youtu.be") {
+                let candidate = url.pathComponents.last { !$0.isEmpty }
+                print("[VideoContent] Parsed short YouTube URL host=\(host), path=\(url.path), candidateId=\(candidate ?? "nil") from videoUrl=\(videoUrl)")
+                return candidate
+            }
+            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+               let queryItems = components.queryItems,
+               let id = queryItems.first(where: { $0.name == "v" })?.value {
+                print("[VideoContent] Parsed YouTube watch URL host=\(host), id=\(id) from videoUrl=\(videoUrl)")
+                return id
+            }
+            print("[VideoContent] Could not extract YouTube ID from URL host=\(host), videoUrl=\(videoUrl)")
+            return nil
+        }
+
+        print("[VideoContent] Treating raw videoUrl as YouTube ID. videoUrl=\(videoUrl)")
+        return trimmed
+    }
 }
 
 // MARK: - Lesson Model
