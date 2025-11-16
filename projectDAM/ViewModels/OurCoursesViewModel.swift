@@ -19,6 +19,7 @@ final class OurCoursesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showError = false
+    @Published var ownedCourseIds: Set<String> = []
     
     // MARK: - Dependencies
     private let courseService: CourseServiceProtocol
@@ -67,6 +68,19 @@ final class OurCoursesViewModel: ObservableObject {
                 return order1.0 < order2.0
             }
             resetVisibleCourses()
+            
+            do {
+                let ownedIds = try await courseService.fetchOwnedCourseIdsForClass(classTitle: classTitle)
+                ownedCourseIds = Set(ownedIds)
+                if AppConfig.enableLogging {
+                    print("✅ [OurCoursesViewModel] Loaded owned course IDs for class \(classTitle): \(ownedIds)")
+                }
+            } catch {
+                if AppConfig.enableLogging {
+                    print("⚠️ [OurCoursesViewModel] Failed to fetch owned course IDs for class \(classTitle): \(error.localizedDescription)")
+                }
+                ownedCourseIds = []
+            }
             
             if AppConfig.enableLogging {
                 print("✅ [OurCoursesViewModel] Successfully fetched \(courses.count) courses")
