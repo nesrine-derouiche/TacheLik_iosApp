@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/VdoCipher/swift-pm-repo",
       "state" : {
-        "branch" : "main",
-        "revision" : "21b232fed077ed479f1ad92cc4b37dc967d314a5"
+        "revision" : "21b232fed077ed479f1ad92cc4b37dc967d314a5",
+        "version" : "2.8.1"
       }
     },
     {

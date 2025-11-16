@@ -171,7 +171,13 @@ struct LessonsView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 selectedVideoId = video.id
                             }
-                            updateYouTubePlayer(with: video)
+                            if viewModel.accessType == .publicCourse {
+                                updateYouTubePlayer(with: video)
+                            } else {
+                                Task {
+                                    await DIContainer.shared.vdoCipherService.playPaidVideo(videoId: video.id)
+                                }
+                            }
                         }
                         .onAppear {
                             viewModel.loadMoreVideosIfNeeded(currentVideoId: video.id)
@@ -355,7 +361,13 @@ struct LessonsView: View {
             return
         }
         selectedVideoId = first.id
-        updateYouTubePlayer(with: first)
+        if viewModel.accessType == .publicCourse {
+            updateYouTubePlayer(with: first)
+        } else {
+            Task {
+                await DIContainer.shared.vdoCipherService.playPaidVideo(videoId: first.id)
+            }
+        }
     }
     
     private var selectedVideo: VideoContent? {
