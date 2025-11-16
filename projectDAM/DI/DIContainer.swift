@@ -89,10 +89,11 @@ final class DIContainer {
     }
 
     /// Create LessonsViewModel with injected dependencies
-    func makeLessonsViewModel(courseId: String, accessType: LessonAccessType) -> LessonsViewModel {
+    func makeLessonsViewModel(courseId: String, accessType: LessonAccessType, isOwned: Bool = false) -> LessonsViewModel {
         return LessonsViewModel(
             courseId: courseId,
             accessType: accessType,
+            isOwned: isOwned,
             lessonService: lessonService
         )
     }

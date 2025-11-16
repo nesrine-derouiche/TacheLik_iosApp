@@ -21,6 +21,7 @@ final class LessonsViewModel: ObservableObject {
     // MARK: - Public Props
     let courseId: String
     let accessType: LessonAccessType
+    let isOwned: Bool
     
     // MARK: - Dependencies
     private let lessonService: LessonServiceProtocol
@@ -34,10 +35,12 @@ final class LessonsViewModel: ObservableObject {
     init(
         courseId: String,
         accessType: LessonAccessType,
+        isOwned: Bool,
         lessonService: LessonServiceProtocol
     ) {
         self.courseId = courseId
         self.accessType = accessType
+        self.isOwned = isOwned
         self.lessonService = lessonService
     }
     
@@ -48,6 +51,10 @@ final class LessonsViewModel: ObservableObject {
     
     var lessonTitle: String {
         lesson?.title ?? "Lesson"
+    }
+    
+    var isLockedPaidCourse: Bool {
+        accessType == .privateCourse && !isOwned
     }
     
     // MARK: - Public Methods

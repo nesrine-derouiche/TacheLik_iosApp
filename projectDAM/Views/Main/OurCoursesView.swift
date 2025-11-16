@@ -73,7 +73,8 @@ private struct AdaptiveBadgeStack<Content: View>: View {
                         NavigationLink {
                             LessonsView(
                                 courseId: course.id,
-                                accessType: accessType(for: course)
+                                accessType: accessType(for: course),
+                                isOwned: viewModel.ownedCourseIds.contains(course.id)
                             )
                         } label: {
                             courseCard(course)

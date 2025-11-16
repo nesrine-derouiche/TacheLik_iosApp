@@ -9,8 +9,8 @@ struct LessonsView: View {
     @StateObject private var youtubePlayer = YouTubePlayer()
     
     // MARK: - Initializers
-    init(courseId: String, accessType: LessonAccessType, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
-        _viewModel = StateObject(wrappedValue: LessonsViewModel(courseId: courseId, accessType: accessType, lessonService: lessonService))
+    init(courseId: String, accessType: LessonAccessType, isOwned: Bool = false, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
+        _viewModel = StateObject(wrappedValue: LessonsViewModel(courseId: courseId, accessType: accessType, isOwned: isOwned, lessonService: lessonService))
     }
     
     init(viewModel: LessonsViewModel) {
@@ -103,6 +103,31 @@ struct LessonsView: View {
                 EmbeddedYouTubePlayerView(player: youtubePlayer)
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            } else if viewModel.isLockedPaidCourse {
+                ZStack(alignment: .center) {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.gray.opacity(0.25), Color.gray.opacity(0.35)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(height: 220)
+                    
+                    VStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                        Text("This premium course is locked")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text("Purchase this course to unlock all videos.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    .padding(24)
+                }
             } else {
                 ZStack(alignment: .bottomLeading) {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -165,9 +190,11 @@ struct LessonsView: View {
                         VideoListItemView(
                             video: video,
                             isSelected: selectedVideoId == video.id,
-                            index: index + 1
+                            index: index + 1,
+                            isLocked: viewModel.isLockedPaidCourse && viewModel.accessType == .privateCourse
                         )
                         .onTapGesture {
+                            guard !viewModel.isLockedPaidCourse else { return }
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 selectedVideoId = video.id
                             }
@@ -296,10 +323,18 @@ struct LessonsView: View {
     
     // MARK: - Helpers
     private var accessBadge: some View {
-        let label = viewModel.accessType == .publicCourse ? "Free Lesson" : "Premium Lesson"
-        let colors: [Color] = viewModel.accessType == .publicCourse
-        ? [Color.green.opacity(0.9), Color.green.opacity(0.7)]
-        : [Color.purple.opacity(0.9), Color.purple.opacity(0.7)]
+        let label: String
+        let colors: [Color]
+        if viewModel.accessType == .publicCourse {
+            label = "Free Lesson"
+            colors = [Color.green.opacity(0.9), Color.green.opacity(0.7)]
+        } else if viewModel.isLockedPaidCourse {
+            label = "Locked Lesson"
+            colors = [Color.gray.opacity(0.9), Color.gray.opacity(0.7)]
+        } else {
+            label = "Premium Lesson"
+            colors = [Color.purple.opacity(0.9), Color.purple.opacity(0.7)]
+        }
         
         return Text(label)
             .font(.system(size: 12, weight: .bold))
@@ -363,7 +398,7 @@ struct LessonsView: View {
         selectedVideoId = first.id
         if viewModel.accessType == .publicCourse {
             updateYouTubePlayer(with: first)
-        } else {
+        } else if !viewModel.isLockedPaidCourse {
             Task {
                 await DIContainer.shared.vdoCipherService.playPaidVideo(videoId: first.id)
             }
@@ -396,6 +431,7 @@ struct VideoListItemView: View {
     let video: VideoContent
     let isSelected: Bool
     let index: Int
+    let isLocked: Bool
     
     @State private var isPressed = false
     
@@ -404,11 +440,19 @@ struct VideoListItemView: View {
             ZStack {
                 Circle()
                     .fill(
-                        isSelected
-                        ? LinearGradient(colors: [Color.brandPrimary, Color.brandPrimaryHover], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(colors: [Color(.secondarySystemBackground), Color(.tertiarySystemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        isLocked
+                        ? LinearGradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : (
+                            isSelected
+                            ? LinearGradient(colors: [Color.brandPrimary, Color.brandPrimaryHover], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : LinearGradient(colors: [Color(.secondarySystemBackground), Color(.tertiarySystemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
                     )
-                if isSelected {
+                if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                } else if isSelected {
                     Image(systemName: "play.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
@@ -424,7 +468,7 @@ struct VideoListItemView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(video.title)
                     .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
-                    .foregroundColor(.primary)
+                    .foregroundColor(isLocked ? .secondary : .primary)
                     .lineLimit(2)
                 if let description = video.description, !description.isEmpty {
                     Text(description)
@@ -438,10 +482,10 @@ struct VideoListItemView: View {
             }
             
             Spacer()
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "chevron.right")
+            Image(systemName: isLocked ? "lock.fill" : (isSelected ? "checkmark.circle.fill" : "chevron.right"))
                 .font(.system(size: isSelected ? 18 : 12, weight: .semibold))
-                .foregroundColor(isSelected ? .brandPrimary : .secondary)
-                .opacity(isSelected ? 1 : 0.4)
+                .foregroundColor(isLocked ? .secondary : (isSelected ? .brandPrimary : .secondary))
+                .opacity(isLocked ? 0.7 : (isSelected ? 1 : 0.4))
         }
         .padding(DS.paddingMD)
         .contentShape(Rectangle())
@@ -510,6 +554,7 @@ private struct EmptyStateCard: View {
             viewModel: LessonsViewModel(
                 courseId: "course-1a",
                 accessType: .publicCourse,
+                isOwned: true,
                 lessonService: MockLessonService(lesson: .sampleLesson)
             )
         )
