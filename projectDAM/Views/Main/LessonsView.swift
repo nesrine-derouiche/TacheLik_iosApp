@@ -53,6 +53,7 @@ struct LessonsView: View {
                     footerSection(for: lesson)
                 }
                 .padding(.vertical, 24)
+                .padding(.bottom, DS.barHeight + 8)
             }
         } else {
             emptyState
