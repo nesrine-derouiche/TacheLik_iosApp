@@ -5,6 +5,7 @@ struct LessonsView: View {
     @StateObject private var viewModel: LessonsViewModel
     @State private var selectedVideoId: String?
     @Namespace private var videoNamespace
+    @State private var showInlinePlayer = false
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -97,43 +98,58 @@ struct LessonsView: View {
     private var videoHeroSection: some View {
         let currentVideo = selectedVideo
         return VStack(alignment: .leading, spacing: 16) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.brandPrimary, Color.brandPrimaryHover],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+            if viewModel.accessType == .publicCourse,
+               let video = currentVideo,
+               let youtubeId = video.youtubeVideoId,
+               showInlinePlayer {
+                EmbeddedYouTubePlayerView(videoId: youtubeId)
                     .frame(height: 220)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(currentVideo?.title ?? "Select a video")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            } else {
+                ZStack(alignment: .bottomLeading) {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.brandPrimary, Color.brandPrimaryHover],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(height: 220)
                     
-                    HStack(spacing: 12) {
-                        infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
-                            .foregroundColor(.white.opacity(0.9))
-                        Button {
-                            // Share placeholder
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.white)
-                                .padding(10)
-                                .background(Color.white.opacity(0.15))
-                                .clipShape(Circle())
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(currentVideo?.title ?? "Select a video")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                        
+                        HStack(spacing: 12) {
+                            infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
+                                .foregroundColor(.white.opacity(0.9))
+                            Button {
+                                // Share placeholder
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .background(Color.white.opacity(0.15))
+                                    .clipShape(Circle())
+                            }
                         }
                     }
+                    .padding(24)
                 }
-                .padding(24)
             }
             
             if let video = currentVideo {
                 Button {
                     // Will integrate video playback later
+                    if viewModel.accessType == .publicCourse,
+                       video.youtubeVideoId != nil {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showInlinePlayer = true
+                        }
+                    }
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "play.fill")
