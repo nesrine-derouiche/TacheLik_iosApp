@@ -64,6 +64,23 @@ final class VdoCipherService: VdoCipherServiceProtocol {
 
     @MainActor
     private func startPlayback(videoId: String, details: VdoPlaybackOtp) async throws {
+        #if targetEnvironment(simulator)
+        if AppConfig.enableLogging {
+            print("[VdoCipherService] Playback not supported in simulator. Please run on a physical device.")
+        }
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+            let alert = UIAlertController(
+                title: "Paid videos not available in Simulator",
+                message: "VdoCipher playback requires a real iOS device. Please run this lesson on a physical iPhone or iPad.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            rootVC.present(alert, animated: true)
+        }
+        return
+        #else
         VdoAsset.createAsset(videoId: videoId) { [weak self] asset, error in
             if let error {
                 if AppConfig.enableLogging {
@@ -89,5 +106,6 @@ final class VdoCipherService: VdoCipherServiceProtocol {
                 }
             }
         }
+        #endif
     }
 }
