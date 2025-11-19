@@ -18,5 +18,7 @@
 		<string>Nunito-SemiBold.ttf</string>
 		<string>Nunito-Regular.ttf</string>
 	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Tache-Lik</string>
 </dict>
 </plist>
