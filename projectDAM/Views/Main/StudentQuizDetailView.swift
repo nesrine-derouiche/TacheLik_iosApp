@@ -244,71 +244,128 @@ struct StudentQuizDetailView: View {
     }
 
     private func resultCard(for attempt: QuizAttemptResult) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let message: String = {
+            switch attempt.score {
+            case 90...100: return "Outstanding work!"
+            case 70..<90:  return "Great job, keep it up!"
+            case 50..<70:  return "Nice effort, you\'re getting there."
+            default:       return "Good start, try again to improve your score."
+            }
+        }()
+
+        return VStack(alignment: .leading, spacing: 16) {
             Text("Your Result")
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
 
-            Text("Score: \(attempt.score)%")
-                .font(.system(size: 15, weight: .semibold))
-
-            Text("Correct: \(attempt.correctCount) / \(attempt.totalQuestions)")
+            Text(message)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Score")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Text("\(attempt.score)%")
+                        .font(.system(size: 20, weight: .bold))
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Correct")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Text("\(attempt.correctCount) / \(attempt.totalQuestions)")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+            }
 
             if !attempt.awardedBadges.isEmpty {
                 Divider().padding(.vertical, 4)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("New Badges")
                         .font(.system(size: 14, weight: .semibold))
 
-                    ForEach(attempt.awardedBadges, id: \.id) { awarded in
-                        Text("• \(awarded.badge.name)")
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(attempt.awardedBadges, id: \.id) { awarded in
+                            Text(awarded.badge.name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.brandPrimary.opacity(0.12))
+                                )
+                                .foregroundColor(.brandPrimary)
+                        }
                     }
                 }
             }
         }
-        .padding(18)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.brandPrimary.opacity(0.08))
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 6)
         )
     }
 
     private func resultScreen(for attempt: QuizAttemptResult, detail: QuizDetail) -> some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .center, spacing: 24) {
-                header(for: detail)
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color.brandPrimary.opacity(0.08),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 140, height: 140)
-                        .shadow(color: Color.brandPrimary.opacity(0.3), radius: 16, x: 0, y: 8)
-
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .center, spacing: 28) {
                     VStack(spacing: 6) {
-                        Text("\(attempt.score)%")
-                            .font(.system(size: 40, weight: .black))
-                            .foregroundColor(.white)
-                        Text("Score")
+                        Text("Quiz Completed")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundColor(.secondary)
+                        Text(detail.quiz.title)
+                            .font(.system(size: 22, weight: .bold))
+                            .multilineTextAlignment(.center)
                     }
+                    .padding(.top, 4)
+
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 160, height: 160)
+                            .shadow(color: Color.brandPrimary.opacity(0.35), radius: 20, x: 0, y: 10)
+
+                        VStack(spacing: 6) {
+                            Text("\(attempt.score)%")
+                                .font(.system(size: 44, weight: .black))
+                                .foregroundColor(.white)
+                            Text("Score")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                    }
+                    .padding(.top, 8)
+
+                    resultCard(for: attempt)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 40)
                 }
-                .padding(.top, 16)
-
-                resultCard(for: attempt)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Spacer(minLength: 0)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 32)
             }
         }
     }
