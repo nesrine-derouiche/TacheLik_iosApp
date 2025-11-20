@@ -53,12 +53,15 @@ struct BadgeLeaderboardView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 14) {
                     ForEach(Array(viewModel.entries.enumerated()), id: \.element.id) { index, entry in
-                        leaderboardRow(rank: index + 1, entry: entry)
-                            .onAppear {
-                                Task {
-                                    await viewModel.loadMoreIfNeeded(currentEntry: entry)
-                                }
+                        NavigationLink(destination: UserBadgesView(userId: entry.id, username: entry.username)) {
+                            leaderboardRow(rank: index + 1, entry: entry)
+                        }
+                        .buttonStyle(.plain)
+                        .onAppear {
+                            Task {
+                                await viewModel.loadMoreIfNeeded(currentEntry: entry)
                             }
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
