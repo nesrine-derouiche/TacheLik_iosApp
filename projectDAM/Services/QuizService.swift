@@ -4,6 +4,7 @@ protocol QuizServiceProtocol {
     func fetchQuizzes() async throws -> [QuizSummary]
     func fetchQuizDetail(id: String) async throws -> QuizDetail
     func submitAttempt(quizId: String, answers: [QuizAnswerSubmission]) async throws -> QuizAttemptResult
+    func fetchMyAttempts() async throws -> [QuizAttemptSummary]
 }
 
 final class QuizService: QuizServiceProtocol {
@@ -119,5 +120,33 @@ final class QuizService: QuizServiceProtocol {
             totalQuestions: response.totalQuestions,
             awardedBadges: response.awardedBadges
         )
+    }
+
+    func fetchMyAttempts() async throws -> [QuizAttemptSummary] {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+
+        if AppConfig.enableLogging {
+            print("📡 [QuizService] Requesting my quiz attempts at GET /quiz/attempts/me")
+        }
+
+        struct AttemptsResponse: Decodable {
+            let success: Bool
+            let attempts: [QuizAttemptSummary]
+        }
+
+        let response: AttemptsResponse = try await networkService.request(
+            endpoint: "/quiz/attempts/me",
+            method: .GET,
+            body: nil,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+
+        if AppConfig.enableLogging {
+            print("✅ [QuizService] Received \(response.attempts.count) quiz attempts for current user")
+        }
+
+        return response.attempts
     }
 }

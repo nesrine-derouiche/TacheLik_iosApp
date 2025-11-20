@@ -2,6 +2,9 @@ import SwiftUI
 
 struct StudentQuizListView: View {
     @StateObject private var viewModel: QuizListViewModel
+    @State private var selectedAttempt: QuizAttemptSummary?
+    @State private var selectedQuiz: QuizSummary?
+    @State private var navigateToQuiz: Bool = false
 
     init(quizService: QuizServiceProtocol = DIContainer.shared.quizService) {
         _viewModel = StateObject(wrappedValue: QuizListViewModel(quizService: quizService))
@@ -17,9 +20,42 @@ struct StudentQuizListView: View {
             }
             .navigationTitle("Quizzes")
             .navigationBarTitleDisplayMode(.large)
+            .background(
+                NavigationLink(
+                    destination: Group {
+                        if let quiz = selectedQuiz {
+                            StudentQuizDetailView(quizId: quiz.id)
+                        }
+                    },
+                    isActive: Binding(
+                        get: { navigateToQuiz },
+                        set: { isActive in
+                            if !isActive {
+                                navigateToQuiz = false
+                                selectedQuiz = nil
+                            }
+                        }
+                    )
+                ) {
+                    EmptyView()
+                }
+                .hidden()
+            )
         }
         .task {
             await viewModel.loadQuizzes()
+        }
+        .sheet(item: $selectedAttempt) { attempt in
+            if let quiz = selectedQuiz {
+                QuizAttemptPreviewSheet(
+                    quiz: quiz,
+                    attempt: attempt,
+                    onRetake: {
+                        selectedAttempt = nil
+                        navigateToQuiz = true
+                    }
+                )
+            }
         }
     }
 
@@ -51,10 +87,20 @@ struct StudentQuizListView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(viewModel.quizzes) { quiz in
-                        NavigationLink(destination: StudentQuizDetailView(quizId: quiz.id)) {
-                            quizCard(for: quiz)
+                        if let attempt = viewModel.attemptsByQuizId[quiz.id] {
+                            Button {
+                                selectedQuiz = quiz
+                                selectedAttempt = attempt
+                            } label: {
+                                quizCard(for: quiz, attempt: attempt)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            NavigationLink(destination: StudentQuizDetailView(quizId: quiz.id)) {
+                                quizCard(for: quiz, attempt: nil)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -64,7 +110,7 @@ struct StudentQuizListView: View {
         }
     }
 
-    private func quizCard(for quiz: QuizSummary) -> some View {
+    private func quizCard(for quiz: QuizSummary, attempt: QuizAttemptSummary?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(quiz.title)
                 .font(.system(size: 18, weight: .semibold))
@@ -85,6 +131,12 @@ struct StudentQuizListView: View {
                     .foregroundColor(.brandPrimary)
 
                 Spacer()
+
+                if let attempt {
+                    Text("Last: \(attempt.score)%")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
