@@ -37,3 +37,32 @@ struct QuizDetail: Decodable {
     let answersByQuestion: [String: [QuizAnswer]]
     let success: Bool
 }
+
+struct QuizAnswerSubmission {
+    let questionId: String
+    let answerId: String
+}
+
+struct QuizAttemptResult: Decodable {
+    let attemptId: String
+    let score: Int
+    let correctCount: Int
+    let totalQuestions: Int
+    let awardedBadges: [AwardedBadge]
+}
+
+struct AwardedBadge: Decodable {
+    let id: String
+    let badge: Badge
+    let awardedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, badge
+        case awardedAt = "awarded_at"
+    }
+}
+
+struct Badge: Decodable {
+    let id: String
+    let name: String
+}
