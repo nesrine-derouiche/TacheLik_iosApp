@@ -86,6 +86,39 @@ struct StudentQuizListView: View {
         } else {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
+                    NavigationLink(destination: BadgeLeaderboardView()) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.brandPrimary.opacity(0.12))
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: "rosette")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.brandPrimary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Badge Leaderboard")
+                                    .font(.system(size: 15, weight: .semibold))
+                                Text("See who earned the most badges.")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+                        )
+                    }
+
                     ForEach(viewModel.quizzes) { quiz in
                         if let attempt = viewModel.attemptsByQuizId[quiz.id] {
                             Button {

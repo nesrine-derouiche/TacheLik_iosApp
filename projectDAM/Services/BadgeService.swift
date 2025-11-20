@@ -2,6 +2,7 @@ import Foundation
 
 protocol BadgeServiceProtocol {
     func fetchMyBadges() async throws -> [AwardedBadge]
+    func fetchBadgeLeaderboard(page: Int, limit: Int) async throws -> BadgeLeaderboardPage
 }
 
 final class BadgeService: BadgeServiceProtocol {
@@ -39,5 +40,28 @@ final class BadgeService: BadgeServiceProtocol {
         }
         
         return response.badges
+    }
+
+    func fetchBadgeLeaderboard(page: Int, limit: Int) async throws -> BadgeLeaderboardPage {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+
+        if AppConfig.enableLogging {
+            print("📡 [BadgeService] Requesting badge leaderboard at GET /badge/leaderboard?page=\(page)&limit=\(limit)")
+        }
+
+        let response: BadgeLeaderboardPage = try await networkService.request(
+            endpoint: "/badge/leaderboard?page=\(page)&limit=\(limit)",
+            method: .GET,
+            body: nil,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+
+        if AppConfig.enableLogging {
+            print("✅ [BadgeService] Received leaderboard page=\(response.page) total=\(response.total)")
+        }
+
+        return response
     }
 }

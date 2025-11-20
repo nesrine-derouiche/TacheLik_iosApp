@@ -87,3 +87,24 @@ struct QuizAttemptSummary: Identifiable, Decodable {
         case completedAt = "completed_at"
     }
 }
+
+struct BadgeLeaderboardEntry: Identifiable, Decodable {
+    let id: String
+    let username: String
+    let badgeCount: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case id = "userId"
+        case username
+        case badgeCount
+    }
+}
+
+struct BadgeLeaderboardPage: Decodable {
+    let leaderboard: [BadgeLeaderboardEntry]
+    let total: Int
+    let page: Int
+    let limit: Int
+    let totalPages: Int
+    let success: Bool
+}
