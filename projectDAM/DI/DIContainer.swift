@@ -28,6 +28,7 @@ final class DIContainer {
     let giftCardService: GiftCardServiceProtocol
     let d17PaymentService: D17PaymentServiceProtocol
     let vdoCipherService: VdoCipherServiceProtocol
+    let quizService: QuizServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -53,6 +54,7 @@ final class DIContainer {
         self.giftCardService = GiftCardService(networkService: networkService, authService: authService)
         self.d17PaymentService = D17PaymentService(networkService: networkService, authService: authService)
         self.vdoCipherService = VdoCipherService(networkService: networkService, authService: authService)
+        self.quizService = QuizService(networkService: networkService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig

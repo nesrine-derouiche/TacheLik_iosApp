@@ -147,6 +147,16 @@ struct SettingsView: View {
                                     iconColor: .orange
                                 )
                             }
+
+                            Divider().padding(.leading, 56)
+
+                            NavigationLink(destination: WalletView()) {
+                                SettingsRowNavigation(
+                                    icon: "creditcard.fill",
+                                    title: "Wallet",
+                                    iconColor: .brandSuccess
+                                )
+                            }
                         }
                         .background(Color(.systemBackground))
                         .cornerRadius(16)
