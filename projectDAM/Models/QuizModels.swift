@@ -65,6 +65,15 @@ struct AwardedBadge: Decodable {
 struct Badge: Decodable {
     let id: String
     let name: String
+    let description: String?
+    let iconUrl: String?
+    let criteria: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description
+        case iconUrl = "icon_url"
+        case criteria
+    }
 }
 
 struct QuizAttemptSummary: Identifiable, Decodable {

@@ -150,6 +150,16 @@ struct SettingsView: View {
 
                             Divider().padding(.leading, 56)
 
+                            NavigationLink(destination: BadgesView()) {
+                                SettingsRowNavigation(
+                                    icon: "rosette",
+                                    title: "My Badges",
+                                    iconColor: .purple
+                                )
+                            }
+
+                            Divider().padding(.leading, 56)
+
                             NavigationLink(destination: WalletView()) {
                                 SettingsRowNavigation(
                                     icon: "creditcard.fill",
