@@ -107,32 +107,94 @@ struct QuizGeneratorView: View {
     @ViewBuilder
     private var content: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 20) {
-                modeSelector
-                if lessonContext == nil {
-                    courseSelectorSection
-                }
+            VStack(spacing: 18) {
+                headerSection
 
-                if mode == .videos {
-                    videosSection
-                }
+                VStack(spacing: 16) {
+                    modeSelector
 
-                configurationSection
+                    if lessonContext == nil {
+                        courseSelectorSection
+                    } else if let lesson = lessonContext {
+                        lessonContextPill(for: lesson)
+                    }
+
+                    if mode == .videos {
+                        videosSection
+                    }
+
+                    configurationSection
+                }
 
                 if let error = errorMessage {
                     Text(error)
                         .font(.system(size: 13))
                         .foregroundColor(.red)
+                        .padding(.horizontal, 4)
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 
     // MARK: - Sections
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .semibold))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AI-powered quiz")
+                        .font(.system(size: 16, weight: .semibold))
+                    if let lesson = lessonContext {
+                        Text("Based on \(lesson.title)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    } else {
+                        Text("Generate questions from your course content in seconds.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Label("Keeps your answers randomized", systemImage: "shuffle")
+                Label("One-click quiz creation", systemImage: "bolt.fill")
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 4)
+        )
+    }
 
     private var modeSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -145,6 +207,43 @@ struct QuizGeneratorView: View {
                 }
             }
             .pickerStyle(.segmented)
+        }
+    }
+
+    private func lessonContextPill(for lesson: Lesson) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Source lesson")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            HStack(alignment: .top, spacing: 10) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.brandPrimary.opacity(0.12))
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Image(systemName: "play.rectangle.fill")
+                            .foregroundColor(.brandPrimary)
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(lesson.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                    if let count = Optional(lesson.videos.count) {
+                        Text("\(count) videos in this lesson")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+            )
         }
     }
 
@@ -202,6 +301,10 @@ struct QuizGeneratorView: View {
                 Spacer()
                 if isLoadingVideos {
                     ProgressView().scaleEffect(0.8)
+                } else if !videos.isEmpty {
+                    Text("Selected: \(selectedVideoIds.count)/\(videos.count)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -238,11 +341,8 @@ struct QuizGeneratorView: View {
                             .foregroundColor(.secondary)
 
                             Spacer()
-
-                            Text("Selected: \(selectedVideoIds.count)")
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
                         }
+                        .padding(.top, 4)
                     }
                 }
             }
@@ -250,15 +350,29 @@ struct QuizGeneratorView: View {
     }
 
     private var configurationSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Quiz details (optional)")
                 .font(.system(size: 15, weight: .semibold))
 
-            TextField("Title (optional)", text: $titleText)
-                .textFieldStyle(.roundedBorder)
+            VStack(spacing: 8) {
+                TextField("Title (optional)", text: $titleText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(.systemBackground))
+                            .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 1)
+                    )
 
-            TextField("Description (optional)", text: $descriptionText, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+                TextField("Description (optional)", text: $descriptionText, axis: .vertical)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(.systemBackground))
+                            .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 1)
+                    )
+            }
         }
     }
 
@@ -285,13 +399,24 @@ struct QuizGeneratorView: View {
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                     }
+                    Text(video.formattedDuration)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
                 }
                 Spacer()
             }
             .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemBackground))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        isSelected
+                        ? Color.brandPrimary.opacity(0.08)
+                        : Color(.systemBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(isSelected ? Color.brandPrimary.opacity(0.4) : Color.clear, lineWidth: 1)
+                    )
             )
         }
         .buttonStyle(.plain)
