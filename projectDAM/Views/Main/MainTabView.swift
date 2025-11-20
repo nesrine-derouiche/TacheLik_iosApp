@@ -155,8 +155,8 @@ private struct StudentTabBar: View {
                 )
                 
                 StudentTabButton(
-                    icon: "questionmark.circle.fill",
-                    title: "Quizz",
+                    icon: "checkmark.circle.fill",
+                    title: "Quiz",
                     tab: .quiz,
                     selected: $selected,
                     compact: compact,
@@ -503,8 +503,8 @@ private struct AdminTabBar: View {
                 )
                 
                 AdminTabButton(
-                    icon: "questionmark.circle.fill",
-                    title: "Quizz",
+                    icon: "checkmark.circle.fill",
+                    title: "Quiz",
                     tab: .quizzes,
                     selected: $selected,
                     compact: compact,
@@ -772,8 +772,8 @@ private struct TeacherTabBar: View {
                 )
                 
                 TeacherTabButton(
-                    icon: "questionmark.circle.fill",
-                    title: "Quizz",
+                    icon: "checkmark.circle.fill",
+                    title: "Quiz",
                     tab: .quizzes,
                     selected: $selected,
                     compact: compact,
