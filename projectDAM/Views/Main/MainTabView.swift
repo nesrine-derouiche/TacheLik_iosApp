@@ -5,10 +5,10 @@ struct MainTabView: View {
     enum StudentTab: Int, CaseIterable { case home, classes, explore, quiz, settings }
     
     // MARK: - Admin Tabs
-    enum AdminTab: Int, CaseIterable { case dashboard, requests, users, settings }
+    enum AdminTab: Int, CaseIterable { case dashboard, requests, quizzes, users, settings }
     
     // MARK: - Teacher Tabs
-    enum TeacherTab: Int, CaseIterable { case dashboard, myClasses, messages, settings }
+    enum TeacherTab: Int, CaseIterable { case dashboard, myClasses, quizzes, messages, settings }
     
     // MARK: - Properties
     @StateObject private var roleManager = DIContainer.shared.roleManager
@@ -49,7 +49,7 @@ struct MainTabView: View {
         case .home: HomeView()
         case .classes: ClassesView()
         case .explore: ExploreView()
-        case .quiz: QuizListView()
+        case .quiz: StudentQuizListView()
         case .settings: SettingsView()
         }
     }
@@ -62,6 +62,8 @@ struct MainTabView: View {
             AdminDashboardView()
         case .requests:
             AdminRequestsView()
+        case .quizzes:
+            QuizListView()
         case .users:
             AdminUsersView()
         case .settings:
@@ -77,6 +79,8 @@ struct MainTabView: View {
             TeacherDashboardView()
         case .myClasses:
             TeacherMyClassesView()
+        case .quizzes:
+            QuizListView()
         case .messages:
             TeacherMessagesView()
         case .settings:
@@ -473,7 +477,7 @@ private struct AdminTabBar: View {
         GeometryReader { geo in
             let width = geo.size.width
             let compact = width < 380
-            let tabWidth = compact ? (width - 24) / 4 : (width - 40) / 4
+            let tabWidth = compact ? (width - 32) / 5 : (width - 48) / 5
             
             HStack(spacing: compact ? 4 : 8) {
                 AdminTabButton(
@@ -494,6 +498,17 @@ private struct AdminTabBar: View {
                     selected: $selected,
                     compact: compact,
                     tint: .brandWarning,
+                    animation: animation,
+                    tabWidth: tabWidth
+                )
+                
+                AdminTabButton(
+                    icon: "questionmark.circle.fill",
+                    title: "Quizz",
+                    tab: .quizzes,
+                    selected: $selected,
+                    compact: compact,
+                    tint: .brandSecondary,
                     animation: animation,
                     tabWidth: tabWidth
                 )
@@ -752,6 +767,17 @@ private struct TeacherTabBar: View {
                     selected: $selected,
                     compact: compact,
                     tint: .brandAccent,
+                    animation: animation,
+                    tabWidth: tabWidth
+                )
+                
+                TeacherTabButton(
+                    icon: "questionmark.circle.fill",
+                    title: "Quizz",
+                    tab: .quizzes,
+                    selected: $selected,
+                    compact: compact,
+                    tint: .brandSecondary,
                     animation: animation,
                     tabWidth: tabWidth
                 )
