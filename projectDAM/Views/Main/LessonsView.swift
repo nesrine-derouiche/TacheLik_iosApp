@@ -7,6 +7,9 @@ struct LessonsView: View {
     @State private var selectedVideoId: String?
     @Namespace private var videoNamespace
     @StateObject private var youtubePlayer = YouTubePlayer()
+    @State private var showingQuizGenerator = false
+    @State private var generatedQuiz: QuizSummary?
+    @State private var navigateToGeneratedQuiz = false
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, isOwned: Bool = false, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -26,9 +29,52 @@ struct LessonsView: View {
         }
         .navigationTitle(viewModel.lessonTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if viewModel.lesson?.courseId != nil {
+                    Button {
+                        showingQuizGenerator = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text("Quiz")
+                        }
+                    }
+                }
+            }
+        }
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let quiz = generatedQuiz {
+                        StudentQuizDetailView(quizId: quiz.id)
+                    }
+                },
+                isActive: Binding(
+                    get: { navigateToGeneratedQuiz },
+                    set: { isActive in
+                        if !isActive {
+                            navigateToGeneratedQuiz = false
+                            generatedQuiz = nil
+                        }
+                    }
+                )
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
         .task { await viewModel.loadLesson() }
         .refreshable { await viewModel.loadLesson(force: true) }
         .onChange(of: viewModel.visibleVideos, perform: handleVideoListChange)
+        .sheet(isPresented: $showingQuizGenerator) {
+            if let lesson = viewModel.lesson {
+                QuizGeneratorView(lesson: lesson) { quiz in
+                    generatedQuiz = quiz
+                    navigateToGeneratedQuiz = true
+                }
+            }
+        }
     }
     
     // MARK: - Content States

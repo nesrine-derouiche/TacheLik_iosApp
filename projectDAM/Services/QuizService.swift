@@ -5,6 +5,8 @@ protocol QuizServiceProtocol {
     func fetchQuizDetail(id: String) async throws -> QuizDetail
     func submitAttempt(quizId: String, answers: [QuizAnswerSubmission]) async throws -> QuizAttemptResult
     func fetchMyAttempts() async throws -> [QuizAttemptSummary]
+    func generateQuizFromCourse(courseId: String, title: String?, description: String?) async throws -> QuizSummary
+    func generateQuizFromVideos(videoIds: [String], title: String?, description: String?) async throws -> QuizSummary
 }
 
 final class QuizService: QuizServiceProtocol {
@@ -148,5 +150,93 @@ final class QuizService: QuizServiceProtocol {
         }
 
         return response.attempts
+    }
+
+    func generateQuizFromCourse(courseId: String, title: String?, description: String?) async throws -> QuizSummary {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+
+        if AppConfig.enableLogging {
+            print("📡 [QuizService] Generating quiz from course at POST /quiz/ai/from-course (courseId=\(courseId))")
+        }
+
+        struct GenerateFromCourseRequest: Encodable {
+            let courseId: String
+            let title: String?
+            let description: String?
+        }
+
+        struct GenerateFromCourseResponse: Decodable {
+            let success: Bool
+            let quiz: QuizSummary
+        }
+
+        let payload = GenerateFromCourseRequest(
+            courseId: courseId,
+            title: (title?.isEmpty == true) ? nil : title,
+            description: (description?.isEmpty == true) ? nil : description
+        )
+        let body = try JSONEncoder().encode(payload)
+
+        let response: GenerateFromCourseResponse = try await networkService.request(
+            endpoint: "/quiz/ai/from-course",
+            method: .POST,
+            body: body,
+            headers: [
+                "Authorization": "Bearer \(token)",
+                "Content-Type": "application/json"
+            ]
+        )
+
+        if AppConfig.enableLogging {
+            print("✅ [QuizService] Generated quiz from course id=\(response.quiz.id)")
+        }
+
+        return response.quiz
+    }
+
+    func generateQuizFromVideos(videoIds: [String], title: String?, description: String?) async throws -> QuizSummary {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+
+        if AppConfig.enableLogging {
+            print("📡 [QuizService] Generating quiz from videos at POST /quiz/ai/from-videos (count=\(videoIds.count))")
+        }
+
+        struct GenerateFromVideosRequest: Encodable {
+            let videoIds: [String]
+            let title: String?
+            let description: String?
+        }
+
+        struct GenerateFromVideosResponse: Decodable {
+            let success: Bool
+            let quiz: QuizSummary
+        }
+
+        let payload = GenerateFromVideosRequest(
+            videoIds: videoIds,
+            title: (title?.isEmpty == true) ? nil : title,
+            description: (description?.isEmpty == true) ? nil : description
+        )
+        let body = try JSONEncoder().encode(payload)
+
+        let response: GenerateFromVideosResponse = try await networkService.request(
+            endpoint: "/quiz/ai/from-videos",
+            method: .POST,
+            body: body,
+            headers: [
+                "Authorization": "Bearer \(token)",
+                "Content-Type": "application/json"
+            ]
+        )
+
+        if AppConfig.enableLogging {
+            print("✅ [QuizService] Generated quiz from videos id=\(response.quiz.id)")
+        }
+
+        return response.quiz
     }
 }
