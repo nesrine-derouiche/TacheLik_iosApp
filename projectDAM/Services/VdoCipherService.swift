@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
-import VdoFramework
-
+ 
 protocol VdoCipherServiceProtocol {
     func playPaidVideo(videoId: String) async
 }
@@ -19,8 +18,7 @@ struct VdoPlaybackOtp: Decodable {
 final class VdoCipherService: VdoCipherServiceProtocol {
     private let networkService: NetworkServiceProtocol
     private let authService: AuthServiceProtocol
-    private var currentAsset: VdoAsset?
-
+ 
     init(networkService: NetworkServiceProtocol, authService: AuthServiceProtocol) {
         self.networkService = networkService
         self.authService = authService
@@ -64,48 +62,19 @@ final class VdoCipherService: VdoCipherServiceProtocol {
 
     @MainActor
     private func startPlayback(videoId: String, details: VdoPlaybackOtp) async throws {
-        #if targetEnvironment(simulator)
         if AppConfig.enableLogging {
-            print("[VdoCipherService] Playback not supported in simulator. Please run on a physical device.")
+            print("[VdoCipherService] Paid video playback is currently disabled. videoId=\(videoId)")
         }
 
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
             let alert = UIAlertController(
-                title: "Paid videos not available in Simulator",
-                message: "VdoCipher playback requires a real iOS device. Please run this lesson on a physical iPhone or iPad.",
+                title: "Playback not available",
+                message: "Paid video playback is currently unavailable on this device.",
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
             rootVC.present(alert, animated: true)
         }
-        return
-        #else
-        VdoAsset.createAsset(videoId: videoId) { [weak self] asset, error in
-            if let error {
-                if AppConfig.enableLogging {
-                    print("⚠️ [VdoCipherService] Asset creation failed for videoId=\(videoId): \(error)")
-                }
-                return
-            }
-            guard let self, let asset else { return }
-            self.currentAsset = asset
-
-            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                  let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
-                if AppConfig.enableLogging {
-                    print("⚠️ [VdoCipherService] Could not find root view controller to present player")
-                }
-                return
-            }
-
-            DispatchQueue.main.async {
-                let vdoPlayerController: VdoPlayerViewController = VdoCipher.getVdoPlayerViewController()
-                rootVC.present(vdoPlayerController, animated: true) {
-                    asset.playOnline(otp: details.otp, playbackInfo: details.playbackInfo)
-                }
-            }
-        }
-        #endif
     }
 }

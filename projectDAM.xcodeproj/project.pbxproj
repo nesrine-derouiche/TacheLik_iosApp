@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		0475F0502EBF7D72005B54B9 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 0475F04F2EBF7D72005B54B9 /* SocketIO */; };
-		049A12272ECA5F9E000ABC92 /* VdoFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 049A12262ECA5F9E000ABC92 /* VdoFramework */; };
 		04A82E932ECA4DA800A12822 /* YouTubePlayerKit in Frameworks */ = {isa = PBXBuildFile; productRef = 04A82E922ECA4DA800A12822 /* YouTubePlayerKit */; };
 		04D8E26D2EC0FF7F00AC81A0 /* Config.local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */; };
 		04D8E26F2EC0FF9F00AC81A0 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */; };
@@ -55,7 +54,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				04A82E932ECA4DA800A12822 /* YouTubePlayerKit in Frameworks */,
-				049A12272ECA5F9E000ABC92 /* VdoFramework in Frameworks */,
 				0475F0502EBF7D72005B54B9 /* SocketIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -107,7 +105,6 @@
 			packageProductDependencies = (
 				0475F04F2EBF7D72005B54B9 /* SocketIO */,
 				04A82E922ECA4DA800A12822 /* YouTubePlayerKit */,
-				049A12262ECA5F9E000ABC92 /* VdoFramework */,
 			);
 			productName = projectDAM;
 			productReference = 261CBA9E2EBE51AD003C55BA /* projectDAM.app */;
@@ -140,7 +137,6 @@
 			packageReferences = (
 				0475F04E2EBF7D72005B54B9 /* XCRemoteSwiftPackageReference "socket" */,
 				04A82E912ECA4DA800A12822 /* XCRemoteSwiftPackageReference "YouTubePlayerKit" */,
-				049A12252ECA5F9E000ABC92 /* XCRemoteSwiftPackageReference "swift-pm-repo" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 261CBA9F2EBE51AD003C55BA /* Products */;
@@ -400,14 +396,6 @@
 				minimumVersion = 16.1.0;
 			};
 		};
-		049A12252ECA5F9E000ABC92 /* XCRemoteSwiftPackageReference "swift-pm-repo" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/VdoCipher/swift-pm-repo";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.8.0;
-			};
-		};
 		04A82E912ECA4DA800A12822 /* XCRemoteSwiftPackageReference "YouTubePlayerKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SvenTiigi/YouTubePlayerKit.git";
@@ -423,11 +411,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0475F04E2EBF7D72005B54B9 /* XCRemoteSwiftPackageReference "socket" */;
 			productName = SocketIO;
-		};
-		049A12262ECA5F9E000ABC92 /* VdoFramework */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 049A12252ECA5F9E000ABC92 /* XCRemoteSwiftPackageReference "swift-pm-repo" */;
-			productName = VdoFramework;
 		};
 		04A82E922ECA4DA800A12822 /* YouTubePlayerKit */ = {
 			isa = XCSwiftPackageProductDependency;

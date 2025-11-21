@@ -1,5 +1,5 @@
 {
-  "originHash" : "d345138128ff21d8786397a9efdaabd2b8490f93d1ff03771774fc10f1452e8a",
+  "originHash" : "837b04a6f8d40e6425f2a546dbe92901df108fa3b3b9de1a8c96553eb7cc6d41",
   "pins" : [
     {
       "identity" : "socket.io-client-swift",
@@ -17,15 +17,6 @@
       "state" : {
         "revision" : "c6bfd1af48efcc9a9ad203665db12375ba6b145a",
         "version" : "4.0.8"
-      }
-    },
-    {
-      "identity" : "swift-pm-repo",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/VdoCipher/swift-pm-repo",
-      "state" : {
-        "revision" : "21b232fed077ed479f1ad92cc4b37dc967d314a5",
-        "version" : "2.8.1"
       }
     },
     {
