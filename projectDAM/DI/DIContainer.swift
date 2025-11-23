@@ -13,7 +13,7 @@ final class DIContainer {
     
     // MARK: - Singleton
     static let shared = DIContainer()
-    
+
     // MARK: - Services
     let networkService: NetworkServiceProtocol
     let authService: AuthServiceProtocol
@@ -30,6 +30,7 @@ final class DIContainer {
     let vdoCipherService: VdoCipherServiceProtocol
     let quizService: QuizServiceProtocol
     let badgeService: BadgeServiceProtocol
+    let teacherCoursesService: TeacherCoursesServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -57,6 +58,7 @@ final class DIContainer {
         self.vdoCipherService = VdoCipherService(networkService: networkService, authService: authService)
         self.quizService = QuizService(networkService: networkService, authService: authService)
         self.badgeService = BadgeService(networkService: networkService, authService: authService)
+        self.teacherCoursesService = TeacherCoursesService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig
@@ -123,5 +125,10 @@ final class DIContainer {
     
     func makeWalletViewModel() -> WalletViewModel {
         return WalletViewModel(transactionService: transactionService, invitationService: invitationService)
+    }
+    
+    /// Create TeacherMyClassesViewModel with injected dependencies
+    func makeTeacherMyClassesViewModel() -> TeacherMyClassesViewModel {
+        return TeacherMyClassesViewModel(teacherCoursesService: teacherCoursesService)
     }
 }

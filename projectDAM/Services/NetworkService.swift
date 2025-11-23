@@ -96,39 +96,53 @@ final class NetworkService: NetworkServiceProtocol {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        let (data, response) = try await session.data(for: request)
+        do {
+            let (data, response) = try await session.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
-        }
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ [NetworkService] Invalid HTTP response for \(url)")
+                throw NetworkError.invalidResponse
+            }
+            
+            print("📡 [NetworkService] Response status: \(httpResponse.statusCode) for \(endpoint)")
 
-        switch httpResponse.statusCode {
-        case 200...299:
-            do {
-                let decoded = try JSONDecoder().decode(T.self, from: data)
-                return decoded
-            } catch {
-                // Log the actual response for debugging
-                if AppConfig.enableLogging {
+            switch httpResponse.statusCode {
+            case 200...299:
+                do {
+                    let decoded = try JSONDecoder().decode(T.self, from: data)
+                    return decoded
+                } catch {
+                    // Log the actual response for debugging
                     print("❌ [NetworkService] Decoding error for \(url)")
                     print("❌ [NetworkService] Error: \(error)")
                     if let jsonString = String(data: data, encoding: .utf8) {
                         print("❌ [NetworkService] Response JSON: \(jsonString)")
                     }
+                    throw NetworkError.decodingError
                 }
-                throw NetworkError.decodingError
+            case 401:
+                throw NetworkError.unauthorized
+            default:
+                // Try to parse error message from response
+                let errorMessage: String?
+                if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                    errorMessage = errorResponse.message
+                } else {
+                    errorMessage = nil
+                }
+                throw NetworkError.serverError(httpResponse.statusCode, errorMessage)
             }
-        case 401:
-            throw NetworkError.unauthorized
-        default:
-            // Try to parse error message from response
-            let errorMessage: String?
-            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                errorMessage = errorResponse.message
-            } else {
-                errorMessage = nil
+        } catch let urlError as URLError {
+            print("❌ [NetworkService] URLError for \(url): \(urlError.localizedDescription)")
+            print("❌ [NetworkService] Error code: \(urlError.code.rawValue)")
+            if urlError.code == .notConnectedToInternet {
+                throw NetworkError.serverError(0, "No internet connection")
+            } else if urlError.code == .cannotConnectToHost {
+                throw NetworkError.serverError(0, "Cannot connect to server. Is the backend running?")
+            } else if urlError.code == .timedOut {
+                throw NetworkError.serverError(0, "Request timed out")
             }
-            throw NetworkError.serverError(httpResponse.statusCode, errorMessage)
+            throw NetworkError.serverError(0, urlError.localizedDescription)
         }
     }
 
