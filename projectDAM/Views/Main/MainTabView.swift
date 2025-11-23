@@ -78,7 +78,7 @@ struct MainTabView: View {
         case .dashboard:
             TeacherDashboardView()
         case .myClasses:
-            TeacherMyClassesView()
+            TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel())
         case .quizzes:
             QuizListView()
         case .messages:
@@ -361,8 +361,8 @@ private struct StudentTabButton: View {
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
             }
-            .frame(width: tabWidth)
-            .frame(maxWidth: .infinity)
+//            .frame(width: tabWidth)
+//            .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
@@ -984,8 +984,8 @@ private struct TeacherTabButton: View {
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
             }
-            .frame(width: tabWidth)
-            .frame(maxWidth: .infinity)
+//            .frame(width: tabWidth)
+//            .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }

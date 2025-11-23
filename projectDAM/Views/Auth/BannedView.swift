@@ -112,3 +112,9 @@ struct BannedView: View {
         }
     }
 }
+
+#Preview {
+    BannedView(
+        sessionManager: .init()
+    )
+}

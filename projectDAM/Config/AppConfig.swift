@@ -21,8 +21,8 @@ struct AppConfig {
             return url
         }
         
-        // Fallback to default development URL
-        return "http://127.0.0.1:3001/api"
+        // Fallback to production URL
+        return "https://dev.api.tache-lik.tn/api"
     }
     
     /// Socket.IO server URL (without /api path)
