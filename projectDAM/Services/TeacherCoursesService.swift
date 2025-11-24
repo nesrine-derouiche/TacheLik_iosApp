@@ -11,6 +11,17 @@ import Foundation
 protocol TeacherCoursesServiceProtocol {
     func fetchMyCourses() async throws -> [ClassWithCourses]
     func fetchAvailableClasses() async throws -> [AvailableClass]
+    func createCourse(request: CourseCreationRequest, imageAttachment: CourseImageAttachment?) async throws -> CourseCreationResponse
+    func createCourseEditRequest(
+        courseId: String,
+        name: String,
+        description: String,
+        price: Double,
+        level: CourseLevelOption,
+        courseReduction: Int?,
+        changeReason: String,
+        imageAttachment: CourseImageAttachment?
+    ) async throws -> CourseEditRequestResponse
 }
 
 // MARK: - Service Implementation
@@ -108,6 +119,96 @@ final class TeacherCoursesService: TeacherCoursesServiceProtocol {
         
         return response.availableClasses
     }
+    
+    /// Create a new course (POST /course/create)
+    func createCourse(request: CourseCreationRequest, imageAttachment: CourseImageAttachment?) async throws -> CourseCreationResponse {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        guard let currentUser = authService.getCurrentUser() else {
+            throw NetworkError.unauthorized
+        }
+        
+        var multipart = MultipartFormData()
+        let trimmedName = request.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = request.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        multipart.addField(name: "name", value: trimmedName)
+        multipart.addField(name: "description", value: trimmedDescription)
+        multipart.addField(name: "price", value: String(format: "%.2f", request.price))
+        multipart.addField(name: "level", value: request.level.rawValue)
+        multipart.addField(name: "author_id", value: currentUser.id)
+        multipart.addField(name: "class_id", value: request.classId)
+        if let reduction = request.courseReduction {
+            multipart.addField(name: "course_reduction", value: String(reduction))
+        }
+        if let imageAttachment {
+            multipart.addFile(
+                fieldName: "image",
+                fileName: imageAttachment.fileName,
+                mimeType: imageAttachment.mimeType,
+                data: imageAttachment.data
+            )
+        }
+        
+        if AppConfig.enableLogging {
+            print("📡 [TeacherCoursesService] Creating course for class \(request.classId)")
+        }
+        
+        return try await networkService.upload(
+            endpoint: "/course/create",
+            method: .POST,
+            multipart: multipart,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+    }
+    
+    /// Create a course edit request (POST /course/edit-request/:courseId)
+    func createCourseEditRequest(
+        courseId: String,
+        name: String,
+        description: String,
+        price: Double,
+        level: CourseLevelOption,
+        courseReduction: Int?,
+        changeReason: String,
+        imageAttachment: CourseImageAttachment?
+    ) async throws -> CourseEditRequestResponse {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        
+        var multipart = MultipartFormData()
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedReason = changeReason.trimmingCharacters(in: .whitespacesAndNewlines)
+        multipart.addField(name: "name", value: trimmedName)
+        multipart.addField(name: "description", value: trimmedDescription)
+        multipart.addField(name: "price", value: String(format: "%.2f", price))
+        multipart.addField(name: "level", value: level.rawValue)
+        if let reduction = courseReduction {
+            multipart.addField(name: "course_reduction", value: String(reduction))
+        }
+        multipart.addField(name: "changeReason", value: trimmedReason)
+        if let imageAttachment {
+            multipart.addFile(
+                fieldName: "image",
+                fileName: imageAttachment.fileName,
+                mimeType: imageAttachment.mimeType,
+                data: imageAttachment.data
+            )
+        }
+        
+        if AppConfig.enableLogging {
+            print("📡 [TeacherCoursesService] Submitting edit request for course \(courseId)")
+        }
+        
+        return try await networkService.upload(
+            endpoint: "/course/edit-request/\(courseId)",
+            method: .POST,
+            multipart: multipart,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+    }
 }
 
 // MARK: - Mock Service (for preview/testing)
@@ -127,5 +228,41 @@ final class MockTeacherCoursesService: TeacherCoursesServiceProtocol {
         
         // Return empty array (no dummy data - will fetch from real API)
         return []
+    }
+    
+    func createCourse(request: CourseCreationRequest, imageAttachment: CourseImageAttachment?) async throws -> CourseCreationResponse {
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let payload = CourseCreationPayload(
+            id: UUID().uuidString,
+            name: request.name,
+            image: nil,
+            description: request.description,
+            price: request.price,
+            level: request.level.rawValue,
+            courseOrder: "1",
+            courseReduction: request.courseReduction
+        )
+        return CourseCreationResponse(
+            success: true,
+            message: "Mock course created successfully",
+            data: payload
+        )
+    }
+    
+    func createCourseEditRequest(
+        courseId: String,
+        name: String,
+        description: String,
+        price: Double,
+        level: CourseLevelOption,
+        courseReduction: Int?,
+        changeReason: String,
+        imageAttachment: CourseImageAttachment?
+    ) async throws -> CourseEditRequestResponse {
+        try await Task.sleep(nanoseconds: 300_000_000)
+        return CourseEditRequestResponse(
+            success: true,
+            message: "Mock edit request submitted successfully"
+        )
     }
 }

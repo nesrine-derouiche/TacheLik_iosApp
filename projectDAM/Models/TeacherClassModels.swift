@@ -43,14 +43,28 @@ struct TeacherClass: Codable, Identifiable {
     let updatedAt: String?
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/classes/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("classes")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "classes" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     // Custom decoder to handle all optional fields gracefully
@@ -125,14 +139,28 @@ struct TeacherCourse: Codable, Identifiable {
     }
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/courses/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("courses")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "courses" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     var durationInMinutes: Int {
@@ -198,14 +226,28 @@ struct AvailableClass: Codable, Identifiable {
     let filterName: ClassFilterName?
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/classes/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("classes")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "classes" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     enum CodingKeys: String, CodingKey {
@@ -221,4 +263,112 @@ enum TeacherClassesViewState {
     case loaded([ClassWithCourses])
     case error(String)
     case empty
+}
+
+// MARK: - Course Creation Support
+
+enum CourseLevelOption: String, CaseIterable, Identifiable, Codable {
+    case introduction = "Introduction"
+    case foundation = "Foundation"
+    case mastery = "Mastery"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .introduction: return "Introduction"
+        case .foundation: return "Foundation"
+        case .mastery: return "Mastery"
+        }
+    }
+    
+    var helperText: String {
+        switch self {
+        case .introduction: return "Great for beginners"
+        case .foundation: return "Build solid fundamentals"
+        case .mastery: return "Deep dive & advanced"
+        }
+    }
+}
+
+struct CourseCreationRequest {
+    let name: String
+    let description: String
+    let price: Double
+    let level: CourseLevelOption
+    let classId: String
+    let courseReduction: Int?
+}
+
+struct CourseImageAttachment {
+    let data: Data
+    let mimeType: String
+    let fileName: String
+}
+
+struct CourseCreationResponse: Decodable {
+    let success: Bool
+    let message: String?
+    let data: CourseCreationPayload?
+}
+
+struct CourseCreationPayload: Decodable {
+    let id: String
+    let name: String
+    let image: String?
+    let description: String?
+    let price: Double?
+    let level: String?
+    let courseOrder: String?
+    let courseReduction: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, image, description, price, level
+        case courseOrder = "course_order"
+        case courseReduction = "course_reduction"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        image = try container.decodeIfPresent(String.self, forKey: .image)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        level = try container.decodeIfPresent(String.self, forKey: .level)
+        courseOrder = try container.decodeIfPresent(String.self, forKey: .courseOrder)
+        
+        if let rawPrice = try? container.decode(Double.self, forKey: .price) {
+            price = rawPrice
+        } else if let stringPrice = try? container.decode(String.self, forKey: .price),
+                  let parsed = Double(stringPrice) {
+            price = parsed
+        } else {
+            price = nil
+        }
+        
+        if let reduction = try? container.decode(Int.self, forKey: .courseReduction) {
+            courseReduction = reduction
+        } else if let stringReduction = try? container.decode(String.self, forKey: .courseReduction),
+                  let parsed = Int(stringReduction) {
+            courseReduction = parsed
+        } else {
+            courseReduction = nil
+        }
+    }
+    
+    init(id: String, name: String, image: String?, description: String?, price: Double?, level: String?, courseOrder: String?, courseReduction: Int?) {
+        self.id = id
+        self.name = name
+        self.image = image
+        self.description = description
+        self.price = price
+        self.level = level
+        self.courseOrder = courseOrder
+        self.courseReduction = courseReduction
+    }
+}
+
+struct CourseEditRequestResponse: Decodable {
+    let success: Bool
+    let message: String?
 }

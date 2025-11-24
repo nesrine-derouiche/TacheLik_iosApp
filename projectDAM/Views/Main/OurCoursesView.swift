@@ -197,26 +197,15 @@ private struct AdaptiveBadgeStack<Content: View>: View {
     }
     
     private func courseImageView(_ course: Course) -> some View {
-        Group {
-            if let imageURL = course.imageURL {
-                AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure, .empty:
-                        placeholderImage
-                    @unknown default:
-                        placeholderImage
-                    }
-                }
-            } else {
-                placeholderImage
-            }
+        RemoteThumbnailImageView(
+            url: course.imageURL,
+            width: 94,
+            height: 94,
+            cornerRadius: 20,
+            baseColor: classColor
+        ) {
+            placeholderImage
         }
-        .frame(width: 94, height: 94)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(classColor.opacity(0.2), lineWidth: 1)
