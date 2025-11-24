@@ -129,7 +129,7 @@ struct TeacherCourseLessonsView: View {
         case let .paragraph(_, text, style):
             return AnyView(paragraphCard(text: text, boxed: style == .boxed))
         case let .latex(_, content):
-            return AnyView(formulaCard(text: content))
+            return AnyView(LessonLatexBlockView(latex: content, accessibilityLabel: content))
         case let .image(_, reference, caption):
             return AnyView(lessonImage(reference: reference, caption: caption))
         case let .pdf(_, reference, label):
@@ -157,30 +157,6 @@ struct TeacherCourseLessonsView: View {
             .background(boxed ? Color(.systemBackground) : Color(.secondarySystemBackground))
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(boxed ? 0.05 : 0), radius: boxed ? 12 : 0)
-    }
-    
-    private func formulaCard(text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Formula")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("Show raw")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.brandPrimary)
-            }
-            Text(text.replacingOccurrences(of: "$", with: "").trimmingCharacters(in: .whitespacesAndNewlines))
-                .font(.system(size: 22, weight: .semibold, design: .serif))
-                .padding(.top, 8)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 8)
-        )
     }
     
     private func lessonImage(reference: LessonMediaReference, caption: String?) -> some View {
