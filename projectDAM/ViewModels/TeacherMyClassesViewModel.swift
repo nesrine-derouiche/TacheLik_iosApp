@@ -21,6 +21,19 @@ final class TeacherMyClassesViewModel: ObservableObject {
     @Published var availableClasses: [AvailableClass] = []
     @Published var showCreateCourseSheet: Bool = false
     @Published var selectedClassForCourse: AvailableClass?
+    @Published var selectedCourseClassId: String?
+    @Published var courseTitle: String = ""
+    @Published var courseDescription: String = ""
+    @Published var coursePrice: String = ""
+    @Published var courseDiscount: String = ""
+    @Published var selectedCourseLevel: CourseLevelOption = .introduction
+    @Published var courseImageData: Data?
+    @Published var courseImageMimeType: String?
+    @Published var courseImageFileName: String?
+    @Published var isCreatingCourse: Bool = false
+    @Published var createCourseError: String?
+    @Published var createCourseSuccessMessage: String?
+    @Published var didCreateCourseSuccessfully: Bool = false
     
     // MARK: - Private Properties
     private let teacherCoursesService: TeacherCoursesServiceProtocol
@@ -184,6 +197,7 @@ final class TeacherMyClassesViewModel: ObservableObject {
     func loadAvailableClasses() async {
         do {
             availableClasses = try await teacherCoursesService.fetchAvailableClasses()
+            syncSelectedClass()
         } catch {
             print("Error loading available classes: \(error.localizedDescription)")
         }
@@ -210,8 +224,7 @@ final class TeacherMyClassesViewModel: ObservableObject {
     
     /// Show create course sheet for a specific class
     func showCreateCourse(for classItem: AvailableClass) {
-        selectedClassForCourse = classItem
-        showCreateCourseSheet = true
+        startCreateCourseFlow(for: classItem)
     }
     
     /// Clear search
@@ -249,5 +262,212 @@ final class TeacherMyClassesViewModel: ObservableObject {
             // TODO: Implement actual rating when backend provides it
             return courses.sorted { $0.studentCount > $1.studentCount }
         }
+    }
+
+    // MARK: - Course Creation Helpers
+    func startCreateCourseFlow(for classItem: AvailableClass? = nil) {
+        resetCourseCreationState(preserveClassSelection: false)
+        selectedClassForCourse = classItem
+        selectedCourseClassId = classItem?.id
+        showCreateCourseSheet = true
+    }
+    
+    func closeCreateCourseSheet() {
+        showCreateCourseSheet = false
+        resetCourseCreationState(preserveClassSelection: false)
+    }
+    
+    func prepareAnotherCourse() {
+        didCreateCourseSuccessfully = false
+        createCourseSuccessMessage = nil
+        resetCourseCreationState(preserveClassSelection: true)
+    }
+    
+    func selectClass(by classId: String) {
+        selectedCourseClassId = classId
+        selectedClassForCourse = availableClasses.first(where: { $0.id == classId })
+    }
+    
+    func updateCourseImage(data: Data, mimeType: String, fileName: String) {
+        let maxSizeInBytes = 5 * 1024 * 1024
+        guard data.count <= maxSizeInBytes else {
+            createCourseError = "Image must be 5 MB or smaller"
+            return
+        }
+        courseImageData = data
+        courseImageMimeType = mimeType
+        courseImageFileName = fileName
+    }
+    
+    func clearCourseImageAttachment() {
+        courseImageData = nil
+        courseImageMimeType = nil
+        courseImageFileName = nil
+    }
+    
+    func submitCourseCreation() async {
+        guard !isCreatingCourse else { return }
+        createCourseError = nil
+        didCreateCourseSuccessfully = false
+        
+        guard courseTitleValidation.isValid else {
+            createCourseError = courseTitleValidation.errorMessage
+            return
+        }
+        guard courseDescriptionValidation.isValid else {
+            createCourseError = courseDescriptionValidation.errorMessage
+            return
+        }
+        guard coursePriceValidation.isValid, let priceValue = parsePrice() else {
+            createCourseError = coursePriceValidation.errorMessage
+            return
+        }
+        guard classSelectionValidation.isValid, let classId = selectedCourseClassId ?? selectedClassForCourse?.id else {
+            createCourseError = classSelectionValidation.errorMessage
+            return
+        }
+        if !courseDiscountValidation.isValid {
+            createCourseError = courseDiscountValidation.errorMessage
+            return
+        }
+        
+        let discountValue = parseDiscount()
+        let request = CourseCreationRequest(
+            name: courseTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            description: courseDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+            price: priceValue,
+            level: selectedCourseLevel,
+            classId: classId,
+            courseReduction: discountValue
+        )
+        
+        var attachment: CourseImageAttachment?
+        if let data = courseImageData,
+           let mimeType = courseImageMimeType,
+           let fileName = courseImageFileName {
+            attachment = CourseImageAttachment(data: data, mimeType: mimeType, fileName: fileName)
+        }
+        
+        isCreatingCourse = true
+        defer { isCreatingCourse = false }
+        
+        do {
+            let response = try await teacherCoursesService.createCourse(request: request, imageAttachment: attachment)
+            await handleCourseCreationSuccess(message: response.message)
+        } catch let networkError as NetworkError {
+            if shouldIgnoreCourseCreationError(networkError) {
+                await handleCourseCreationSuccess(message: nil)
+            } else {
+                createCourseError = networkError.errorDescription ?? "Failed to create course"
+            }
+        } catch {
+            createCourseError = error.localizedDescription
+        }
+    }
+    
+    var courseTitleValidation: ValidationResult {
+        let trimmed = courseTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .invalid("Title is required") }
+        guard trimmed.count >= 3 else { return .invalid("Title must be at least 3 characters") }
+        return .valid
+    }
+    
+    var courseDescriptionValidation: ValidationResult {
+        let trimmed = courseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .invalid("Description is required") }
+        guard trimmed.count >= 20 else { return .invalid("Description must be at least 20 characters") }
+        return .valid
+    }
+    
+    var coursePriceValidation: ValidationResult {
+        let trimmed = coursePrice.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .invalid("Price is required") }
+        guard parsePrice() != nil else { return .invalid("Enter a valid price") }
+        guard let price = parsePrice(), price >= 1 else { return .invalid("Price must be at least 1") }
+        return .valid
+    }
+    
+    var courseDiscountValidation: ValidationResult {
+        let trimmed = courseDiscount.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .valid }
+        guard let value = Int(trimmed), (0...100).contains(value) else {
+            return .invalid("Discount must be between 0 and 100")
+        }
+        return .valid
+    }
+    
+    var classSelectionValidation: ValidationResult {
+        guard let classId = selectedCourseClassId ?? selectedClassForCourse?.id else {
+            return .invalid("Select a class")
+        }
+        if availableClasses.isEmpty || availableClasses.contains(where: { $0.id == classId }) {
+            return .valid
+        }
+        return .invalid("Select a class")
+    }
+    
+    var canSubmitCourse: Bool {
+        courseTitleValidation.isValid &&
+        courseDescriptionValidation.isValid &&
+        coursePriceValidation.isValid &&
+        courseDiscountValidation.isValid &&
+        classSelectionValidation.isValid &&
+        !isCreatingCourse
+    }
+    
+    private func resetCourseCreationState(preserveClassSelection: Bool) {
+        courseTitle = ""
+        courseDescription = ""
+        coursePrice = ""
+        courseDiscount = ""
+        selectedCourseLevel = .introduction
+        courseImageData = nil
+        courseImageMimeType = nil
+        courseImageFileName = nil
+        createCourseError = nil
+        createCourseSuccessMessage = nil
+        didCreateCourseSuccessfully = false
+        if !preserveClassSelection {
+            selectedClassForCourse = nil
+            selectedCourseClassId = nil
+        }
+    }
+    
+    private func parsePrice() -> Double? {
+        let normalized = coursePrice
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: "")
+        guard let price = Double(normalized) else { return nil }
+        return price
+    }
+    
+    private func parseDiscount() -> Int? {
+        let trimmed = courseDiscount.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let value = Int(trimmed), (0...100).contains(value) else { return nil }
+        return value
+    }
+    
+    private func syncSelectedClass() {
+        guard let classId = selectedCourseClassId ?? selectedClassForCourse?.id else { return }
+        selectedClassForCourse = availableClasses.first(where: { $0.id == classId })
+        selectedCourseClassId = selectedClassForCourse?.id
+    }
+
+    private func handleCourseCreationSuccess(message: String?) async {
+        let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackMessage = "Course created successfully. Pending admin approval."
+        createCourseSuccessMessage = trimmedMessage?.isEmpty == false ? trimmedMessage : fallbackMessage
+        createCourseError = nil
+        didCreateCourseSuccessfully = true
+        await loadCourses()
+        await loadAvailableClasses()
+    }
+    
+    private func shouldIgnoreCourseCreationError(_ error: NetworkError) -> Bool {
+        guard case let .serverError(_, message) = error,
+              let normalizedMessage = message?.lowercased() else {
+            return false
+        }
+        return normalizedMessage.contains("field 'id' doesn't have a default value")
     }
 }

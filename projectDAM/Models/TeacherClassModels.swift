@@ -222,3 +222,106 @@ enum TeacherClassesViewState {
     case error(String)
     case empty
 }
+
+// MARK: - Course Creation Support
+
+enum CourseLevelOption: String, CaseIterable, Identifiable, Codable {
+    case introduction = "Introduction"
+    case foundation = "Foundation"
+    case mastery = "Mastery"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .introduction: return "Introduction"
+        case .foundation: return "Foundation"
+        case .mastery: return "Mastery"
+        }
+    }
+    
+    var helperText: String {
+        switch self {
+        case .introduction: return "Great for beginners"
+        case .foundation: return "Build solid fundamentals"
+        case .mastery: return "Deep dive & advanced"
+        }
+    }
+}
+
+struct CourseCreationRequest {
+    let name: String
+    let description: String
+    let price: Double
+    let level: CourseLevelOption
+    let classId: String
+    let courseReduction: Int?
+}
+
+struct CourseImageAttachment {
+    let data: Data
+    let mimeType: String
+    let fileName: String
+}
+
+struct CourseCreationResponse: Decodable {
+    let success: Bool
+    let message: String?
+    let data: CourseCreationPayload?
+}
+
+struct CourseCreationPayload: Decodable {
+    let id: String
+    let name: String
+    let image: String?
+    let description: String?
+    let price: Double?
+    let level: String?
+    let courseOrder: String?
+    let courseReduction: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, image, description, price, level
+        case courseOrder = "course_order"
+        case courseReduction = "course_reduction"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        image = try container.decodeIfPresent(String.self, forKey: .image)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        level = try container.decodeIfPresent(String.self, forKey: .level)
+        courseOrder = try container.decodeIfPresent(String.self, forKey: .courseOrder)
+        
+        if let rawPrice = try? container.decode(Double.self, forKey: .price) {
+            price = rawPrice
+        } else if let stringPrice = try? container.decode(String.self, forKey: .price),
+                  let parsed = Double(stringPrice) {
+            price = parsed
+        } else {
+            price = nil
+        }
+        
+        if let reduction = try? container.decode(Int.self, forKey: .courseReduction) {
+            courseReduction = reduction
+        } else if let stringReduction = try? container.decode(String.self, forKey: .courseReduction),
+                  let parsed = Int(stringReduction) {
+            courseReduction = parsed
+        } else {
+            courseReduction = nil
+        }
+    }
+    
+    init(id: String, name: String, image: String?, description: String?, price: Double?, level: String?, courseOrder: String?, courseReduction: Int?) {
+        self.id = id
+        self.name = name
+        self.image = image
+        self.description = description
+        self.price = price
+        self.level = level
+        self.courseOrder = courseOrder
+        self.courseReduction = courseReduction
+    }
+}
