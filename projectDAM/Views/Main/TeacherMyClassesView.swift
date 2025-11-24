@@ -59,6 +59,19 @@ struct TeacherMyClassesView: View {
             await viewModel.loadCourses()
             await viewModel.loadAvailableClasses()
         }
+        .sheet(isPresented: $viewModel.showEditCourseSheet, onDismiss: {
+            viewModel.closeEditCourseSheet()
+        }) {
+            EditCourseSheetView(
+                viewModel: viewModel,
+                onDismiss: {
+                    viewModel.closeEditCourseSheet()
+                }
+            )
+            .presentationDetents([.fraction(0.95)])
+            .presentationDragIndicator(.visible)
+            .interactiveDismissDisabled(viewModel.isSubmittingCourseEdit)
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -352,6 +365,9 @@ struct TeacherMyClassesView: View {
                         },
                         onOpenLessons: { course in
                             openLessons(for: course, classItem: classWithCourses.classItem)
+                        },
+                        onEditCourse: { course in
+                            viewModel.startEditCourseFlow(for: course)
                         }
                     )
                 }
@@ -440,6 +456,7 @@ private struct ClassCard: View {
     let onToggleExpansion: () -> Void
     let onCreateCourse: () -> Void
     let onOpenLessons: (TeacherCourse) -> Void
+    let onEditCourse: (TeacherCourse) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -531,6 +548,9 @@ private struct ClassCard: View {
                             course: course,
                             onOpenLessons: {
                                 onOpenLessons(course)
+                            },
+                            onEdit: {
+                                onEditCourse(course)
                             }
                         )
                     }
@@ -546,6 +566,7 @@ private struct ClassCard: View {
 private struct TeacherCourseCard: View {
     let course: TeacherCourse
     let onOpenLessons: () -> Void
+    let onEdit: () -> Void
     @State private var showMenu = false
     
     var body: some View {
@@ -604,7 +625,7 @@ private struct TeacherCourseCard: View {
             
             // Action Buttons
             HStack(spacing: 10) {
-                Button(action: {}) {
+                Button(action: onEdit) {
                     HStack(spacing: 6) {
                         Image(systemName: "pencil.circle.fill")
                             .font(.system(size: 14, weight: .semibold))
@@ -1192,6 +1213,399 @@ private struct CreateCourseSheetView: View {
     }
 }
 
+@MainActor
+private struct EditCourseSheetView: View {
+    @ObservedObject var viewModel: TeacherMyClassesViewModel
+    let onDismiss: () -> Void
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var attemptedSubmission = false
+    @FocusState private var focusedField: Field?
+    
+    private enum Field: Hashable {
+        case title
+        case description
+        case price
+        case discount
+        case reason
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        editHeader
+                        if let error = viewModel.editCourseError {
+                            editErrorBanner(error)
+                        }
+                        if viewModel.didSubmitCourseEditSuccessfully {
+                            editSuccessState
+                        } else {
+                            editTitleField
+                            editDescriptionField
+                            editPriceStack
+                            editLevelSelector
+                            editImagePicker
+                            changeReasonField
+                            editPrimaryActionButton
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
+                }
+                
+                if viewModel.isSubmittingCourseEdit {
+                    Color.black.opacity(0.2)
+                        .ignoresSafeArea()
+                    ProgressView("Submitting changes…")
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(.systemBackground))
+                        )
+                        .shadow(radius: 12)
+                }
+            }
+            .navigationTitle(viewModel.editingCourse?.name ?? "Edit Course")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        onDismiss()
+                    }
+                    .disabled(viewModel.isSubmittingCourseEdit)
+                }
+            }
+        }
+        .task(id: photoPickerItem) {
+            await handlePhotoChange(photoPickerItem)
+        }
+        .onAppear {
+            attemptedSubmission = false
+        }
+    }
+    
+    private var editHeader: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "pencil.circle.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundColor(.brandPrimary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Edit course")
+                    .font(.system(size: 20, weight: .bold))
+                if let name = viewModel.editingCourse?.name {
+                    Text(name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+        )
+    }
+    
+    private func editErrorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.brandError)
+            Text(message)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.brandError)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.brandError.opacity(0.1))
+        )
+    }
+    
+    private var editTitleField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Course title")
+                .font(.system(size: 14, weight: .semibold))
+            TextField("e.g. SwiftUI Crash Course", text: $viewModel.editCourseTitle)
+                .keyboardType(.default)
+                .textInputAutocapitalization(.words)
+                .disableAutocorrection(true)
+                .focused($focusedField, equals: .title)
+                .padding()
+                .background(fieldBackground(showError: showError(for: viewModel.editCourseTitleValidation, text: viewModel.editCourseTitle)))
+                .overlay(fieldBorder(showError: showError(for: viewModel.editCourseTitleValidation, text: viewModel.editCourseTitle)))
+                .cornerRadius(14)
+            if showError(for: viewModel.editCourseTitleValidation, text: viewModel.editCourseTitle),
+               let message = viewModel.editCourseTitleValidation.errorMessage {
+                validationText(message)
+            }
+        }
+    }
+    
+    private var editDescriptionField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Description")
+                .font(.system(size: 14, weight: .semibold))
+            TextEditor(text: $viewModel.editCourseDescription)
+                .focused($focusedField, equals: .description)
+                .frame(minHeight: 120)
+                .padding(12)
+                .background(fieldBackground(showError: showError(for: viewModel.editCourseDescriptionValidation, text: viewModel.editCourseDescription)))
+                .overlay(fieldBorder(showError: showError(for: viewModel.editCourseDescriptionValidation, text: viewModel.editCourseDescription)))
+                .cornerRadius(14)
+            if showError(for: viewModel.editCourseDescriptionValidation, text: viewModel.editCourseDescription),
+               let message = viewModel.editCourseDescriptionValidation.errorMessage {
+                validationText(message)
+            }
+        }
+    }
+    
+    private var editPriceStack: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Price (TND)")
+                    .font(.system(size: 14, weight: .semibold))
+                TextField("49.99", text: $viewModel.editCoursePrice)
+                    .keyboardType(.decimalPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .focused($focusedField, equals: .price)
+                    .padding()
+                    .background(fieldBackground(showError: showError(for: viewModel.editCoursePriceValidation, text: viewModel.editCoursePrice)))
+                    .overlay(fieldBorder(showError: showError(for: viewModel.editCoursePriceValidation, text: viewModel.editCoursePrice)))
+                    .cornerRadius(14)
+                if showError(for: viewModel.editCoursePriceValidation, text: viewModel.editCoursePrice),
+                   let message = viewModel.editCoursePriceValidation.errorMessage {
+                    validationText(message)
+                }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Discount %")
+                    .font(.system(size: 14, weight: .semibold))
+                TextField("Optional", text: $viewModel.editCourseDiscount)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .focused($focusedField, equals: .discount)
+                    .padding()
+                    .background(fieldBackground(showError: showError(for: viewModel.editCourseDiscountValidation, text: viewModel.editCourseDiscount)))
+                    .overlay(fieldBorder(showError: showError(for: viewModel.editCourseDiscountValidation, text: viewModel.editCourseDiscount)))
+                    .cornerRadius(14)
+                if showError(for: viewModel.editCourseDiscountValidation, text: viewModel.editCourseDiscount),
+                   let message = viewModel.editCourseDiscountValidation.errorMessage {
+                    validationText(message)
+                }
+            }
+        }
+    }
+    
+    private var editLevelSelector: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Level")
+                .font(.system(size: 14, weight: .semibold))
+            HStack(spacing: 10) {
+                ForEach(CourseLevelOption.allCases) { level in
+                    Button(action: {
+                        viewModel.selectedEditCourseLevel = level
+                    }) {
+                        VStack(spacing: 4) {
+                            Text(level.displayName)
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(level.helperText)
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(viewModel.selectedEditCourseLevel == level ? .white : .primary)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(viewModel.selectedEditCourseLevel == level ? Color.brandPrimary : Color(.secondarySystemBackground))
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    private var editImagePicker: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Course image (optional)")
+                .font(.system(size: 14, weight: .semibold))
+            PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                HStack(spacing: 12) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.brandPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.editCourseImageFileName ?? "Change course image")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("JPG, PNG, WebP · Max 5 MB")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(fieldBackground(showError: false))
+                .overlay(fieldBorder(showError: false))
+                .cornerRadius(14)
+            }
+            
+            if let data = viewModel.editCourseImageData,
+               let uiImage = UIImage(data: data) {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 160)
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.brandPrimary.opacity(0.2), lineWidth: 1)
+                        )
+                    Button(action: {
+                        viewModel.clearEditCourseImageAttachment()
+                        photoPickerItem = nil
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                            .shadow(radius: 4)
+                    }
+                    .padding(10)
+                }
+            }
+        }
+    }
+    
+    private var changeReasonField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Why are you editing this course?")
+                .font(.system(size: 14, weight: .semibold))
+            TextEditor(text: $viewModel.editChangeReason)
+                .focused($focusedField, equals: .reason)
+                .frame(minHeight: 80)
+                .padding(12)
+                .background(fieldBackground(showError: showError(for: viewModel.editChangeReasonValidation, text: viewModel.editChangeReason)))
+                .overlay(fieldBorder(showError: showError(for: viewModel.editChangeReasonValidation, text: viewModel.editChangeReason)))
+                .cornerRadius(14)
+            if showError(for: viewModel.editChangeReasonValidation, text: viewModel.editChangeReason),
+               let message = viewModel.editChangeReasonValidation.errorMessage {
+                validationText(message)
+            }
+        }
+    }
+    
+    private var editPrimaryActionButton: some View {
+        Button(action: {
+            attemptedSubmission = true
+            focusedField = nil
+            Task {
+                await viewModel.submitCourseEdit()
+            }
+        }) {
+            HStack {
+                if viewModel.isSubmittingCourseEdit {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                } else {
+                    Text("Submit for review")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(LinearGradient.brandPrimaryGradient.opacity(viewModel.canSubmitCourseEdit ? 1 : 0.5))
+            .cornerRadius(18)
+        }
+        .disabled(viewModel.isSubmittingCourseEdit)
+    }
+    
+    private var editSuccessState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 48, weight: .bold))
+                .foregroundColor(.brandSuccess)
+            Text(viewModel.editCourseSuccessMessage ?? "Edit request submitted successfully")
+                .font(.system(size: 18, weight: .bold))
+                .multilineTextAlignment(.center)
+            Text("Your changes will go live once an admin approves them.")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: {
+                onDismiss()
+            }) {
+                Text("Done")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(RoundedRectangle(cornerRadius: 16).fill(LinearGradient.brandPrimaryGradient))
+                    .foregroundColor(.white)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 10)
+        )
+    }
+    
+    private func showError(for validation: ValidationResult, text: String) -> Bool {
+        if !validation.isValid {
+            return attemptedSubmission || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return false
+    }
+    
+    private func validationText(_ message: String) -> some View {
+        Text(message)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.brandError)
+    }
+    
+    private func fieldBackground(showError: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(showError ? Color.brandError.opacity(0.05) : Color(.systemBackground))
+    }
+    
+    private func fieldBorder(showError: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 14)
+            .stroke(showError ? Color.brandError : Color.brandPrimary.opacity(0.15), lineWidth: showError ? 1.5 : 1)
+    }
+    
+    private func handlePhotoChange(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        do {
+            if let data = try await item.loadTransferable(type: Data.self) {
+                let contentType = item.supportedContentTypes.first
+                let mimeType = contentType?.preferredMIMEType ?? "image/jpeg"
+                let fileExtension = contentType?.preferredFilenameExtension ?? "jpg"
+                let fileName = "course-image.\(fileExtension)"
+                viewModel.updateEditCourseImage(data: data, mimeType: mimeType, fileName: fileName)
+            }
+        } catch {
+            viewModel.editCourseError = "Failed to load image from library"
+        }
+    }
+}
+
 #Preview {
     let networkService = NetworkService()
     let authService = AuthService(networkService: networkService)
@@ -1200,3 +1614,4 @@ private struct CreateCourseSheetView: View {
     
     return TeacherMyClassesView(viewModel: viewModel)
 }
+

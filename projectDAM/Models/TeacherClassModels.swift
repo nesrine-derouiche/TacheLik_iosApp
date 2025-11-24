@@ -325,3 +325,8 @@ struct CourseCreationPayload: Decodable {
         self.courseReduction = courseReduction
     }
 }
+
+struct CourseEditRequestResponse: Decodable {
+    let success: Bool
+    let message: String?
+}
