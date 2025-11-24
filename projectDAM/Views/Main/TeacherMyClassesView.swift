@@ -464,26 +464,13 @@ private struct ClassCard: View {
             Button(action: onToggleExpansion) {
                 HStack(spacing: 12) {
                     // Class Image
-                    if let imageURL = classWithCourses.classItem.imageURL {
-                        AsyncImage(url: imageURL) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            ZStack {
-                                LinearGradient(
-                                    colors: [Color.brandPrimary.opacity(0.3), Color.brandSecondary.opacity(0.2)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                                Text(classWithCourses.classItem.title.prefix(1))
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.brandPrimary)
-                            }
-                        }
-                        .frame(width: 56, height: 56)
-                        .cornerRadius(12)
-                    } else {
+                    RemoteThumbnailImageView(
+                        url: classWithCourses.classItem.imageURL,
+                        width: 56,
+                        height: 56,
+                        cornerRadius: 12,
+                        baseColor: .brandPrimary
+                    ) {
                         ZStack {
                             LinearGradient(
                                 colors: [Color.brandPrimary.opacity(0.3), Color.brandSecondary.opacity(0.2)],
@@ -494,8 +481,6 @@ private struct ClassCard: View {
                                 .font(.system(size: 24, weight: .bold))
                                 .foregroundColor(.brandPrimary)
                         }
-                        .frame(width: 56, height: 56)
-                        .cornerRadius(12)
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
@@ -574,22 +559,16 @@ private struct TeacherCourseCard: View {
             // Header
             HStack(spacing: 12) {
                 // Course Image
-                if let imageURL = course.imageURL {
-                    AsyncImage(url: imageURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        placeholderImage
-                    }
-                    .frame(width: 60, height: 60)
-                    .cornerRadius(DS.cornerRadiusMD)
-                } else {
+                RemoteThumbnailImageView(
+                    url: course.imageURL,
+                    width: 60,
+                    height: 60,
+                    cornerRadius: DS.cornerRadiusMD,
+                    baseColor: .brandPrimary
+                ) {
                     placeholderImage
-                        .frame(width: 60, height: 60)
-                        .cornerRadius(DS.cornerRadiusMD)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Text(course.name)

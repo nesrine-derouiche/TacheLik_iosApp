@@ -380,27 +380,13 @@ private struct ClassCardThumbnail: View {
     
     @ViewBuilder
     private var thumbnailContent: some View {
-        if let imageURLString,
-           let url = URL(string: imageURLString) {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 70, height: 70)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                case .empty:
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .tint(.white)
-                case .failure:
-                    fallbackIcon
-                @unknown default:
-                    fallbackIcon
-                }
-            }
-        } else {
+        RemoteThumbnailImageView(
+            url: imageURLString.flatMap { URL(string: $0) },
+            width: 70,
+            height: 70,
+            cornerRadius: 16,
+            baseColor: fallbackColor
+        ) {
             fallbackIcon
         }
     }

@@ -43,14 +43,28 @@ struct TeacherClass: Codable, Identifiable {
     let updatedAt: String?
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/classes/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("classes")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "classes" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     // Custom decoder to handle all optional fields gracefully
@@ -125,14 +139,28 @@ struct TeacherCourse: Codable, Identifiable {
     }
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/courses/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("courses")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "courses" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     var durationInMinutes: Int {
@@ -198,14 +226,28 @@ struct AvailableClass: Codable, Identifiable {
     let filterName: ClassFilterName?
     
     var imageURL: URL? {
-        guard let image = image else { return nil }
+        guard let raw = image?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
         // If it's already a full URL
-        if image.hasPrefix("http://") || image.hasPrefix("https://") {
-            return URL(string: image)
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
         }
         // Construct URL from base
-        let baseURL = AppConfig.baseURL.replacingOccurrences(of: "/api", with: "")
-        return URL(string: "\(baseURL)/uploads/classes/\(image)")
+        guard let apiURL = URL(string: AppConfig.baseURL) else { return nil }
+        var uploadsURL = apiURL
+        uploadsURL = uploadsURL.appendingPathComponent("uploads")
+        uploadsURL = uploadsURL.appendingPathComponent("classes")
+        var pathComponents = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/")
+            .map(String.init)
+        if pathComponents.first == "uploads" { pathComponents.removeFirst() }
+        if pathComponents.first == "classes" { pathComponents.removeFirst() }
+        for component in pathComponents {
+            uploadsURL = uploadsURL.appendingPathComponent(component)
+        }
+        return uploadsURL
     }
     
     enum CodingKeys: String, CodingKey {
