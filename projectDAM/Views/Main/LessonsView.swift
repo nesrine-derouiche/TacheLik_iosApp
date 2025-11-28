@@ -10,6 +10,7 @@ struct LessonsView: View {
     @State private var showingQuizGenerator = false
     @State private var generatedQuiz: QuizSummary?
     @State private var navigateToGeneratedQuiz = false
+    @State private var showingGameView = false
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, isOwned: Bool = false, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -32,12 +33,23 @@ struct LessonsView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if viewModel.lesson?.courseId != nil {
-                    Button {
-                        showingQuizGenerator = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
-                            Text("Quiz")
+                    HStack(spacing: 12) {
+                        Button {
+                            showingQuizGenerator = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                Text("Quiz")
+                            }
+                        }
+                        
+                        Button {
+                            showingGameView = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "gamecontroller.fill")
+                                Text("Game")
+                            }
                         }
                     }
                 }
@@ -73,6 +85,11 @@ struct LessonsView: View {
                     generatedQuiz = quiz
                     navigateToGeneratedQuiz = true
                 }
+            }
+        }
+        .fullScreenCover(isPresented: $showingGameView) {
+            if let courseId = viewModel.lesson?.courseId {
+                CodeRunnerGameView(courseId: courseId)
             }
         }
     }

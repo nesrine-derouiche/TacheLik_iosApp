@@ -4,18 +4,137 @@ import Combine
 
 struct CodeRunnerGameView: View {
     @State private var gameId = UUID()
+    @State private var isLoading = true
+    @State private var loadingError: String?
+    let courseId: String
     
     var body: some View {
-        CodeRunnerGameContent(gameId: gameId) {
-            // Restart Action: Change ID to force re-creation
-            gameId = UUID()
+        ZStack {
+            if isLoading {
+                GameLoadingView()
+            } else if let error = loadingError {
+                GameErrorView(error: error) {
+                    // Retry
+                    isLoading = true
+                    loadingError = nil
+                    Task {
+                        await loadQuestions()
+                    }
+                }
+            } else {
+                CodeRunnerGameContent(gameId: gameId, courseId: courseId) {
+                    // Restart Action: Change ID to force re-creation
+                    gameId = UUID()
+                }
+                .id(gameId)
+            }
         }
-        .id(gameId) // This forces the view (and its StateObject) to be destroyed and recreated
+        .onAppear {
+            Task {
+                await loadQuestions()
+            }
+        }
+    }
+    
+    private func loadQuestions() async {
+        do {
+            GameQuestionProvider.shared.reset()
+            try await GameQuestionProvider.shared.loadQuestionsFromCourse(courseId: courseId)
+            
+            await MainActor.run {
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                loadingError = error.localizedDescription
+                isLoading = false
+            }
+        }
+    }
+}
+
+private struct GameLoadingView: View {
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
+                
+                Text("Loading Questions...")
+                    .font(.title3.bold())
+                    .foregroundColor(.white)
+                
+                Text("Generating game questions from course content")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+        }
+    }
+}
+
+private struct GameErrorView: View {
+    let error: String
+    let onRetry: () -> Void
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.red)
+                
+                Text("Failed to Load Questions")
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
+                
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                
+                HStack(spacing: 16) {
+                    Button {
+                        presentationMode.wrappedValue.dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(16)
+                    }
+                    
+                    Button {
+                        onRetry()
+                    } label: {
+                        Text("Retry")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.brandPrimary)
+                            .cornerRadius(16)
+                    }
+                }
+                .padding(.horizontal, 40)
+            }
+        }
     }
 }
 
 private struct CodeRunnerGameContent: View {
     let gameId: UUID
+    let courseId: String
     let onRestart: () -> Void
     
     @StateObject private var gameState = GameState()
@@ -191,23 +310,6 @@ class GameState: ObservableObject, CodeRunnerGameDelegate {
             withAnimation {
                 self.currentQuestion = question.questionText
                 self.currentOptions = question.options
-            }
-        }
-    }
-    
-    func restartGame() {
-        let newScene = CodeRunnerScene()
-        newScene.scaleMode = .resizeFill
-        newScene.gameDelegate = self
-        
-        DispatchQueue.main.async {
-            self.scene = newScene
-            self.score = 0
-            self.currentQuestion = "Get Ready..."
-            self.currentOptions = []
-            self.isPaused = false
-            withAnimation {
-                self.isGameOver = false
             }
         }
     }

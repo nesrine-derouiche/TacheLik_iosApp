@@ -1,59 +1,46 @@
 import Foundation
 
-struct GameQuestion: Identifiable {
+struct GameQuestion: Identifiable, Decodable {
     let id = UUID()
     let questionText: String
     let options: [String] // Should be exactly 3 options
     let correctOptionIndex: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case questionText, options, correctOptionIndex
+    }
 }
 
 class GameQuestionProvider {
     static let shared = GameQuestionProvider()
     
-    private let sampleQuestions: [GameQuestion] = [
-        GameQuestion(
-            questionText: "Which method sets the title of a UIButton?",
-            options: ["button.setTitle", "button.text", "button.label"],
-            correctOptionIndex: 0
-        ),
-        GameQuestion(
-            questionText: "How do you add a subview in UIKit?",
-            options: ["view.append", "view.addSubview", "view.insert"],
-            correctOptionIndex: 1
-        ),
-        GameQuestion(
-            questionText: "Swift loop syntax?",
-            options: ["loop i in 0..5", "for i in 0..<5", "repeat i to 5"],
-            correctOptionIndex: 1
-        ),
-        GameQuestion(
-            questionText: "Declare a constant in Swift?",
-            options: ["var", "const", "let"],
-            correctOptionIndex: 2
-        ),
-        GameQuestion(
-            questionText: "Python function def?",
-            options: ["func myFunc():", "def myFunc():", "function myFunc():"],
-            correctOptionIndex: 1
-        ),
-        GameQuestion(
-            questionText: "Derivative of x²?",
-            options: ["x", "2x", "x²"],
-            correctOptionIndex: 1
-        ),
-        GameQuestion(
-            questionText: "Integral of 2x?",
-            options: ["x²", "2x²", "x"],
-            correctOptionIndex: 0
-        ),
-        GameQuestion(
-            questionText: "Boolean True in Python?",
-            options: ["true", "True", "TRUE"],
-            correctOptionIndex: 1
-        )
-    ]
+    private var cachedQuestions: [GameQuestion] = []
+    private var currentIndex = 0
     
-    func getRandomQuestion() -> GameQuestion {
-        return sampleQuestions.randomElement()!
+    func loadQuestionsFromCourse(courseId: String) async throws {
+        let quizService = DIContainer.shared.quizService
+        let questions = try await quizService.generateGameQuestionsFromCourse(courseId: courseId)
+        cachedQuestions = questions
+        currentIndex = 0
+        print("✅ [GameQuestionProvider] Loaded \(questions.count) questions from course \(courseId)")
+    }
+    
+    func getRandomQuestion() -> GameQuestion? {
+        guard !cachedQuestions.isEmpty else {
+            return nil
+        }
+        
+        let question = cachedQuestions[currentIndex]
+        currentIndex = (currentIndex + 1) % cachedQuestions.count
+        return question
+    }
+    
+    func hasQuestions() -> Bool {
+        return !cachedQuestions.isEmpty
+    }
+    
+    func reset() {
+        cachedQuestions = []
+        currentIndex = 0
     }
 }

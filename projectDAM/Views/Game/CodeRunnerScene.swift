@@ -200,10 +200,13 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func spawnObstacleRow() {
-        let question = GameQuestionProvider.shared.getRandomQuestion()
+        guard let question = GameQuestionProvider.shared.getRandomQuestion() else {
+            // No questions available, end game
+            gameOver()
+            return
+        }
         
         // Notify delegate of the new question
-        // We need to update the delegate protocol first
         gameDelegate?.didSpawnQuestion(question)
         
         // Spawn 3 gates

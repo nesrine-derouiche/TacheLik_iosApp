@@ -7,6 +7,7 @@ protocol QuizServiceProtocol {
     func fetchMyAttempts() async throws -> [QuizAttemptSummary]
     func generateQuizFromCourse(courseId: String, title: String?, description: String?) async throws -> QuizSummary
     func generateQuizFromVideos(videoIds: [String], title: String?, description: String?) async throws -> QuizSummary
+    func generateGameQuestionsFromCourse(courseId: String) async throws -> [GameQuestion]
 }
 
 final class QuizService: QuizServiceProtocol {
@@ -238,5 +239,43 @@ final class QuizService: QuizServiceProtocol {
         }
 
         return response.quiz
+    }
+
+    func generateGameQuestionsFromCourse(courseId: String) async throws -> [GameQuestion] {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+
+        if AppConfig.enableLogging {
+            print("📡 [QuizService] Generating game questions from course at POST /quiz/ai/game-questions/from-course (courseId=\(courseId))")
+        }
+
+        struct GenerateGameQuestionsRequest: Encodable {
+            let courseId: String
+        }
+
+        struct GenerateGameQuestionsResponse: Decodable {
+            let success: Bool
+            let questions: [GameQuestion]
+        }
+
+        let payload = GenerateGameQuestionsRequest(courseId: courseId)
+        let body = try JSONEncoder().encode(payload)
+
+        let response: GenerateGameQuestionsResponse = try await networkService.request(
+            endpoint: "/quiz/ai/game-questions/from-course",
+            method: .POST,
+            body: body,
+            headers: [
+                "Authorization": "Bearer \(token)",
+                "Content-Type": "application/json"
+            ]
+        )
+
+        if AppConfig.enableLogging {
+            print("✅ [QuizService] Generated \(response.questions.count) game questions from course")
+        }
+
+        return response.questions
     }
 }
