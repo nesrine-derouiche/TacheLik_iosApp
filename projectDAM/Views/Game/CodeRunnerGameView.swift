@@ -52,15 +52,38 @@ private struct CodeRunnerGameContent: View {
                 .padding(.horizontal)
                 
                 // Question Display
-                Text(gameState.currentQuestion)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                    .background(Color.black.opacity(0.6))
-                    .cornerRadius(16)
-                    .padding(.top, 20)
-                    .shadow(radius: 4)
+                VStack(spacing: 12) {
+                    Text(gameState.currentQuestion)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(16)
+                        .shadow(radius: 4)
+                    
+                    if !gameState.currentOptions.isEmpty {
+                        HStack(spacing: 8) {
+                            ForEach(0..<gameState.currentOptions.count, id: \.self) { index in
+                                Text(gameState.currentOptions[index])
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 4)
+                                    .background(Color.blue.opacity(0.7))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.top, 20)
                 
                 Spacer()
             }
@@ -135,6 +158,7 @@ class GameState: ObservableObject, CodeRunnerGameDelegate {
     @Published var isGameOver = false
     @Published var isPaused = false
     @Published var currentQuestion = "Get Ready..."
+    @Published var currentOptions: [String] = []
     @Published var scene: CodeRunnerScene
     
     init() {
@@ -162,10 +186,28 @@ class GameState: ObservableObject, CodeRunnerGameDelegate {
         }
     }
     
-    func didSpawnQuestion(_ text: String) {
+    func didSpawnQuestion(_ question: GameQuestion) {
         DispatchQueue.main.async {
             withAnimation {
-                self.currentQuestion = text
+                self.currentQuestion = question.questionText
+                self.currentOptions = question.options
+            }
+        }
+    }
+    
+    func restartGame() {
+        let newScene = CodeRunnerScene()
+        newScene.scaleMode = .resizeFill
+        newScene.gameDelegate = self
+        
+        DispatchQueue.main.async {
+            self.scene = newScene
+            self.score = 0
+            self.currentQuestion = "Get Ready..."
+            self.currentOptions = []
+            self.isPaused = false
+            withAnimation {
+                self.isGameOver = false
             }
         }
     }

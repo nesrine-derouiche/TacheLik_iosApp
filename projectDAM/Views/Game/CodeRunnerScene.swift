@@ -4,7 +4,7 @@ import GameplayKit
 protocol CodeRunnerGameDelegate: AnyObject {
     func gameDidEnd(score: Int)
     func scoreDidUpdate(score: Int)
-    func didSpawnQuestion(_ text: String)
+    func didSpawnQuestion(_ question: GameQuestion)
 }
 
 class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
@@ -193,7 +193,7 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
         
         // Notify delegate of the new question
         // We need to update the delegate protocol first
-        gameDelegate?.didSpawnQuestion(question.questionText)
+        gameDelegate?.didSpawnQuestion(question)
         
         // Spawn 3 gates
         for i in 0..<3 {
