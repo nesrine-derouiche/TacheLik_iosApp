@@ -3,6 +3,7 @@ import SwiftUI
 struct ExploreView: View {
     @State private var searchText = ""
     @State private var selectedTag: String? = nil
+    @State private var showGame = false
     private let tags = ["All","Web","Data","AI","Cloud","Security","Mobile","DevOps"]
     private let categories: [ExploreCategory] = [
         .init(name: "Web Development", icon: "globe", colors: [.brandPrimary, .brandAccent], courses: 24),
@@ -42,7 +43,38 @@ struct ExploreView: View {
                     .padding(14)
                     .background(Color(.secondarySystemFill))
                     .cornerRadius(16)
+                    .cornerRadius(16)
                     .padding(.horizontal)
+                    
+                    // Game Banner
+                    Button {
+                        showGame = true
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Code Runner")
+                                    .font(.title2.bold())
+                                    .foregroundColor(.white)
+                                Text("Test your skills in this infinite runner!")
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                            Spacer()
+                            Image(systemName: "gamecontroller.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.white)
+                        }
+                        .padding(20)
+                        .background(
+                            LinearGradient(colors: [.brandPrimary, .brandAccent], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .cornerRadius(20)
+                        .shadow(radius: 5)
+                    }
+                    .padding(.horizontal)
+                    .fullScreenCover(isPresented: $showGame) {
+                        CodeRunnerGameView()
+                    }
                     
                     // Tags
                     ScrollView(.horizontal, showsIndicators: false) {
