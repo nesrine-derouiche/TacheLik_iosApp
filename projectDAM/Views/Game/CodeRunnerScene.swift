@@ -26,10 +26,10 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private var isGameOver = false
-    private var gameSpeed: CGFloat = 400
+    private var gameSpeed: CGFloat = 180 // Reduced from 250 to 180 (even slower)
     private var lastUpdateTime: TimeInterval = 0
     private var obstacleSpawnTimer: TimeInterval = 0
-    private let obstacleSpawnInterval: TimeInterval = 3.0
+    private let obstacleSpawnInterval: TimeInterval = 7.0 // Increased from 4.5 to 7.0 (much longer distance)
     
     private let playerCategory: UInt32 = 0x1 << 0
     private let obstacleCategory: UInt32 = 0x1 << 1
@@ -44,9 +44,9 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
         
         laneWidth = size.width / 3
         
-        // Initial spawn with a slight delay to allow UI to settle
+        // Initial spawn with a delay to allow UI to settle and user to read the first question
         run(SKAction.sequence([
-            .wait(forDuration: 0.5),
+            .wait(forDuration: 1.5),
             .run { [weak self] in
                 self?.spawnObstacleRow()
             }
@@ -171,8 +171,8 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
             obstacleSpawnTimer = 0
             spawnObstacleRow()
             
-            // Increase speed slightly over time
-            gameSpeed += 5
+            // Increase speed very slightly over time (reduced from 2 to 1)
+            gameSpeed += 1
         }
     }
     
