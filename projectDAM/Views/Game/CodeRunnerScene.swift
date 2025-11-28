@@ -81,14 +81,25 @@ class CodeRunnerScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func setupPlayer() {
-        // Use the correct asset name "game_player"
-        let playerTexture = SKTexture(imageNamed: "game_player")
-        player = SKSpriteNode(texture: playerTexture)
-        player.size = CGSize(width: 60, height: 60)
+        // Load animation textures
+        let runTextures = [
+            SKTexture(imageNamed: "player_run_0"),
+            SKTexture(imageNamed: "player_run_1"),
+            SKTexture(imageNamed: "player_run_2"),
+            SKTexture(imageNamed: "player_run_3")
+        ]
+        
+        // Create player with the first frame
+        player = SKSpriteNode(texture: runTextures[0])
+        player.size = CGSize(width: 80, height: 80) // Slightly larger for the new sprite
         player.position = CGPoint(x: 0, y: -size.height / 3)
         player.zPosition = 1
         
-        player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+        // Run animation action
+        let animation = SKAction.animate(with: runTextures, timePerFrame: 0.1)
+        player.run(SKAction.repeatForever(animation))
+        
+        player.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 40, height: 60)) // Smaller hitbox than visual size
         player.physicsBody?.categoryBitMask = playerCategory
         player.physicsBody?.contactTestBitMask = obstacleCategory
         player.physicsBody?.collisionBitMask = 0 // No physical collision response
