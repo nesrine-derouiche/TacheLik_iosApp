@@ -16,6 +16,8 @@ struct AIGameSelectionView: View {
     @State private var selectedDifficulty: PuzzleDifficulty = .medium
     @State private var isLoading = false
     @State private var showGame = false
+    @State private var isRandomizing = false
+    @State private var randomizeTimer: Timer?
     
     var body: some View {
         NavigationView {
@@ -33,8 +35,8 @@ struct AIGameSelectionView: View {
                         // Header
                         headerSection
                         
-                        // Game Type Selection
-                        gameTypeSection
+                        // Random Game Preview (shows cycling games)
+                        randomGameSection
                         
                         // Difficulty Selection
                         difficultySection
@@ -80,7 +82,7 @@ struct AIGameSelectionView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 12) {
-            // AI Icon
+            // AI Icon with rotation animation
             ZStack {
                 Circle()
                     .fill(
@@ -95,13 +97,15 @@ struct AIGameSelectionView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundColor(.white)
+                    .rotationEffect(.degrees(isRandomizing ? 360 : 0))
+                    .animation(isRandomizing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRandomizing)
             }
             .shadow(color: Color.brandPrimary.opacity(0.4), radius: 12, x: 0, y: 6)
             
-            Text("Choose Your Game")
+            Text("Random AI Game")
                 .font(.system(size: 26, weight: .bold))
             
-            Text("AI generates unique challenges from\n\"\(courseName)\"")
+            Text("Press start and let AI pick a random game\nfrom \"\(courseName)\"")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -109,24 +113,38 @@ struct AIGameSelectionView: View {
         .padding(.bottom, 8)
     }
     
-    // MARK: - Game Type Section
-    private var gameTypeSection: some View {
+    // MARK: - Random Game Section
+    private var randomGameSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Game Type")
+            Text("Game Preview")
                 .font(.system(size: 18, weight: .bold))
             
+            // Show current game type (cycling during randomization)
             VStack(spacing: 12) {
                 ForEach(AIGameType.allCases) { gameType in
                     GameTypeCard(
                         gameType: gameType,
-                        isSelected: selectedGameType == gameType
+                        isSelected: selectedGameType == gameType,
+                        isRandomizing: isRandomizing
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedGameType = gameType
-                        }
+                        // No action - random selection only
                     }
+                    .opacity(isRandomizing ? (selectedGameType == gameType ? 1.0 : 0.4) : 0.6)
+                    .scaleEffect(isRandomizing && selectedGameType == gameType ? 1.02 : 1.0)
                 }
             }
+            
+            // Info text
+            HStack(spacing: 8) {
+                Image(systemName: "dice.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.brandPrimary)
+                
+                Text("Game will be randomly selected when you start")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 4)
         }
     }
     
@@ -154,17 +172,18 @@ struct AIGameSelectionView: View {
     // MARK: - Start Button
     private var startButton: some View {
         Button {
-            guard selectedGameType != nil else { return }
-            showGame = true
+            startRandomSelection()
         } label: {
             HStack(spacing: 12) {
-                if isLoading {
+                if isRandomizing {
                     ProgressView()
                         .tint(.white)
-                } else {
-                    Image(systemName: "play.fill")
+                    Text("Selecting...")
                         .font(.system(size: 18, weight: .bold))
-                    Text("Start Game")
+                } else {
+                    Image(systemName: "dice.fill")
+                        .font(.system(size: 18, weight: .bold))
+                    Text("Start Random Game")
                         .font(.system(size: 18, weight: .bold))
                 }
             }
@@ -173,21 +192,59 @@ struct AIGameSelectionView: View {
             .padding(.vertical, 18)
             .background(
                 LinearGradient(
-                    colors: selectedGameType != nil
-                        ? [.brandPrimary, .brandPrimary.opacity(0.8)]
-                        : [.gray.opacity(0.5), .gray.opacity(0.3)],
+                    colors: isRandomizing
+                        ? [.orange, .orange.opacity(0.8)]
+                        : [.brandPrimary, .brandPrimary.opacity(0.8)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
             .cornerRadius(16)
             .shadow(
-                color: selectedGameType != nil ? Color.brandPrimary.opacity(0.4) : .clear,
+                color: isRandomizing ? Color.orange.opacity(0.4) : Color.brandPrimary.opacity(0.4),
                 radius: 12, x: 0, y: 6
             )
         }
-        .disabled(selectedGameType == nil || isLoading)
+        .disabled(isRandomizing)
         .padding(.top, 8)
+    }
+    
+    // MARK: - Random Selection Logic
+    private func startRandomSelection() {
+        isRandomizing = true
+        var cycleCount = 0
+        let totalCycles = 12 // Number of quick cycles before final selection
+        
+        // Quick cycling through game types
+        randomizeTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
+            cycleCount += 1
+            
+            // Cycle through game types
+            let allTypes = AIGameType.allCases
+            let currentIndex = cycleCount % allTypes.count
+            
+            withAnimation(.easeInOut(duration: 0.1)) {
+                selectedGameType = allTypes[currentIndex]
+            }
+            
+            // Slow down near the end
+            if cycleCount >= totalCycles {
+                timer.invalidate()
+                
+                // Final random selection after a brief pause
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        selectedGameType = allTypes.randomElement()
+                    }
+                    
+                    // Show the game after selection animation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        isRandomizing = false
+                        showGame = true
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -195,6 +252,7 @@ struct AIGameSelectionView: View {
 private struct GameTypeCard: View {
     let gameType: AIGameType
     let isSelected: Bool
+    var isRandomizing: Bool = false
     let onTap: () -> Void
     
     var body: some View {
@@ -240,6 +298,16 @@ private struct GameTypeCard: View {
                         Circle()
                             .fill(Color.brandPrimary)
                             .frame(width: 14, height: 14)
+                        
+                        if isRandomizing {
+                            // Pulsing effect during randomization
+                            Circle()
+                                .stroke(Color.brandPrimary.opacity(0.5), lineWidth: 2)
+                                .frame(width: 32, height: 32)
+                                .scaleEffect(isRandomizing ? 1.3 : 1.0)
+                                .opacity(isRandomizing ? 0 : 1)
+                                .animation(.easeOut(duration: 0.5).repeatForever(autoreverses: false), value: isRandomizing)
+                        }
                     }
                 }
             }
@@ -248,11 +316,12 @@ private struct GameTypeCard: View {
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: isSelected && isRandomizing ? 3 : 2)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+            .shadow(color: isSelected && isRandomizing ? Color.brandPrimary.opacity(0.3) : Color.black.opacity(0.05), radius: isSelected && isRandomizing ? 12 : 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
+        .disabled(true) // Disable manual selection - random only
     }
     
     private var gradientColors: [Color] {
