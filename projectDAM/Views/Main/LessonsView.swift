@@ -89,7 +89,7 @@ struct LessonsView: View {
         }
         .fullScreenCover(isPresented: $showingGameView) {
             if let courseId = viewModel.lesson?.courseId {
-                CodeRunnerGameView(courseId: courseId)
+                AIGameSelectionView(courseId: courseId, courseName: viewModel.lesson?.title ?? "Course")
             }
         }
     }

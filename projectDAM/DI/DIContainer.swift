@@ -31,6 +31,9 @@ final class DIContainer {
     let quizService: QuizServiceProtocol
     let badgeService: BadgeServiceProtocol
     let teacherCoursesService: TeacherCoursesServiceProtocol
+    let teacherAnalyticsService: TeacherAnalyticsServiceProtocol
+    let studentHomeService: StudentHomeServiceProtocol
+    let puzzleService: PuzzleServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -59,6 +62,9 @@ final class DIContainer {
         self.quizService = QuizService(networkService: networkService, authService: authService)
         self.badgeService = BadgeService(networkService: networkService, authService: authService)
         self.teacherCoursesService = TeacherCoursesService(networkService: networkService, authService: authService)
+        self.teacherAnalyticsService = TeacherAnalyticsService(authService: authService)
+        self.studentHomeService = StudentHomeService(networkService: networkService, authService: authService)
+        self.puzzleService = PuzzleService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig
@@ -130,5 +136,15 @@ final class DIContainer {
     /// Create TeacherMyClassesViewModel with injected dependencies
     func makeTeacherMyClassesViewModel() -> TeacherMyClassesViewModel {
         return TeacherMyClassesViewModel(teacherCoursesService: teacherCoursesService)
+    }
+    
+    /// Create TeacherDashboardViewModel with injected dependencies
+    func makeTeacherDashboardViewModel() -> TeacherDashboardViewModel {
+        return TeacherDashboardViewModel(analyticsService: teacherAnalyticsService)
+    }
+    
+    /// Create StudentHomeViewModel with injected dependencies
+    func makeStudentHomeViewModel() -> StudentHomeViewModel {
+        return StudentHomeViewModel(studentHomeService: studentHomeService, authService: authService)
     }
 }
