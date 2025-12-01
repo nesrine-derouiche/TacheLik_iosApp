@@ -12,6 +12,7 @@ protocol StudentHomeServiceProtocol {
     func fetchUserCourses() async throws -> [OwnedCourse]
     func fetchLastCourses(limit: Int) async throws -> [OwnedCourse]
     func fetchStudentAnalytics() async throws -> StudentHomeAnalytics
+    func fetchUserBadges() async throws -> [UserBadge]
 }
 
 // MARK: - Student Home Service Implementation
@@ -136,37 +137,65 @@ final class StudentHomeService: StudentHomeServiceProtocol {
     
     private func fetchUserCoursesInternal(userId: String) async throws -> [OwnedCourse] {
         do {
+            if AppConfig.enableLogging {
+                print("📡 [StudentHomeService] Fetching all courses for userId: \(userId)")
+            }
             let response: UserCoursesResponse = try await networkService.request(
                 endpoint: "/course-ownership/user-courses?userId=\(userId)",
                 method: .GET,
                 body: nil,
                 headers: getAuthHeaders()
             )
+            if AppConfig.enableLogging {
+                print("✅ [StudentHomeService] Fetched \(response.courses.count) courses")
+            }
             return response.courses
         } catch {
-            // Handle 404 as empty list
-            if case NetworkError.serverError(let code, _) = error, code == 404 {
-                return []
+            // Handle 404 as empty list (user has no courses)
+            if case NetworkError.serverError(let code, let message) = error {
+                if code == 404 {
+                    if AppConfig.enableLogging {
+                        print("ℹ️ [StudentHomeService] No courses found (404) - returning empty list")
+                    }
+                    return []
+                }
+                print("❌ [StudentHomeService] Server error \(code): \(message ?? "Unknown")")
+            } else {
+                print("❌ [StudentHomeService] Error fetching courses: \(error.localizedDescription)")
             }
-            throw error
+            return [] // Return empty list on error to avoid breaking the UI
         }
     }
     
     private func fetchLastCoursesInternal(userId: String, limit: Int) async throws -> [OwnedCourse] {
         do {
+            if AppConfig.enableLogging {
+                print("📡 [StudentHomeService] Fetching last \(limit) courses for userId: \(userId)")
+            }
             let response: LastCoursesResponse = try await networkService.request(
                 endpoint: "/course-ownership/last-courses?userId=\(userId)&limit=\(limit)",
                 method: .GET,
                 body: nil,
                 headers: getAuthHeaders()
             )
+            if AppConfig.enableLogging {
+                print("✅ [StudentHomeService] Fetched \(response.courses.count) recent courses")
+            }
             return response.courses
         } catch {
             // Handle 404 as empty list
-            if case NetworkError.serverError(let code, _) = error, code == 404 {
-                return []
+            if case NetworkError.serverError(let code, let message) = error {
+                if code == 404 {
+                    if AppConfig.enableLogging {
+                        print("ℹ️ [StudentHomeService] No recent courses found (404) - returning empty list")
+                    }
+                    return []
+                }
+                print("❌ [StudentHomeService] Server error \(code): \(message ?? "Unknown")")
+            } else {
+                print("❌ [StudentHomeService] Error fetching recent courses: \(error.localizedDescription)")
             }
-            throw error
+            return [] // Return empty list on error to avoid breaking the UI
         }
     }
     
@@ -175,5 +204,40 @@ final class StudentHomeService: StudentHomeServiceProtocol {
             return [:]
         }
         return ["Authorization": "Bearer \(token)"]
+    }
+    
+    // MARK: - Fetch User Badges
+    func fetchUserBadges() async throws -> [UserBadge] {
+        guard authService.getCurrentUser() != nil else {
+            throw NetworkError.unauthorized
+        }
+        
+        if AppConfig.enableLogging {
+            print("📡 [StudentHomeService] Fetching user badges")
+        }
+        
+        do {
+            let response: UserBadgesResponse = try await networkService.request(
+                endpoint: "/badge/me",
+                method: .GET,
+                body: nil,
+                headers: getAuthHeaders()
+            )
+            
+            if AppConfig.enableLogging {
+                print("✅ [StudentHomeService] Received \(response.badges.count) badges")
+            }
+            
+            return response.badges
+        } catch {
+            // Handle errors gracefully - return empty list if badges not found
+            if case NetworkError.serverError(let code, _) = error, code == 404 {
+                return []
+            }
+            if AppConfig.enableLogging {
+                print("⚠️ [StudentHomeService] Badges fetch failed: \(error.localizedDescription)")
+            }
+            return []
+        }
     }
 }

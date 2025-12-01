@@ -33,6 +33,9 @@ final class StudentHomeViewModel: ObservableObject {
     @Published var allCourses: [OwnedCourse] = []
     @Published var classesSummary: [ClassSummary] = []
     
+    // Badges/Achievements
+    @Published var userBadges: [UserBadge] = []
+    
     // MARK: - Dependencies
     private let studentHomeService: StudentHomeServiceProtocol
     private let authService: AuthServiceProtocol
@@ -72,14 +75,27 @@ final class StudentHomeViewModel: ObservableObject {
         return "0h"
     }
     
-    /// Learning streak (placeholder for future)
+    /// Learning streak based on recent activity
     var learningStreak: Int {
-        return 7 // Placeholder - would need backend support
+        return calculateStreak()
     }
     
-    /// Achievements count (placeholder for future)
+    /// Achievements count - actual number of badges earned
     var achievementsCount: Int {
-        return 3 // Placeholder - would need backend support
+        return userBadges.count
+    }
+    
+    /// Calculate streak based on recent courses activity
+    private func calculateStreak() -> Int {
+        // If user has recent courses, show activity-based streak
+        if !recentCourses.isEmpty {
+            // Simple streak logic: count of recent course activities (capped at 30)
+            return min(recentCourses.count, 30)
+        } else if totalCourses > 0 {
+            // If user has courses but no recent ones, show base streak
+            return 1
+        }
+        return 0
     }
     
     // MARK: - Public Methods
@@ -93,8 +109,11 @@ final class StudentHomeViewModel: ObservableObject {
             // Refresh user
             currentUser = authService.getCurrentUser()
             
-            // Fetch analytics
-            let analytics = try await studentHomeService.fetchStudentAnalytics()
+            // Fetch analytics and badges in parallel
+            async let analyticsTask = studentHomeService.fetchStudentAnalytics()
+            async let badgesTask = studentHomeService.fetchUserBadges()
+            
+            let (analytics, badges) = try await (analyticsTask, badgesTask)
             
             // Update published properties
             totalCourses = analytics.totalCourses
@@ -104,8 +123,9 @@ final class StudentHomeViewModel: ObservableObject {
             averageProgress = analytics.averageProgress
             recentCourses = analytics.recentCourses
             classesSummary = analytics.classesSummary
+            userBadges = badges
             
-            print("✅ [StudentHomeViewModel] Data loaded: \(totalCourses) courses, \(formattedTotalHours) hours")
+            print("✅ [StudentHomeViewModel] Data loaded: \(totalCourses) courses, \(formattedTotalHours) hours, \(badges.count) badges")
             
         } catch {
             handleError(error)

@@ -23,37 +23,52 @@ struct HomeView: View {
     
     var body: some View {
         NavigationView {
-            GeometryReader { geometry in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
-                        // MARK: - Header Section
-                        headerSection
-                        
-                        // MARK: - Learning Overview Card
-                        learningOverviewCard
-                        
-                        // MARK: - Quick Stats Grid
-                        quickStatsGrid
-                        
-                        // MARK: - Continue Learning Section
-                        if !viewModel.recentCourses.isEmpty {
-                            continueLearningSection
+            ZStack {
+                GeometryReader { geometry in
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 20) {
+                            // MARK: - Header Section
+                            headerSection
+                            
+                            // MARK: - Learning Overview Card
+                            learningOverviewCard
+                            
+                            // MARK: - Quick Stats Grid
+                            quickStatsGrid
+                            
+                            // MARK: - Continue Learning Section
+                            if !viewModel.recentCourses.isEmpty {
+                                continueLearningSection
+                            } else if !viewModel.isLoading {
+                                // Empty state for no courses
+                                emptyCoursesSection
+                            }
+                            
+                            // MARK: - Quick Actions
+                            quickActionsSection
+                            
+                            // MARK: - Classes Summary
+                            if !viewModel.classesSummary.isEmpty {
+                                classesSummarySection
+                            }
+                            
+                            // MARK: - Achievements Section
+                            if !viewModel.userBadges.isEmpty {
+                                achievementsSection
+                            }
                         }
-                        
-                        // MARK: - Quick Actions
-                        quickActionsSection
-                        
-                        // MARK: - Classes Summary
-                        if !viewModel.classesSummary.isEmpty {
-                            classesSummarySection
-                        }
+                        .padding(.vertical, 16)
+                        .padding(.bottom, DS.barHeight + 16)
                     }
-                    .padding(.vertical, 16)
-                    .padding(.bottom, DS.barHeight + 16)
+                    .background(Color(.systemGroupedBackground))
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
                 }
-                .background(Color(.systemGroupedBackground))
-                .refreshable {
-                    await viewModel.refresh()
+                
+                // Loading overlay
+                if viewModel.isLoading {
+                    loadingOverlay
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -75,6 +90,110 @@ struct HomeView: View {
             }
             .task {
                 await viewModel.loadData()
+            }
+        }
+    }
+    
+    // MARK: - Loading Overlay
+    private var loadingOverlay: some View {
+        Color.black.opacity(0.1)
+            .ignoresSafeArea()
+            .overlay(
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                        .tint(.brandPrimary)
+                    Text("Loading your dashboard...")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(24)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.systemBackground))
+                        .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
+                )
+            )
+    }
+    
+    // MARK: - Empty Courses Section
+    private var emptyCoursesSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Continue Learning")
+                    .font(.system(size: 20, weight: .bold))
+                Spacer()
+            }
+            
+            VStack(spacing: 16) {
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.brandPrimary.opacity(0.6))
+                
+                VStack(spacing: 8) {
+                    Text("No courses yet")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Explore our catalog and start your learning journey today!")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                NavigationLink {
+                    ExploreView()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Explore Courses")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.brandPrimary)
+                    .cornerRadius(12)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(24)
+            .background(Color(.systemBackground))
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - Achievements Section
+    private var achievementsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Your Achievements")
+                    .font(.system(size: 20, weight: .bold))
+                
+                Spacer()
+                
+                if let user = currentUser {
+                    NavigationLink {
+                        UserBadgesView(userId: user.id, username: user.username)
+                    } label: {
+                        Text("See All")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.brandPrimary)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.userBadges.prefix(5)) { badge in
+                        BadgeCard(badge: badge)
+                    }
+                }
+                .padding(.horizontal, 20)
             }
         }
     }
@@ -793,5 +912,70 @@ struct BeautifulCourseCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
+    }
+}
+
+// MARK: - Badge Card
+private struct BadgeCard: View {
+    let badge: UserBadge
+    
+    private var badgeColor: Color {
+        // Assign colors based on badge name patterns
+        let name = badge.name.lowercased()
+        if name.contains("gold") || name.contains("master") {
+            return .yellow
+        } else if name.contains("silver") || name.contains("advanced") {
+            return .gray
+        } else if name.contains("bronze") || name.contains("beginner") {
+            return .orange
+        } else if name.contains("streak") || name.contains("fire") {
+            return .red
+        } else if name.contains("complete") || name.contains("finish") {
+            return .green
+        } else {
+            return .brandPrimary
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Badge Icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [badgeColor, badgeColor.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+                
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .shadow(color: badgeColor.opacity(0.3), radius: 8, x: 0, y: 4)
+            
+            VStack(spacing: 4) {
+                Text(badge.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                if let description = badge.description {
+                    Text(description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                }
+            }
+        }
+        .frame(width: 100)
+        .padding(14)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 }
