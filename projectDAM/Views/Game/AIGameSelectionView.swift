@@ -18,6 +18,7 @@ struct AIGameSelectionView: View {
     @State private var showGame = false
     @State private var isRandomizing = false
     @State private var randomizeTimer: Timer?
+    @State private var selectionMode: GameSelectionMode = .random
     
     var body: some View {
         NavigationView {
@@ -35,8 +36,24 @@ struct AIGameSelectionView: View {
                         // Header
                         headerSection
                         
-                        // Random Game Preview (shows cycling games)
-                        randomGameSection
+                        // Game Selection Mode Picker
+                        Picker("Game Selection", selection: $selectionMode) {
+                            ForEach(GameSelectionMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue)
+                                    .tag(mode)
+                            }
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+                        
+                        if selectionMode == .random {
+                            // Random Game Preview (shows cycling games)
+                            randomGameSection
+                        } else {
+                            // Specific Game Selection
+                            specificGameSection
+                        }
                         
                         // Difficulty Selection
                         difficultySection
@@ -113,6 +130,12 @@ struct AIGameSelectionView: View {
         .padding(.bottom, 8)
     }
     
+    // MARK: - Game Selection Mode
+    enum GameSelectionMode: String, CaseIterable {
+        case random = "Random Game"
+        case specific = "Choose Game"
+    }
+    
     // MARK: - Random Game Section
     private var randomGameSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -169,21 +192,64 @@ struct AIGameSelectionView: View {
         }
     }
     
+    // MARK: - Specific Game Section
+    private var specificGameSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Select a Game")
+                .font(.system(size: 18, weight: .bold))
+            
+            VStack(spacing: 12) {
+                ForEach(AIGameType.allCases) { gameType in
+                    Button {
+                        withAnimation(.spring()) {
+                            selectedGameType = gameType
+                        }
+                    } label: {
+                        GameTypeCard(
+                            gameType: gameType,
+                            isSelected: selectedGameType == gameType,
+                            isRandomizing: false
+                        ) {}
+                    }
+                }
+            }
+            
+            // Info text
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.brandPrimary)
+                
+                Text("Selected game will be launched when you start")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 4)
+        }
+    }
+    
     // MARK: - Start Button
     private var startButton: some View {
         Button {
-            startRandomSelection()
+            if selectionMode == .random {
+                startRandomSelection()
+            } else {
+                // For specific selection, just show the game
+                if selectedGameType != nil {
+                    showGame = true
+                }
+            }
         } label: {
             HStack(spacing: 12) {
                 if isRandomizing {
                     ProgressView()
                         .tint(.white)
-                    Text("Selecting...")
+                    Text(selectionMode == .random ? "Selecting..." : "Starting...")
                         .font(.system(size: 18, weight: .bold))
                 } else {
-                    Image(systemName: "dice.fill")
+                    Image(systemName: selectionMode == .random ? "dice.fill" : "play.fill")
                         .font(.system(size: 18, weight: .bold))
-                    Text("Start Random Game")
+                    Text(selectionMode == .random ? "Start Random Game" : "Start Selected Game")
                         .font(.system(size: 18, weight: .bold))
                 }
             }
@@ -194,7 +260,9 @@ struct AIGameSelectionView: View {
                 LinearGradient(
                     colors: isRandomizing
                         ? [.orange, .orange.opacity(0.8)]
-                        : [.brandPrimary, .brandPrimary.opacity(0.8)],
+                        : (selectedGameType != nil || selectionMode == .random)
+                            ? [.brandPrimary, .brandPrimary.opacity(0.8)]
+                            : [.gray, .gray.opacity(0.6)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -207,6 +275,8 @@ struct AIGameSelectionView: View {
         }
         .disabled(isRandomizing)
         .padding(.top, 8)
+        .disabled(selectionMode == .specific && selectedGameType == nil)
+        .opacity((selectionMode == .specific && selectedGameType == nil) ? 0.7 : 1.0)
     }
     
     // MARK: - Random Selection Logic
@@ -553,7 +623,8 @@ struct QuickQuizGameView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                             .background(answerBackground(for: index, correct: question.correctOptionIndex))
-                            .cornerRadius(14)
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                     }
                     .disabled(selectedAnswer != nil)
                 }
