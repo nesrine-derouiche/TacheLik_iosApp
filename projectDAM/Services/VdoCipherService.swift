@@ -3,6 +3,7 @@ import UIKit
  
 protocol VdoCipherServiceProtocol {
     func playPaidVideo(videoId: String) async
+    func getPlaybackUrl(videoId: String) async throws -> String
 }
 
 struct VdoPlaybackOtpResponse: Decodable {
@@ -33,6 +34,13 @@ final class VdoCipherService: VdoCipherServiceProtocol {
                 print("⚠️ [VdoCipherService] Failed to play VdoCipher video \(videoId): \(error)")
             }
         }
+    }
+    
+    /// Get VdoCipher playback URL for embedding in reels
+    func getPlaybackUrl(videoId: String) async throws -> String {
+        let details = try await fetchPlaybackDetails(videoId: videoId)
+        // Construct the VdoCipher embed URL with OTP and playbackInfo
+        return "https://player.vdocipher.com/v2/?otp=\(details.otp)&playbackInfo=\(details.playbackInfo)"
     }
 
     private func fetchPlaybackDetails(videoId: String) async throws -> VdoPlaybackOtp {

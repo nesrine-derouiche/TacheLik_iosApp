@@ -11,6 +11,7 @@ struct TeacherDashboardView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     @StateObject private var viewModel = DIContainer.shared.makeTeacherDashboardViewModel()
     @State private var isShowingWalletAlert = false
+    @State private var showingReelGenerator = false
     
     private var currentUser: User? {
         authService.currentUser
@@ -104,6 +105,9 @@ struct TeacherDashboardView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Wallet Screen will be developed soon.")
+            }
+            .sheet(isPresented: $showingReelGenerator) {
+                AIReelGeneratorView()
             }
         }
         .navigationViewStyle(.stack)
@@ -325,6 +329,7 @@ struct TeacherDashboardView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primary)
             
+            // First row
             HStack(spacing: 12) {
                 QuickActionButton(
                     icon: "book.fill",
@@ -353,6 +358,22 @@ struct TeacherDashboardView: View {
                     color: .brandWarning,
                     badge: nil
                 ) {}
+            }
+            
+            // Second row with Create Reels
+            HStack(spacing: 12) {
+                QuickActionButton(
+                    icon: "video.badge.plus",
+                    title: "Create Reels",
+                    color: .pink,
+                    badge: nil
+                ) {
+                    showingReelGenerator = true
+                }
+                
+                Spacer()
+                Spacer()
+                Spacer()
             }
         }
     }

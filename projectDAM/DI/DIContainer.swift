@@ -34,6 +34,8 @@ final class DIContainer {
     let teacherAnalyticsService: TeacherAnalyticsServiceProtocol
     let studentHomeService: StudentHomeServiceProtocol
     let puzzleService: PuzzleServiceProtocol
+    let reelService: ReelServiceProtocol
+    let aiReelGeneratorService: AIReelGeneratorServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -65,6 +67,8 @@ final class DIContainer {
         self.teacherAnalyticsService = TeacherAnalyticsService(authService: authService)
         self.studentHomeService = StudentHomeService(networkService: networkService, authService: authService)
         self.puzzleService = PuzzleService(networkService: networkService, authService: authService)
+        self.reelService = ReelService(networkService: networkService)
+        self.aiReelGeneratorService = AIReelGeneratorService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig
@@ -146,5 +150,32 @@ final class DIContainer {
     /// Create StudentHomeViewModel with injected dependencies
     func makeStudentHomeViewModel() -> StudentHomeViewModel {
         return StudentHomeViewModel(studentHomeService: studentHomeService, authService: authService)
+    }
+    
+    /// Create ReelsViewModel with injected dependencies
+    func makeReelsViewModel() -> ReelsViewModel {
+        return ReelsViewModel(reelService: reelService)
+    }
+    
+    /// Create AIReelGeneratorViewModel with injected dependencies
+    func makeAIReelGeneratorViewModel() -> AIReelGeneratorViewModel {
+        return AIReelGeneratorViewModel(service: aiReelGeneratorService)
+    }
+    
+    /// Resolve service by protocol type
+    func resolve<T>(_ type: T.Type) -> T {
+        if type == AIReelGeneratorServiceProtocol.self {
+            return aiReelGeneratorService as! T
+        } else if type == ReelServiceProtocol.self {
+            return reelService as! T
+        } else if type == AuthServiceProtocol.self {
+            return authService as! T
+        } else if type == CourseServiceProtocol.self {
+            return courseService as! T
+        } else if type == NetworkServiceProtocol.self {
+            return networkService as! T
+        } else {
+            fatalError("Unknown service type: \(type)")
+        }
     }
 }
