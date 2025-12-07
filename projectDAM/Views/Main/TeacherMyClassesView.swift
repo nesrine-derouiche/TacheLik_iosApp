@@ -17,12 +17,6 @@ struct TeacherMyClassesView: View {
     @State private var selectedCourseForLessons: TeacherCourse?
     @State private var selectedClassForLessons: TeacherClass?
     
-    // Reel generation state
-    @State private var selectedCourseForReel: TeacherCourse?
-    @State private var showingReelGenerating = false
-    @State private var showingReelSuccess = false
-    @State private var reelGenerationError: String?
-    
     // MARK: - Initialization
     init(viewModel: TeacherMyClassesViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -339,28 +333,6 @@ struct TeacherMyClassesView: View {
         } message: {
             Text("Class creation is almost ready. For now, add courses from an existing class.")
         }
-        .alert("Generating Reel...", isPresented: $showingReelGenerating) {
-            // No buttons - auto dismiss
-        } message: {
-            Text("AI is creating a 60-second highlight reel from \(selectedCourseForReel?.name ?? "your course"). This may take a moment...")
-        }
-        .alert("Reel Created! 🎬", isPresented: $showingReelSuccess) {
-            Button("Great!", role: .cancel) {
-                selectedCourseForReel = nil
-            }
-        } message: {
-            Text("Your 60-second reel for \"\(selectedCourseForReel?.name ?? "")\" has been generated and is now visible to students on the Explore page!")
-        }
-        .alert("Reel Generation Failed", isPresented: .init(
-            get: { reelGenerationError != nil },
-            set: { if !$0 { reelGenerationError = nil } }
-        )) {
-            Button("OK", role: .cancel) {
-                reelGenerationError = nil
-            }
-        } message: {
-            Text(reelGenerationError ?? "Unknown error occurred")
-        }
     }
     
     // MARK: - Classes List View
@@ -396,9 +368,6 @@ struct TeacherMyClassesView: View {
                         },
                         onEditCourse: { course in
                             viewModel.startEditCourseFlow(for: course)
-                        },
-                        onGenerateReel: { course in
-                            generateReelForCourse(course)
                         }
                     )
                 }
@@ -448,91 +417,6 @@ private extension TeacherMyClassesView {
         selectedCourseForLessons = course
         selectedClassForLessons = classItem
     }
-    
-    func generateReelForCourse(_ course: TeacherCourse) {
-        selectedCourseForReel = course
-        showingReelGenerating = true
-        reelGenerationError = nil
-        
-        // Generate reel with video from the course
-        Task {
-            do {
-                // Get teacher info from auth service
-                let authService = DIContainer.shared.authService
-                let currentUser = authService.getCurrentUser()
-                let teacherName = currentUser?.name ?? "Teacher"
-                let teacherId = currentUser?.id ?? "unknown"
-                
-                // Fetch the lesson to get videos
-                let lessonService = DIContainer.shared.lessonService
-                let lesson = try await lessonService.fetchLesson(courseId: course.id, accessType: .privateCourse)
-                
-                var videoUrl: String? = nil
-                var videoId: String? = nil
-                var thumbnailUrl: String? = course.imageURL?.absoluteString
-                
-                // Get the first video from the lesson
-                if let firstVideo = lesson.videos.first {
-                    videoId = firstVideo.id
-                    
-                    // Use thumbnail from video if available
-                    if let vidThumb = firstVideo.thumbnailUrl, !vidThumb.isEmpty {
-                        thumbnailUrl = vidThumb
-                    }
-                    
-                    // Check if it's a YouTube video (more reliable for playback)
-                    if let ytId = firstVideo.youtubeVideoId {
-                        // YouTube embed URL - works reliably
-                        videoUrl = "https://www.youtube.com/embed/\(ytId)?autoplay=1&playsinline=1&controls=0&mute=0&loop=1"
-                        print("✅ [ReelGen] Using YouTube video: \(ytId)")
-                    } else {
-                        // For VdoCipher, store the video ID - we'll get OTP when playing
-                        videoUrl = "vdocipher://\(firstVideo.id)"
-                        print("✅ [ReelGen] Using VdoCipher video ID: \(firstVideo.id)")
-                    }
-                }
-                
-                // Create the reel in storage with video info
-                let _ = ReelStorage.shared.createReelFromCourse(
-                    courseId: course.id,
-                    courseName: course.name,
-                    teacherName: teacherName,
-                    teacherId: teacherId,
-                    videoId: videoId,
-                    videoUrl: videoUrl,
-                    thumbnailUrl: thumbnailUrl
-                )
-                
-                await MainActor.run {
-                    showingReelGenerating = false
-                    showingReelSuccess = true
-                }
-            } catch {
-                print("❌ [ReelGen] Error: \(error)")
-                
-                // Even if lesson fetch fails, create reel with course image
-                let authService = DIContainer.shared.authService
-                let currentUser = authService.getCurrentUser()
-                let teacherName = currentUser?.name ?? "Teacher"
-                let teacherId = currentUser?.id ?? "unknown"
-                
-                let _ = ReelStorage.shared.createReelFromCourse(
-                    courseId: course.id,
-                    courseName: course.name,
-                    teacherName: teacherName,
-                    teacherId: teacherId,
-                    videoId: nil,
-                    videoUrl: nil,
-                    thumbnailUrl: course.imageURL?.absoluteString
-                )
-                
-                await MainActor.run {
-                    showingReelGenerating = false
-                    showingReelSuccess = true
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Teacher Stat Card Component
@@ -573,7 +457,6 @@ private struct ClassCard: View {
     let onCreateCourse: () -> Void
     let onOpenLessons: (TeacherCourse) -> Void
     let onEditCourse: (TeacherCourse) -> Void
-    let onGenerateReel: (TeacherCourse) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -653,9 +536,6 @@ private struct ClassCard: View {
                             },
                             onEdit: {
                                 onEditCourse(course)
-                            },
-                            onGenerateReel: {
-                                onGenerateReel(course)
                             }
                         )
                     }
@@ -672,7 +552,6 @@ private struct TeacherCourseCard: View {
     let course: TeacherCourse
     let onOpenLessons: () -> Void
     let onEdit: () -> Void
-    let onGenerateReel: () -> Void
     @State private var showMenu = false
     
     var body: some View {
@@ -724,13 +603,13 @@ private struct TeacherCourseCard: View {
             }
             
             // Action Buttons
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button(action: onEdit) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "pencil.circle.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                         Text("Edit")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -739,32 +618,12 @@ private struct TeacherCourseCard: View {
                     .cornerRadius(8)
                 }
                 
-                Button(action: onGenerateReel) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "video.badge.waveform.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Reel")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .foregroundColor(.white)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.purple, Color.pink],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(8)
-                }
-                
                 Button(action: {}) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                         Text("Analytics")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -1734,4 +1593,3 @@ private struct EditCourseSheetView: View {
     
     return TeacherMyClassesView(viewModel: viewModel)
 }
-

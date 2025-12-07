@@ -3,12 +3,6 @@ import SwiftUI
 struct ExploreView: View {
     @State private var searchText = ""
     @State private var selectedTag: String? = nil
-    @State private var showReelsView = false
-    @State private var featuredReels: [Reel] = []
-    @State private var isLoadingReels = false
-    
-    private let reelService = DIContainer.shared.reelService
-    
     private let tags = ["All","Web","Data","AI","Cloud","Security","Mobile","DevOps"]
     private let categories: [ExploreCategory] = [
         .init(name: "Web Development", icon: "globe", colors: [.brandPrimary, .brandAccent], courses: 24),
@@ -34,62 +28,74 @@ struct ExploreView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Search
-                        searchBar
-                        
-                        // Tags
-                        tagsScrollView
-                        
-                        // Reels Section - Always show
-                        reelsSection
-                        
-                        // Categories Header
-                        HStack {
-                            Text("Browse Categories")
-                                .font(.title3.weight(.bold))
-                            Spacer()
+                    // Search
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                        TextField("Search courses, topics...", text: $searchText)
+                            .textFieldStyle(.plain)
+                        if !searchText.isEmpty {
+                            Button(action: { searchText = "" }) {
+                                Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                            }
                         }
-                        .padding(.horizontal)
-                        
-                        // Categories Grid
-                        LazyVGrid(columns: adaptiveColumns, spacing: 16) {
-                            ForEach(filteredCategories) { cat in
-                                GradientCard(colors: cat.colors) {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack {
-                                            Image(systemName: cat.icon)
-                                                .font(.system(size: 26, weight: .semibold))
-                                                .foregroundColor(.white)
-                                            Spacer()
-                                            Text("\(cat.courses) courses")
-                                                .font(.caption)
-                                                .foregroundColor(.white.opacity(0.85))
-                                        }
-                                        Text(cat.name)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-                                            .multilineTextAlignment(.leading)
-                                        Button(action: {}) {
-                                            HStack(spacing: 6) {
-                                                Text("Browse")
-                                                Image(systemName: "arrow.right")
-                                            }
-                                            .font(.footnote.bold())
-                                            .padding(.vertical, 6)
-                                            .padding(.horizontal, 14)
-                                            .background(Color.white.opacity(0.18))
-                                            .foregroundColor(.white)
-                                            .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .frame(minHeight: 150)
+                    }
+                    .padding(14)
+                    .background(Color(.secondarySystemFill))
+                    .cornerRadius(16)
+                    .cornerRadius(16)
+                    .padding(.horizontal)
+                    
+                    // Tags
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(tags, id: \.self) { tag in
+                                Chip(title: tag, isSelected: tag == (selectedTag ?? "All")) {
+                                    if tag == "All" { selectedTag = nil } else { selectedTag = tag }
                                 }
                             }
                         }
                         .padding(.horizontal)
-                        .padding(.bottom, 8)
+                    }
+                    
+                    // Categories Grid
+                    LazyVGrid(columns: adaptiveColumns, spacing: 16) {
+                        ForEach(filteredCategories) { cat in
+                            GradientCard(colors: cat.colors) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Image(systemName: cat.icon)
+                                            .font(.system(size: 26, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                        Text("\(cat.courses) courses")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.85))
+                                    }
+                                    Text(cat.name)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .multilineTextAlignment(.leading)
+                                    Button(action: {}) {
+                                        HStack(spacing: 6) {
+                                            Text("Browse")
+                                            Image(systemName: "arrow.right")
+                                        }
+                                        .font(.footnote.bold())
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 14)
+                                        .background(Color.white.opacity(0.18))
+                                        .foregroundColor(.white)
+                                        .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(minHeight: 150)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                     }
                     .padding(.top)
                     .padding(.bottom, DS.barHeight + 8)
@@ -97,238 +103,6 @@ struct ExploreView: View {
                 .navigationTitle("Explore")
             }
         }
-        .fullScreenCover(isPresented: $showReelsView) {
-            ReelsView(reelService: reelService)
-        }
-        .task {
-            await loadFeaturedReels()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .reelCreated)) { _ in
-            // Refresh reels when a new one is created by teacher
-            Task {
-                await loadFeaturedReels()
-            }
-        }
-    }
-    
-    // MARK: - Search Bar
-    private var searchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-            TextField("Search courses, topics...", text: $searchText)
-                .textFieldStyle(.plain)
-            if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
-                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                }
-            }
-        }
-        .padding(14)
-        .background(Color(.secondarySystemFill))
-        .cornerRadius(16)
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Tags Scroll View
-    private var tagsScrollView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(tags, id: \.self) { tag in
-                    Chip(title: tag, isSelected: tag == (selectedTag ?? "All")) {
-                        if tag == "All" { selectedTag = nil } else { selectedTag = tag }
-                    }
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-    
-    // MARK: - Reels Section
-    private var reelsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.title3)
-                        .foregroundColor(.brandPrimary)
-                    Text("Reels")
-                        .font(.title3.weight(.bold))
-                }
-                
-                Spacer()
-                
-                Button {
-                    showReelsView = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("See All")
-                            .font(.subheadline.weight(.medium))
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.brandPrimary)
-                }
-            }
-            .padding(.horizontal)
-            
-            // Reels Horizontal Scroll
-            if isLoadingReels {
-                HStack(spacing: 12) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        ReelPreviewPlaceholder()
-                    }
-                }
-                .padding(.horizontal)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(featuredReels) { reel in
-                            ReelPreviewCard(reel: reel) {
-                                showReelsView = true
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            }
-        }
-    }
-    
-    // MARK: - Load Featured Reels
-    private func loadFeaturedReels() async {
-        isLoadingReels = true
-        
-        do {
-            let reels = try await reelService.fetchFeaturedReels(limit: 6)
-            // Use fetched reels if available, otherwise use ReelStorage (includes teacher-created + mock)
-            featuredReels = reels.isEmpty ? ReelStorage.shared.getAllReels() : reels
-        } catch {
-            print("❌ [ExploreView] Failed to load reels: \(error)")
-            // Use ReelStorage which includes teacher-created reels + mock data
-            featuredReels = ReelStorage.shared.getAllReels()
-        }
-        
-        isLoadingReels = false
-    }
-}
-
-// MARK: - Reel Preview Card
-private struct ReelPreviewCard: View {
-    let reel: Reel
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            ZStack(alignment: .bottomLeading) {
-                // Background Image
-                AsyncImage(url: reel.displayImageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure, .empty:
-                        LinearGradient(
-                            colors: [.brandPrimary, .brandAccent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    @unknown default:
-                        Color.gray.opacity(0.3)
-                    }
-                }
-                .frame(width: 140, height: 200)
-                .clipped()
-                
-                // Gradient overlay
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.8)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                
-                // Content
-                VStack(alignment: .leading, spacing: 4) {
-                    // Type badge
-                    HStack(spacing: 4) {
-                        Image(systemName: reel.type.iconName)
-                            .font(.system(size: 8))
-                        Text(reel.type.displayName)
-                            .font(.system(size: 8, weight: .medium))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.black.opacity(0.5)))
-                    
-                    Text(reel.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    
-                    // Stats
-                    HStack(spacing: 8) {
-                        HStack(spacing: 2) {
-                            Image(systemName: "eye.fill")
-                                .font(.system(size: 8))
-                            Text(formatCount(reel.viewsCount))
-                                .font(.system(size: 9))
-                        }
-                        HStack(spacing: 2) {
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 8))
-                            Text(formatCount(reel.likesCount))
-                                .font(.system(size: 9))
-                        }
-                    }
-                    .foregroundColor(.white.opacity(0.8))
-                }
-                .padding(10)
-                
-                // Play icon
-                if reel.hasVideo {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Circle().fill(Color.black.opacity(0.5)))
-                                .padding(8)
-                        }
-                        Spacer()
-                    }
-                }
-            }
-            .frame(width: 140, height: 200)
-            .cornerRadius(16)
-            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private func formatCount(_ count: Int) -> String {
-        if count >= 1_000_000 {
-            return String(format: "%.1fM", Double(count) / 1_000_000)
-        } else if count >= 1_000 {
-            return String(format: "%.1fK", Double(count) / 1_000)
-        }
-        return "\(count)"
-    }
-}
-
-// MARK: - Reel Preview Placeholder
-private struct ReelPreviewPlaceholder: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color(.secondarySystemFill))
-            .frame(width: 140, height: 200)
-            .overlay(
-                ProgressView()
-            )
     }
 }
 
