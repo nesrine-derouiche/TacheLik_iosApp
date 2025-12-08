@@ -7,9 +7,21 @@
 
 import SwiftUI
 import CoreData
+import UIKit
+
+// MARK: - AppDelegate for Portrait Lock
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        // Force portrait orientation for the entire app
+        return .portrait
+    }
+}
 
 @main
 struct projectDAMApp: App {
+    // Use AppDelegate for orientation control
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     let persistenceController = PersistenceController.shared
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("isDarkMode") private var isDarkMode = false
