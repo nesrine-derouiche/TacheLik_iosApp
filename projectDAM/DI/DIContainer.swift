@@ -34,6 +34,7 @@ final class DIContainer {
     let teacherAnalyticsService: TeacherAnalyticsServiceProtocol
     let studentHomeService: StudentHomeServiceProtocol
     let puzzleService: PuzzleServiceProtocol
+    let reelsService: ReelsServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -65,6 +66,7 @@ final class DIContainer {
         self.teacherAnalyticsService = TeacherAnalyticsService(authService: authService)
         self.studentHomeService = StudentHomeService(networkService: networkService, authService: authService)
         self.puzzleService = PuzzleService(networkService: networkService, authService: authService)
+        self.reelsService = ReelsService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
         
         // Initialize socket service with configuration from AppConfig

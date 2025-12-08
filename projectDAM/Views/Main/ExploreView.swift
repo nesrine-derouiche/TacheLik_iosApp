@@ -1,179 +1,444 @@
 import SwiftUI
+import AVKit
 
 struct ExploreView: View {
-    @State private var searchText = ""
-    @State private var selectedTag: String? = nil
-    private let tags = ["All","Web","Data","AI","Cloud","Security","Mobile","DevOps"]
-    private let categories: [ExploreCategory] = [
-        .init(name: "Web Development", icon: "globe", colors: [.brandPrimary, .brandAccent], courses: 24),
-        .init(name: "Data Science", icon: "chart.bar.doc.horizontal", colors: [.brandAccent, .brandSecondary], courses: 18),
-        .init(name: "Cloud Computing", icon: "cloud.fill", colors: [.brandSecondary, .brandPrimary], courses: 16),
-        .init(name: "Cybersecurity", icon: "lock.shield.fill", colors: [.brandPrimary, .brandWarning], courses: 12),
-        .init(name: "Machine Learning", icon: "brain.head.profile", colors: [.brandAccent, .brandSuccess], courses: 20),
-        .init(name: "Mobile Apps", icon: "iphone.homebutton", colors: [.brandSuccess, .brandAccent], courses: 14)
-    ]
+    @StateObject private var viewModel = ReelsViewModel()
     
-    private var filteredCategories: [ExploreCategory] {
-        categories.filter { cat in
-            let tagMatches = selectedTag == nil || selectedTag == "All" || cat.matches(tag: selectedTag!)
-            let searchMatches = searchText.isEmpty || cat.name.lowercased().contains(searchText.lowercased())
-            return tagMatches && searchMatches
+    @State private var currentReelId: String?
+    @State private var seenReelIds: Set<String> = []
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            if viewModel.isLoading && viewModel.reels.isEmpty {
+                VStack {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+            } else if let error = viewModel.error, viewModel.reels.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+                    Text(error)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    Button("Retry") {
+                        Task { await viewModel.loadInitialReels() }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .foregroundColor(.black)
+                    .cornerRadius(8)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+            } else {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    let height = proxy.size.height
+                    
+                    TabView(selection: $currentReelId) { 
+                        ForEach(viewModel.reels) { reel in
+                            ZStack {
+                                if reel.id == "END_OF_FEED" {
+                                    EndOfFeedView()
+                                } else {
+                                    ReelView(reel: reel, viewModel: viewModel, safeAreaInsets: proxy.safeAreaInsets, screenSize: CGSize(width: width, height: height))
+                                        .onAppear {
+                                            Task {
+                                                await viewModel.loadMoreReels(currentItemId: reel.id)
+                                            }
+                                        }
+                                }
+                            }
+                            // Inner rotation (Counter-rotate content)
+                            .frame(width: width, height: height)
+                            .rotationEffect(.degrees(-90))
+                            .frame(width: height, height: width)
+                            .tag(Optional(reel.id))
+                        }
+                    }
+                    // Outer frame (Matches rotated dimensions)
+                    .frame(width: height, height: width)
+                    .rotationEffect(.degrees(90), anchor: .center)
+                    // Reset to screen dimensions and force center position
+                    .frame(width: width, height: height)
+                    .position(x: width / 2, y: height / 2)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .indexViewStyle(.page(backgroundDisplayMode: .never))
+                    .onChange(of: currentReelId) { newId in
+                         if let id = newId, let index = viewModel.reels.firstIndex(where: { $0.id == id }) {
+                             viewModel.managePreloading(currentIndex: index)
+                         }
+                    }
+                    .onChange(of: viewModel.reels) { newReels in
+                        // Check if we have new reels at the front (from generation)
+                        if let firstReel = newReels.first {
+                            // If currentReelId is nil (initial load), set to first reel
+                            if currentReelId == nil {
+                                currentReelId = firstReel.id
+                                viewModel.managePreloading(currentIndex: 0)
+                            } 
+                            // If the first reel changed (new reels inserted at front), scroll to it
+                            else if currentReelId != firstReel.id && !seenReelIds.contains(firstReel.id) {
+                                // This is a newly generated reel - scroll to show it
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    currentReelId = firstReel.id
+                                }
+                                viewModel.managePreloading(currentIndex: 0)
+                                seenReelIds.insert(firstReel.id)
+                                print("[ExploreView] 🎬 Scrolled to newly generated reel: \(firstReel.id)")
+                            }
+                        }
+                    }
+                }
+                .ignoresSafeArea()
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            Task {
+                await viewModel.loadInitialReels()
+            }
+        }
+        .statusBar(hidden: true)
+    }
+}
+
+
+struct EndOfFeedView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "sparkles")
+            .font(.system(size: 60))
+            .foregroundColor(.yellow)
+            
+            Text("You’re all caught up ✨")
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            Text("More reels coming soon!")
+                .font(.body)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+    }
+}
+
+// MARK: - Reel View Components
+
+struct ReelView: View {
+    let reel: Reel
+    @ObservedObject var viewModel: ReelsViewModel
+    let safeAreaInsets: EdgeInsets
+    let screenSize: CGSize
+    
+    @State private var player: AVPlayer?
+    @State private var isPlaying = true
+    @State private var showPlayIcon = false
+    @State private var showComments = false
+    
+    var body: some View {
+        ZStack {
+            // Video Player
+            if let player = player {
+                PlayerView(player: player)
+                    .frame(width: screenSize.width, height: screenSize.height)
+                    .clipped()
+                    .edgesIgnoringSafeArea(.all)
+                    .onAppear {
+                        if isPlaying { 
+                            player.play() 
+                        }
+                        NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { _ in
+                            player.seek(to: .zero)
+                            if isPlaying { player.play() }
+                        }
+                    }
+                    .onDisappear {
+                        // Don't invalidate, just pause if it's the active one.
+                        // The VM manages lifecycle.
+                        player.pause()
+                    }
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isPlaying.toggle()
+                        }
+                        if isPlaying {
+                            player.play()
+                            showPlayIcon = false
+                        } else {
+                            player.pause()
+                            showPlayIcon = true
+                        }
+                    }
+            } else {
+                ReelSkeletonView(safeAreaInsets: safeAreaInsets)
+                    .frame(width: screenSize.width, height: screenSize.height)
+            }
+            
+            // Play/Pause Overlay Icon
+            if showPlayIcon {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.white.opacity(0.8))
+                    .shadow(radius: 4)
+                    .transition(.opacity.combined(with: .scale))
+                    .allowsHitTesting(false) // Let taps pass through to the gesture
+            }
+            
+            // Overlay Controls
+            VStack {
+                Spacer()
+                
+                HStack(alignment: .bottom) {
+                    // Left Side: Text Info
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .frame(width: 32, height: 32)
+                                .foregroundColor(.white)
+                            
+                            Text(reel.title ?? "Unknown User")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                        
+                        if let description = reel.description, !description.isEmpty {
+                            Text(description)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                                .lineLimit(2)
+                        }
+                        
+                         // Music/Audio placeholder
+                        HStack {
+                            Image(systemName: "music.note")
+                            Text("Original Audio")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.top, 4)
+                    }
+                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                    
+                    Spacer()
+                    
+                    // Right Side: Action Buttons
+                    VStack(spacing: 20) {
+                        ActionButton(icon: "heart.fill", text: "\(reel.likesCount ?? 0)", isSelected: reel.isLiked ?? false) {
+                            Task {
+                                await viewModel.toggleLike(reel: reel)
+                            }
+                        }
+                        
+                        ActionButton(icon: "bubble.right.fill", text: "\(reel.commentsCount ?? 0)") {
+                            showComments = true
+                        }
+                        
+                        ActionButton(icon: "bookmark.fill", text: "Save") {
+                            // Bookmark action
+                            // TODO: Implement Bookmark
+                        }
+                        
+                        ActionButton(icon: "arrowshape.turn.up.right.fill", text: "Share") {
+                             // Share action
+                        }
+                    }
+                    .padding(.bottom, 10) // Internal spacing for buttons
+                }
+                .padding(.horizontal)
+                // Dynamic bottom padding: Fail-safe logic. Max(safeArea, 34) + 110pt
+                .padding(.bottom, max(safeAreaInsets.bottom, 34) + 110)
+            }
+        }
+        .frame(width: screenSize.width, height: screenSize.height)
+        .clipped()
+        .onAppear {
+            isPlaying = true
+            showPlayIcon = false
+            setupPlayer()
+        }
+        .onDisappear {
+             player?.pause()
+             isPlaying = false 
+             showPlayIcon = false
+        }
+        .sheet(isPresented: $showComments) {
+            if #available(iOS 16.0, *) {
+                CommentsSheet(reelId: reel.id) { newCount in
+                    viewModel.updateReelCommentCount(reelId: reel.id, newCount: newCount)
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            } else {
+                CommentsSheet(reelId: reel.id) { newCount in
+                    viewModel.updateReelCommentCount(reelId: reel.id, newCount: newCount)
+                }
+            }
         }
     }
     
-    let adaptiveColumns = [GridItem(.adaptive(minimum: 160), spacing: 16)]
+    private func setupPlayer() {
+        // Get cached player or create new one via VM
+        let player = viewModel.getPlayer(for: reel)
+        self.player = player
+        
+        // Configure audio
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .moviePlayback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        
+        if isPlaying {
+            player.play()
+        }
+    }
+}
+
+// Lightweight Shimmer/Skeleton Loading View
+struct ReelSkeletonView: View {
+    let safeAreaInsets: EdgeInsets
+    @State private var isAnimating = false
     
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                ScrollView {
+        ZStack {
+            Color.black.edgesIgnoringSafeArea(.all)
+            
+            VStack {
+                Spacer()
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Avatar + Name Skeleton
+                        HStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.3))
+                                .frame(width: 32, height: 32)
+                            
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.white.opacity(0.3))
+                                .frame(width: 120, height: 16)
+                        }
+                        // Description Skeleton
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 200, height: 14)
+                        
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 150, height: 14)
+                    }
+                    Spacer()
+                    
+                    // Buttons Skeleton
                     VStack(spacing: 20) {
-                    // Search
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("Search courses, topics...", text: $searchText)
-                            .textFieldStyle(.plain)
-                        if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                        ForEach(0..<4) { _ in
+                            VStack(spacing: 6) {
+                                Circle()
+                                    .fill(Color.white.opacity(0.3))
+                                    .frame(width: 28, height: 28)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.white.opacity(0.3))
+                                    .frame(width: 20, height: 10)
                             }
                         }
                     }
-                    .padding(14)
-                    .background(Color(.secondarySystemFill))
-                    .cornerRadius(16)
-                    .cornerRadius(16)
-                    .padding(.horizontal)
-                    
-                    // Tags
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(tags, id: \.self) { tag in
-                                Chip(title: tag, isSelected: tag == (selectedTag ?? "All")) {
-                                    if tag == "All" { selectedTag = nil } else { selectedTag = tag }
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    
-                    // Categories Grid
-                    LazyVGrid(columns: adaptiveColumns, spacing: 16) {
-                        ForEach(filteredCategories) { cat in
-                            GradientCard(colors: cat.colors) {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        Image(systemName: cat.icon)
-                                            .font(.system(size: 26, weight: .semibold))
-                                            .foregroundColor(.white)
-                                        Spacer()
-                                        Text("\(cat.courses) courses")
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.85))
-                                    }
-                                    Text(cat.name)
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .multilineTextAlignment(.leading)
-                                    Button(action: {}) {
-                                        HStack(spacing: 6) {
-                                            Text("Browse")
-                                            Image(systemName: "arrow.right")
-                                        }
-                                        .font(.footnote.bold())
-                                        .padding(.vertical, 6)
-                                        .padding(.horizontal, 14)
-                                        .background(Color.white.opacity(0.18))
-                                        .foregroundColor(.white)
-                                        .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(minHeight: 150)
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-                    }
-                    .padding(.top)
-                    .padding(.bottom, DS.barHeight + 8)
+                    .padding(.bottom, 10)
                 }
-                .navigationTitle("Explore")
+                .padding(.horizontal)
+                // Match ReelView padding
+                .padding(.bottom, max(safeAreaInsets.bottom, 34) + 110)
+            }
+        }
+        .opacity(isAnimating ? 0.5 : 1.0)
+        .onAppear {
+            withAnimation(Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                isAnimating = true
             }
         }
     }
 }
 
-private struct Chip: View {
-    let title: String
-    let isSelected: Bool
+struct ActionButton: View {
+    let icon: String
+    let text: String
+    var isSelected: Bool = false
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(isSelected ? .white : .primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Group {
-                        if isSelected {
-                            LinearGradient.brandPrimaryGradient
-                        } else {
-                            Color(.secondarySystemBackground)
-                        }
-                    }
-                )
-                .cornerRadius(20)
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 28))
+                    .foregroundColor(isSelected ? .red : .white)
+                    .scaleEffect(isSelected ? 1.1 : 1.0) // Subtle scale up when selected
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                
+                Text(text)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    // Monospaced digit for stable width as numbers change
+                    .monospacedDigit() 
+            }
+            .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
         }
-        .buttonStyle(.plain)
     }
 }
 
-private struct GradientCard<Content: View>: View {
-    let colors: [Color]
-    let content: Content
+// Custom Player using AVPlayerLayer for robust AspectFill
+struct PlayerView: UIViewRepresentable {
+    var player: AVPlayer
     
-    init(colors: [Color], @ViewBuilder content: () -> Content) {
-        self.colors = colors
-        self.content = content()
+    func makeUIView(context: Context) -> PlayerUIView {
+        let view = PlayerUIView(player: player)
+        return view
     }
     
-    var body: some View {
-        content
-            .padding(20)
-            .background(
-                LinearGradient(
-                    colors: colors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .cornerRadius(20)
-            .shadow(color: colors.first?.opacity(0.3) ?? Color.clear, radius: 12, x: 0, y: 6)
+    func updateUIView(_ uiView: PlayerUIView, context: Context) {
+        uiView.player = player
+        uiView.playerLayer.videoGravity = .resizeAspectFill
     }
-}
-
-private struct ExploreCategory: Identifiable {
-    let id = UUID()
-    let name: String
-    let icon: String
-    let colors: [Color]
-    let courses: Int
     
-    func matches(tag: String) -> Bool {
-        let lower = tag.lowercased()
-        return name.lowercased().contains(lower) ||
-            (lower == "web" && name.lowercased().contains("web")) ||
-            (lower == "data" && name.lowercased().contains("data")) ||
-            (lower == "ai" && name.lowercased().contains("machine")) ||
-            (lower == "cloud" && name.lowercased().contains("cloud")) ||
-            (lower == "security" && name.lowercased().contains("cyber")) ||
-            (lower == "mobile" && name.lowercased().contains("mobile")) ||
-            (lower == "devops" && name.lowercased().contains("cloud"))
+    // Inner UIView subclass to handle layer layout
+    class PlayerUIView: UIView {
+        var player: AVPlayer? {
+            get { return playerLayer.player }
+            set { playerLayer.player = newValue }
+        }
+        
+        override class var layerClass: AnyClass {
+            return AVPlayerLayer.self
+        }
+        
+        var playerLayer: AVPlayerLayer {
+            return layer as! AVPlayerLayer
+        }
+        
+        init(player: AVPlayer) {
+            super.init(frame: .zero)
+            self.player = player
+            // Optimize for video playback
+            self.backgroundColor = .black 
+            self.playerLayer.videoGravity = .resizeAspectFill 
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // Explicitly ensuring frame match (though layerClass usually handles this)
+            playerLayer.frame = bounds
+        }
     }
 }
 

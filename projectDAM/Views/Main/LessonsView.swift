@@ -11,6 +11,7 @@ struct LessonsView: View {
     @State private var generatedQuiz: QuizSummary?
     @State private var navigateToGeneratedQuiz = false
     @State private var showingGameView = false
+    @State private var showingReelGenerator = false
     
     // MARK: - Initializers
     init(courseId: String, accessType: LessonAccessType, isOwned: Bool = false, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
@@ -34,6 +35,15 @@ struct LessonsView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if viewModel.lesson?.courseId != nil {
                     HStack(spacing: 12) {
+                        Button {
+                            showingReelGenerator = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "wand.and.stars")
+                                Text("Reel")
+                            }
+                        }
+                        
                         Button {
                             showingQuizGenerator = true
                         } label: {
@@ -79,6 +89,11 @@ struct LessonsView: View {
         .task { await viewModel.loadLesson() }
         .refreshable { await viewModel.loadLesson(force: true) }
         .onChange(of: viewModel.visibleVideos, perform: handleVideoListChange)
+        .sheet(isPresented: $showingReelGenerator) {
+            if let lesson = viewModel.lesson {
+                ReelGenerationView(lesson: lesson)
+            }
+        }
         .sheet(isPresented: $showingQuizGenerator) {
             if let lesson = viewModel.lesson {
                 QuizGeneratorView(lesson: lesson) { quiz in
