@@ -16,6 +16,10 @@ struct BookmarksView: View {
     
     var body: some View {
         GeometryReader { geometry in
+            let screenWidth = geometry.size.width
+            let screenHeight = geometry.size.height
+            let safeArea = geometry.safeAreaInsets
+            
             ZStack {
                 Color.black.ignoresSafeArea()
                 
@@ -26,15 +30,20 @@ struct BookmarksView: View {
                 } else if viewModel.bookmarkedReels.isEmpty {
                     emptyStateView
                 } else {
-                    reelsFeedView(geometry: geometry)
+                    reelsFeedView(
+                        screenWidth: screenWidth,
+                        screenHeight: screenHeight,
+                        safeArea: safeArea
+                    )
                 }
                 
                 // Custom Top Bar
                 VStack {
-                    topBar
+                    topBar(safeAreaTop: safeArea.top)
                     Spacer()
                 }
             }
+            .frame(width: screenWidth, height: screenHeight)
         }
         .navigationBarHidden(true)
         .ignoresSafeArea()
@@ -50,7 +59,7 @@ struct BookmarksView: View {
     }
     
     // MARK: - Top Bar
-    private var topBar: some View {
+    private func topBar(safeAreaTop: CGFloat) -> some View {
         HStack {
             Button {
                 dismiss()
@@ -71,12 +80,11 @@ struct BookmarksView: View {
             
             Spacer()
             
-            // Placeholder for symmetry
             Color.clear
                 .frame(width: 40, height: 40)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 50) // Account for status bar
+        .padding(.top, max(safeAreaTop, 44) + 4)
     }
     
     // MARK: - Loading View
@@ -201,28 +209,24 @@ struct BookmarksView: View {
     }
     
     // MARK: - Reels Feed View
-    private func reelsFeedView(geometry: GeometryProxy) -> some View {
-        let width = geometry.size.width
-        let height = geometry.size.height
-        
-        return TabView(selection: $currentReelId) {
+    private func reelsFeedView(screenWidth: CGFloat, screenHeight: CGFloat, safeArea: EdgeInsets) -> some View {
+        TabView(selection: $currentReelId) {
             ForEach(viewModel.bookmarkedReels) { reel in
                 BookmarkedReelView(
                     reel: reel,
                     viewModel: viewModel,
-                    safeAreaInsets: geometry.safeAreaInsets,
-                    screenSize: CGSize(width: width, height: height)
+                    safeAreaInsets: safeArea,
+                    screenSize: CGSize(width: screenWidth, height: screenHeight)
                 )
-                .frame(width: width, height: height)
+                .frame(width: screenWidth, height: screenHeight)
                 .rotationEffect(.degrees(-90))
-                .frame(width: height, height: width)
+                .frame(width: screenHeight, height: screenWidth)
                 .tag(Optional(reel.id))
             }
         }
-        .frame(width: height, height: width)
+        .frame(width: screenHeight, height: screenWidth)
         .rotationEffect(.degrees(90), anchor: .center)
-        .frame(width: width, height: height)
-        .position(x: width / 2, y: height / 2)
+        .frame(width: screenWidth, height: screenHeight)
         .tabViewStyle(.page(indexDisplayMode: .never))
         .indexViewStyle(.page(backgroundDisplayMode: .never))
         .onChange(of: currentReelId) { oldId, newId in
@@ -265,42 +269,50 @@ struct BookmarkedReelView: View {
     @State private var showPlayIcon = false
     @State private var showComments = false
     @State private var isLoading = true
+    @State private var cancellables = Set<AnyCancellable>()
+    
+    // Bottom padding that accounts for tab bar and safe area
+    private var bottomPadding: CGFloat {
+        max(safeAreaInsets.bottom, 34) + 70
+    }
     
     var body: some View {
         ZStack {
             Color.black
             
-            // Video Player
-            if let player = player {
-                PlayerView(player: player)
-                    .frame(width: screenSize.width, height: screenSize.height)
-                    .clipped()
-                    .onAppear {
-                        if isPlaying { player.play() }
-                        NotificationCenter.default.addObserver(
-                            forName: .AVPlayerItemDidPlayToEndTime,
-                            object: player.currentItem,
-                            queue: .main
-                        ) { _ in
-                            player.seek(to: .zero)
+            // Video Player - Centered
+            GeometryReader { geo in
+                if let player = player {
+                    PlayerView(player: player)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .contentShape(Rectangle())
+                        .onAppear {
                             if isPlaying { player.play() }
+                            NotificationCenter.default.addObserver(
+                                forName: .AVPlayerItemDidPlayToEndTime,
+                                object: player.currentItem,
+                                queue: .main
+                            ) { _ in
+                                player.seek(to: .zero)
+                                if isPlaying { player.play() }
+                            }
                         }
-                    }
-                    .onDisappear {
-                        player.pause()
-                    }
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isPlaying.toggle()
-                        }
-                        if isPlaying {
-                            player.play()
-                            showPlayIcon = false
-                        } else {
+                        .onDisappear {
                             player.pause()
-                            showPlayIcon = true
                         }
-                    }
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isPlaying.toggle()
+                            }
+                            if isPlaying {
+                                player.play()
+                                showPlayIcon = false
+                            } else {
+                                player.pause()
+                                showPlayIcon = true
+                            }
+                        }
+                }
             }
             
             // Skeleton while loading
@@ -309,7 +321,7 @@ struct BookmarkedReelView: View {
                     .frame(width: screenSize.width, height: screenSize.height)
             }
             
-            // Play/Pause Overlay
+            // Play/Pause Overlay - Centered
             if showPlayIcon {
                 Image(systemName: "play.fill")
                     .font(.system(size: 60))
@@ -320,14 +332,14 @@ struct BookmarkedReelView: View {
             }
             
             // Overlay Controls
-            VStack {
+            VStack(spacing: 0) {
                 Spacer()
                 
-                HStack(alignment: .bottom) {
+                HStack(alignment: .bottom, spacing: 12) {
                     // Left Side: Text Info
                     VStack(alignment: .leading, spacing: 8) {
                         // Bookmarked badge
-                        HStack {
+                        HStack(spacing: 4) {
                             Image(systemName: "bookmark.fill")
                                 .font(.system(size: 12))
                             Text("Saved")
@@ -354,7 +366,7 @@ struct BookmarkedReelView: View {
                                 .lineLimit(2)
                         }
                         
-                        HStack {
+                        HStack(spacing: 4) {
                             Image(systemName: "music.note")
                             Text("Original Audio")
                                 .font(.caption)
@@ -364,7 +376,7 @@ struct BookmarkedReelView: View {
                     }
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                     
                     // Right Side: Action Buttons
                     VStack(spacing: 20) {
@@ -387,10 +399,9 @@ struct BookmarkedReelView: View {
                             // Share action
                         }
                     }
-                    .padding(.bottom, 10)
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, max(safeAreaInsets.bottom, 34) + 80)
+                .padding(.bottom, bottomPadding)
             }
         }
         .frame(width: screenSize.width, height: screenSize.height)
@@ -446,14 +457,16 @@ struct BookmarkedReelView: View {
             }
         }
     }
-    
-    @State private var cancellables = Set<AnyCancellable>()
 }
 
 // MARK: - Bookmark Skeleton View
 struct BookmarkSkeletonView: View {
     let safeAreaInsets: EdgeInsets
     @State private var isAnimating = false
+    
+    private var bottomPadding: CGFloat {
+        max(safeAreaInsets.bottom, 34) + 70
+    }
     
     var body: some View {
         ZStack {
@@ -488,7 +501,7 @@ struct BookmarkSkeletonView: View {
             // Bottom skeleton placeholders
             VStack {
                 Spacer()
-                HStack(alignment: .bottom) {
+                HStack(alignment: .bottom, spacing: 12) {
                     VStack(alignment: .leading, spacing: 10) {
                         // Badge skeleton
                         RoundedRectangle(cornerRadius: 12)
@@ -506,11 +519,11 @@ struct BookmarkSkeletonView: View {
                             .frame(width: 160, height: 14)
                     }
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                     
                     // Action buttons skeleton
                     VStack(spacing: 20) {
-                        ForEach(0..<4) { _ in
+                        ForEach(0..<4, id: \.self) { _ in
                             VStack(spacing: 6) {
                                 Circle()
                                     .fill(Color.white.opacity(0.2))
@@ -523,7 +536,7 @@ struct BookmarkSkeletonView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, max(safeAreaInsets.bottom, 34) + 80)
+                .padding(.bottom, bottomPadding)
             }
         }
         .onAppear {
