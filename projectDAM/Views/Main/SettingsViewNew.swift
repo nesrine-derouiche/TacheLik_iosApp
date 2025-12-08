@@ -167,6 +167,16 @@ struct SettingsView: View {
                                     iconColor: .brandSuccess
                                 )
                             }
+                            
+                            Divider().padding(.leading, 56)
+                            
+                            NavigationLink(destination: BookmarksView()) {
+                                SettingsRowNavigation(
+                                    icon: "bookmark.fill",
+                                    title: "Saved Reels",
+                                    iconColor: .yellow
+                                )
+                            }
                         }
                         .background(Color(.systemBackground))
                         .cornerRadius(16)

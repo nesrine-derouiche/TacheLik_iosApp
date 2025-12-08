@@ -16,6 +16,8 @@ protocol ReelsServiceProtocol {
     func getComments(reelId: String) async throws -> [Comment]
     func deleteComment(reelId: String, commentId: String) async throws -> Int
     func generateReels(videoId: String) async throws -> [Reel]
+    func toggleBookmark(reelId: String) async throws -> Bool
+    func getBookmarkedReels() async throws -> [Reel]
 }
 
 final class ReelsService: ReelsServiceProtocol {
@@ -69,10 +71,6 @@ final class ReelsService: ReelsServiceProtocol {
         let body = ["content": content]
         let jsonData = try JSONSerialization.data(withJSONObject: body)
         
-        // Backend returns the full comment object + commentsCount
-        // We can create a custom response struct or decode Comment and handle count
-        // Based on controller: res.status(201).json({ ...commentFields, commentsCount })
-        
         struct AddCommentResponse: Decodable {
             let id: String
             let content: String
@@ -97,7 +95,7 @@ final class ReelsService: ReelsServiceProtocol {
             endpoint: "/reels/\(reelId)/comments",
             method: .GET,
             body: nil,
-            headers: authHeaders // comments can be public, but send auth if available? controller says public, but we can send if we want
+            headers: authHeaders
         )
     }
     
@@ -134,5 +132,35 @@ final class ReelsService: ReelsServiceProtocol {
         )
         
         return response.reels
+    }
+    
+    // MARK: - Bookmarks
+    func toggleBookmark(reelId: String) async throws -> Bool {
+        struct BookmarkResponse: Decodable {
+            let message: String
+            let bookmarked: Bool
+        }
+        
+        let response: BookmarkResponse = try await networkService.request(
+            endpoint: "/reels/\(reelId)/bookmark",
+            method: .POST,
+            body: nil,
+            headers: authHeaders
+        )
+        
+        print("[ReelsService] 🔖 Bookmark toggled for reel \(reelId): \(response.bookmarked)")
+        return response.bookmarked
+    }
+    
+    func getBookmarkedReels() async throws -> [Reel] {
+        let reels: [Reel] = try await networkService.request(
+            endpoint: "/reels/bookmarks/all",
+            method: .GET,
+            body: nil,
+            headers: authHeaders
+        )
+        
+        print("[ReelsService] 📚 Fetched \(reels.count) bookmarked reels")
+        return reels
     }
 }

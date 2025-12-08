@@ -10,6 +10,7 @@ import SwiftUI
 struct ReelGenerationView: View {
     @StateObject private var viewModel: GenerateReelViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showStreamView = false
     
     init(lesson: Lesson) {
         _viewModel = StateObject(wrappedValue: GenerateReelViewModel(lesson: lesson))
@@ -18,11 +19,14 @@ struct ReelGenerationView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemGroupedBackground)
+                // Background gradient
+                backgroundGradient
                     .ignoresSafeArea()
                 
                 if viewModel.isGenerating {
-                    loadingView
+                    advancedLoadingView
+                } else if viewModel.hasError {
+                    errorView
                 } else if viewModel.showSuccess {
                     successView
                 } else {
@@ -33,14 +37,32 @@ struct ReelGenerationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
+                    if !viewModel.isGenerating {
+                        Button("Cancel") {
+                            dismiss()
+                        }
                     }
                 }
             }
         }
+        .fullScreenCover(isPresented: $showStreamView) {
+            GeneratedReelStreamView(reels: viewModel.generatedReels)
+        }
     }
     
+    // MARK: - Background
+    private var backgroundGradient: some View {
+        LinearGradient(
+            colors: [
+                Color(.systemBackground),
+                Color(.systemGroupedBackground)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+    
+    // MARK: - Content View
     private var contentView: some View {
         VStack(spacing: 24) {
             headerSection
@@ -67,17 +89,31 @@ struct ReelGenerationView: View {
         .padding(.vertical, 24)
     }
     
+    // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 12) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 44))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.purple, .brandPrimary],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            // Animated icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.purple.opacity(0.2), .brandPrimary.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 36))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.purple, .brandPrimary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
             
             Text("Turn Lessons into Reels")
                 .font(.system(size: 22, weight: .bold))
@@ -90,6 +126,7 @@ struct ReelGenerationView: View {
         }
     }
     
+    // MARK: - Video Selection Card
     private func videoSelectionCard(_ video: VideoContent) -> some View {
         let isSelected = viewModel.selectedVideoId == video.id
         
@@ -136,6 +173,7 @@ struct ReelGenerationView: View {
         .buttonStyle(.plain)
     }
     
+    // MARK: - Generate Button
     private var generateButton: some View {
         Button {
             Task {
@@ -143,10 +181,8 @@ struct ReelGenerationView: View {
             }
         } label: {
             HStack(spacing: 8) {
-                if viewModel.isGenerating {
-                    ProgressView()
-                        .tint(.white)
-                }
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16))
                 Text("Generate Reel")
                     .fontWeight(.bold)
             }
@@ -165,68 +201,289 @@ struct ReelGenerationView: View {
         .opacity(viewModel.canGenerate ? 1 : 0.6)
     }
     
-    private var loadingView: some View {
-        VStack(spacing: 32) {
+    // MARK: - Advanced Loading View
+    private var advancedLoadingView: some View {
+        VStack(spacing: 40) {
+            Spacer()
+            
+            // Animated circular progress
             ZStack {
+                // Background circle
                 Circle()
                     .stroke(Color.gray.opacity(0.2), lineWidth: 8)
-                    .frame(width: 80, height: 80)
+                    .frame(width: 120, height: 120)
                 
+                // Progress circle
                 Circle()
-                    .trim(from: 0, to: 0.7)
+                    .trim(from: 0, to: viewModel.currentStage.progress)
                     .stroke(
-                        LinearGradient(colors: [.purple, .brandPrimary], startPoint: .top, endPoint: .bottom),
+                        AngularGradient(
+                            colors: [.purple, .brandPrimary, .purple],
+                            center: .center
+                        ),
                         style: StrokeStyle(lineWidth: 8, lineCap: .round)
                     )
-                    .frame(width: 80, height: 80)
-                    .rotationEffect(.degrees(360))
-                    .animation(Animation.linear(duration: 1.5).repeatForever(autoreverses: false), value: viewModel.isGenerating)
+                    .frame(width: 120, height: 120)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 0.5), value: viewModel.currentStage)
+                
+                // Inner content
+                VStack(spacing: 4) {
+                    Image(systemName: viewModel.currentStage.icon)
+                        .font(.system(size: 32))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.purple, .brandPrimary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .symbolEffect(.pulse, isActive: true)
+                    
+                    Text("\(Int(viewModel.currentStage.progress * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                }
             }
             
-            VStack(spacing: 8) {
-                Text("Creating Magic...")
-                    .font(.system(size: 20, weight: .bold))
-                Text("Our AI is analyzing the video to find the best moments.")
+            // Stage info
+            VStack(spacing: 12) {
+                Text(viewModel.currentStage.rawValue)
+                    .font(.system(size: 22, weight: .bold))
+                    .contentTransition(.numericText())
+                
+                Text("This may take a minute. Our AI is finding the best moments from your video.")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
+                
+                // Elapsed time
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.caption)
+                    Text("Elapsed: \(viewModel.formattedElapsedTime)")
+                        .font(.caption)
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.tertiary)
+                .padding(.top, 8)
             }
+            
+            // Stage indicators
+            HStack(spacing: 8) {
+                ForEach(GenerationStage.allCases, id: \.self) { stage in
+                    Circle()
+                        .fill(stageIndicatorColor(for: stage))
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(stage == viewModel.currentStage ? 1.3 : 1.0)
+                        .animation(.spring(response: 0.3), value: viewModel.currentStage)
+                }
+            }
+            .padding(.top, 16)
+            
+            Spacer()
+            
+            // Cancel hint
+            Text("Please don't close this screen")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.bottom, 32)
         }
     }
     
-    private var successView: some View {
+    private func stageIndicatorColor(for stage: GenerationStage) -> Color {
+        let stages = GenerationStage.allCases
+        guard let currentIndex = stages.firstIndex(of: viewModel.currentStage),
+              let stageIndex = stages.firstIndex(of: stage) else {
+            return .gray.opacity(0.3)
+        }
+        
+        if stageIndex < currentIndex {
+            return .green
+        } else if stageIndex == currentIndex {
+            return .brandPrimary
+        } else {
+            return .gray.opacity(0.3)
+        }
+    }
+    
+    // MARK: - Error View
+    private var errorView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
-                .scaleEffect(1.1)
-                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: viewModel.showSuccess)
+            Spacer()
             
-            Text("Reels Generated!")
-                .font(.system(size: 24, weight: .bold))
+            // Error icon with animation
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.15))
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: viewModel.generationError?.icon ?? "exclamationmark.triangle")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.orange)
+            }
             
-            Text("Your new reels are ready and have been added to the feed.")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 8) {
+                Text("Generation Failed")
+                    .font(.system(size: 24, weight: .bold))
+                
+                Text(viewModel.errorMessage ?? "An unexpected error occurred.")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
             
-            Button {
-                dismiss()
-                // In a real app, we might want to navigate to the Explore tab directly
-                // For now, dismissing allows the user to continue or go there manually
-            } label: {
-                Text("View in Feed")
-                    .fontWeight(.bold)
+            // Action buttons
+            VStack(spacing: 12) {
+                if viewModel.generationError?.isRetryable == true {
+                    Button {
+                        Task {
+                            await viewModel.retry()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Try Again")
+                        }
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [.brandPrimary, .purple],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundStyle(.white)
+                        .cornerRadius(16)
+                    }
+                }
+                
+                Button {
+                    viewModel.clearError()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.left")
+                        Text("Choose Different Video")
+                    }
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.brandPrimary)
-                    .foregroundStyle(.white)
+                    .background(Color(.systemGray5))
+                    .foregroundStyle(.primary)
                     .cornerRadius(16)
+                }
+                
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 8)
             }
             .padding(.horizontal, 32)
+            
+            Spacer()
         }
-        .padding(32)
+    }
+    
+    // MARK: - Success View
+    private var successView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            // Success icon with animation
+            ZStack {
+                // Outer glow
+                Circle()
+                    .fill(Color.green.opacity(0.1))
+                    .frame(width: 140, height: 140)
+                
+                Circle()
+                    .fill(Color.green.opacity(0.15))
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.green)
+                    .symbolEffect(.bounce, value: viewModel.showSuccess)
+            }
+            .scaleEffect(viewModel.showSuccess ? 1.0 : 0.5)
+            .animation(.spring(response: 0.4, dampingFraction: 0.6), value: viewModel.showSuccess)
+            
+            VStack(spacing: 8) {
+                Text("Reels Generated!")
+                    .font(.system(size: 24, weight: .bold))
+                
+                Text("\(viewModel.generatedReels.count) reel\(viewModel.generatedReels.count != 1 ? "s" : "") created from your video")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                if let elapsed = viewModel.generationStartTime {
+                    let duration = Date().timeIntervalSince(elapsed)
+                    Text("Completed in \(String(format: "%.0f", duration)) seconds")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 4)
+                }
+            }
+            
+            Spacer()
+            
+            // Buttons
+            VStack(spacing: 12) {
+                // Primary: Watch Now
+                Button {
+                    showStreamView = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16))
+                        Text("Watch Now")
+                            .fontWeight(.bold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [.brandPrimary, .purple],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundStyle(.white)
+                    .cornerRadius(16)
+                    .shadow(color: .brandPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .disabled(viewModel.generatedReels.isEmpty)
+                
+                // Secondary: View in Feed
+                Button {
+                    dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "safari.fill")
+                            .font(.system(size: 16))
+                        Text("Explore Feed")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemGray5))
+                    .foregroundStyle(.primary)
+                    .cornerRadius(16)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 32)
+        }
     }
 }
 

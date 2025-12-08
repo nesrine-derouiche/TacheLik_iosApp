@@ -19,6 +19,7 @@ struct Reel: Codable, Identifiable, Equatable {
     let likesCount: Int?
     let commentsCount: Int?
     let isLiked: Bool?
+    let isBookmarked: Bool?
     
     // Coding keys if needed to match JSON exactly (implicit match mostly fine)
     
@@ -44,7 +45,7 @@ struct Reel: Codable, Identifiable, Equatable {
     }
     
     static var endOfFeed: Reel {
-        return Reel(id: "END_OF_FEED", originalVideoUrl: nil, title: "All Caught Up", description: nil, filePath: nil, videoId: nil, startTime: nil, endTime: nil, likesCount: nil, commentsCount: nil, isLiked: nil)
+        return Reel(id: "END_OF_FEED", originalVideoUrl: nil, title: "All Caught Up", description: nil, filePath: nil, videoId: nil, startTime: nil, endTime: nil, likesCount: nil, commentsCount: nil, isLiked: nil, isBookmarked: nil)
     }
     
     // Helper to return a new copy with updated like status
@@ -60,7 +61,8 @@ struct Reel: Codable, Identifiable, Equatable {
             endTime: self.endTime,
             likesCount: count,
             commentsCount: self.commentsCount,
-            isLiked: isLiked
+            isLiked: isLiked,
+            isBookmarked: self.isBookmarked
         )
     }
     
@@ -77,7 +79,26 @@ struct Reel: Codable, Identifiable, Equatable {
             endTime: self.endTime,
             likesCount: self.likesCount,
             commentsCount: count,
-            isLiked: self.isLiked
+            isLiked: self.isLiked,
+            isBookmarked: self.isBookmarked
+        )
+    }
+    
+    // Helper to return a new copy with updated bookmark status
+    func updatingBookmark(isBookmarked: Bool) -> Reel {
+        return Reel(
+            id: self.id,
+            originalVideoUrl: self.originalVideoUrl,
+            title: self.title,
+            description: self.description,
+            filePath: self.filePath,
+            videoId: self.videoId,
+            startTime: self.startTime,
+            endTime: self.endTime,
+            likesCount: self.likesCount,
+            commentsCount: self.commentsCount,
+            isLiked: self.isLiked,
+            isBookmarked: isBookmarked
         )
     }
 }

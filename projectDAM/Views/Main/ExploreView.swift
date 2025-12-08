@@ -246,9 +246,10 @@ struct ReelView: View {
                             showComments = true
                         }
                         
-                        ActionButton(icon: "bookmark.fill", text: "Save") {
-                            // Bookmark action
-                            // TODO: Implement Bookmark
+                        ActionButton(icon: reel.isBookmarked == true ? "bookmark.fill" : "bookmark", text: reel.isBookmarked == true ? "Saved" : "Save", isSelected: reel.isBookmarked ?? false) {
+                            Task {
+                                await viewModel.toggleBookmark(reel: reel)
+                            }
                         }
                         
                         ActionButton(icon: "arrowshape.turn.up.right.fill", text: "Share") {
@@ -373,23 +374,68 @@ struct ActionButton: View {
     var isSelected: Bool = false
     let action: () -> Void
     
+    @State private var isPressed = false
+    
+    // Determine if this is a heart or bookmark button
+    private var isHeartButton: Bool {
+        icon == "heart.fill"
+    }
+    
+    private var isBookmarkButton: Bool {
+        icon == "bookmark.fill" || icon == "bookmark"
+    }
+    
+    private var selectedColor: Color {
+        if isHeartButton { return .red }
+        if isBookmarkButton { return .yellow }
+        return .brandPrimary
+    }
+    
     var body: some View {
-        Button(action: action) {
+        Button {
+            // Haptic feedback
+            let impactMed = UIImpactFeedbackGenerator(style: .medium)
+            impactMed.impactOccurred()
+            action()
+        } label: {
             VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 28))
-                    .foregroundColor(isSelected ? .red : .white)
-                    .scaleEffect(isSelected ? 1.1 : 1.0) // Subtle scale up when selected
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                ZStack {
+                    // Glow effect for selected state
+                    if isSelected && (isHeartButton || isBookmarkButton) {
+                        Circle()
+                            .fill(selectedColor.opacity(0.3))
+                            .frame(width: 44, height: 44)
+                            .blur(radius: 8)
+                    }
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 28, weight: isSelected ? .bold : .regular))
+                        .foregroundColor(isSelected ? selectedColor : .white)
+                        .scaleEffect(isSelected ? 1.15 : 1.0)
+                        .scaleEffect(isPressed ? 0.85 : 1.0)
+                }
+                .frame(width: 44, height: 44)
+                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isSelected)
+                .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
                 
                 Text(text)
                     .font(.caption)
-                    .foregroundColor(.white)
-                    // Monospaced digit for stable width as numbers change
-                    .monospacedDigit() 
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundColor(isSelected ? selectedColor : .white)
+                    .monospacedDigit()
             }
             .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
         }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressed { isPressed = true }
+                }
+                .onEnded { _ in
+                    isPressed = false
+                }
+        )
     }
 }
 

@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import UIKit
 
 @MainActor
 class ReelsViewModel: ObservableObject {
@@ -132,18 +133,7 @@ class ReelsViewModel: ObservableObject {
         let newCount = newLiked ? currentCount + 1 : max(0, currentCount - 1)
         
         // Optimistic Update
-        var updatedReel = reel
-        // Since attributes are let, we need to create a new instance.
-        // Swift structs with many fields are annoying to copy without a helper, 
-        // but for now we will reconstruct.
-        // Actually, let's just make Reel struct vars or add a copy method?
-        // Modifying the struct in Models/Reel.swift to have vars or a generic copy method is cleaner.
-        // For now, I will use a helper extension inside ViewModel or just reconstruct carefully.
-        
-        // Strategy: Use a helper method in Reel extension (I will add it below or assuming I update Reel.swift later? No, let's do it clean.)
-        // I will rely on a new `updatingLike` method on Reel.
-        
-        updatedReel = reel.updatingLike(isLiked: newLiked, count: newCount)
+        var updatedReel = reel.updatingLike(isLiked: newLiked, count: newCount)
         reels[index] = updatedReel
         
         do {
@@ -157,7 +147,40 @@ class ReelsViewModel: ObservableObject {
              if let reIndex = reels.firstIndex(where: { $0.id == reel.id }) {
                  reels[reIndex] = reels[reIndex].updatingLike(isLiked: isLiked, count: currentCount)
              }
-             print("Failed to toggle like: \(error)")
+             print("[ReelsViewModel] ❌ Failed to toggle like: \(error)")
+        }
+    }
+    
+    func toggleBookmark(reel: Reel) async {
+        guard let index = reels.firstIndex(where: { $0.id == reel.id }) else { return }
+        
+        let isBookmarked = reel.isBookmarked ?? false
+        let newBookmarked = !isBookmarked
+        
+        // Log action
+        print("[ReelsViewModel] 🔖 Bookmark action: reelId=\(reel.id), newState=\(newBookmarked), timestamp=\(ISO8601DateFormatter().string(from: Date()))")
+        
+        // Optimistic Update
+        reels[index] = reel.updatingBookmark(isBookmarked: newBookmarked)
+        
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        do {
+            let serverBookmarked = try await reelsService.toggleBookmark(reelId: reel.id)
+            // Sync with server response
+            if let reIndex = reels.firstIndex(where: { $0.id == reel.id }) {
+                reels[reIndex] = reels[reIndex].updatingBookmark(isBookmarked: serverBookmarked)
+            }
+            print("[ReelsViewModel] ✅ Bookmark synced: \(serverBookmarked)")
+        } catch {
+            // Revert on error
+            if let reIndex = reels.firstIndex(where: { $0.id == reel.id }) {
+                reels[reIndex] = reels[reIndex].updatingBookmark(isBookmarked: isBookmarked)
+            }
+            print("[ReelsViewModel] ❌ Failed to toggle bookmark: \(error)")
+            // TODO: Show error toast to user
         }
     }
     
