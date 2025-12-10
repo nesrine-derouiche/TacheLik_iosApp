@@ -9,6 +9,8 @@ import SwiftUI
 
 struct ChatListView: View {
     @StateObject private var viewModel = ChatViewModel()
+    @State private var hasLoadedConversations = false
+    @State private var isInChat = false  // Track if user is currently in a chat
 
     var body: some View {
         List(viewModel.conversations, id: \.conversationPartnerId) { message in
@@ -25,6 +27,20 @@ struct ChatListView: View {
                     otherUserName: otherName,
                     otherUserProfileImage: otherImage
                 )
+                .onAppear {
+                    print("🟢 [ChatListView] User entered chat - disabling conversation updates")
+                    isInChat = true
+                    viewModel.setShouldUpdateConversations(false)
+                }
+                .onDisappear {
+                    print("🟢 [ChatListView] User left chat - enabling conversation updates")
+                    isInChat = false
+                    viewModel.setShouldUpdateConversations(true)
+                    // Refresh conversations now that we're back
+                    Task {
+                        await viewModel.fetchConversations()
+                    }
+                }
             ) {
                 HStack {
                     // Profile Image
@@ -58,14 +74,27 @@ struct ChatListView: View {
                         .font(.subheadline)
                         .foregroundColor(.gray)
                     }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
                 }
                 .padding(.vertical, 4)
             }
         }
         .navigationTitle("Messages")
         .onAppear {
-            Task {
-                await viewModel.fetchConversations()
+            // Only fetch conversations once, not every time we return from chat
+            if !hasLoadedConversations {
+                print("🔵 [ChatListView] First appear - fetching conversations")
+                hasLoadedConversations = true
+                Task {
+                    await viewModel.fetchConversations()
+                }
+            } else {
+                print("🔵 [ChatListView] Returning from chat - NOT refetching to prevent navigation issues")
             }
         }
     }

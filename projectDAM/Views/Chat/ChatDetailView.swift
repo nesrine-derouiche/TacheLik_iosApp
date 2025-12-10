@@ -19,8 +19,16 @@ struct ChatDetailView: View {
     // ViewModel doesn't know "current user" implicitly unless we check Keychain/UserDefaults.
     let currentUserId = UserDefaults.standard.string(forKey: "userId") ?? ""
 
+    init(otherUserId: String, otherUserName: String, otherUserProfileImage: String?) {
+        self.otherUserId = otherUserId
+        self.otherUserName = otherUserName
+        self.otherUserProfileImage = otherUserProfileImage
+        print("🔵 [ChatDetailView] INIT - otherUserId: \(otherUserId), otherUserName: \(otherUserName)")
+    }
+
     var body: some View {
-        VStack {
+        print("🔵 [ChatDetailView] BODY CALLED - otherUserId: \(otherUserId)")
+        return VStack {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .foregroundColor(.red)
@@ -70,10 +78,16 @@ struct ChatDetailView: View {
                     .cornerRadius(8)
 
                 Button(action: {
-                    guard !messageText.isEmpty else { return }
+                    print("🟢 [ChatDetailView] SEND BUTTON TAPPED - messageText: '\(messageText)'")
+                    guard !messageText.isEmpty else {
+                        print("🔴 [ChatDetailView] Message is empty, not sending")
+                        return
+                    }
                     let textToSend = messageText
+                    print("🟢 [ChatDetailView] Clearing messageText and calling sendMessageWithText")
                     messageText = ""  // Clear local state
                     viewModel.sendMessageWithText(receiverId: otherUserId, text: textToSend)
+                    print("🟢 [ChatDetailView] sendMessageWithText completed")
                 }) {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 22))
@@ -89,9 +103,13 @@ struct ChatDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .hideTabBar(true)  // Hide custom tab bar using PreferenceKey
         .onAppear {
+            print("🟡 [ChatDetailView] ON APPEAR - otherUserId: \(otherUserId)")
             Task {
                 await viewModel.fetchHistory(userId: otherUserId)
             }
+        }
+        .onDisappear {
+            print("🔴 [ChatDetailView] ON DISAPPEAR - otherUserId: \(otherUserId)")
         }
     }
 }
