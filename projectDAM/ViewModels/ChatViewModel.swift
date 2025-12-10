@@ -127,15 +127,24 @@ class ChatViewModel: ObservableObject {
 
         // Only update conversations list if allowed (not while user is in a chat)
         if shouldUpdateConversations {
-            // Update conversations list (move to top or add)
-            if let index = conversations.firstIndex(where: {
-                $0.senderId == message.senderId || $0.receiverId == message.senderId
+            // Smart update: Find existing conversation and update it, or add new one
+            let otherUserId = message.senderId == UserDefaults.standard.string(forKey: "userId") 
+                ? message.receiverId 
+                : message.senderId
+            
+            if let index = conversations.firstIndex(where: { conv in
+                conv.senderId == otherUserId || conv.receiverId == otherUserId
             }) {
-                conversations[index] = message
+                // Update existing conversation with new message and move to top
+                var updatedConversation = message
+                conversations.remove(at: index)
+                conversations.insert(updatedConversation, at: 0)
+                print("✅ [ChatViewModel] Updated and moved conversation to top")
             } else {
+                // Add new conversation at top
                 conversations.insert(message, at: 0)
+                print("✅ [ChatViewModel] Added new conversation at top")
             }
-            print("✅ [ChatViewModel] Updated conversations list")
         } else {
             print("⏸️ [ChatViewModel] Skipped conversation update (user in chat)")
         }
