@@ -10,8 +10,11 @@ import UIKit
 
 struct TeacherCourseLessonsView: View {
     @StateObject private var viewModel: TeacherCourseLessonsViewModel
-    
-    init(course: TeacherCourse, classItem: TeacherClass, viewModel: TeacherCourseLessonsViewModel? = nil) {
+
+    init(
+        course: TeacherCourse, classItem: TeacherClass,
+        viewModel: TeacherCourseLessonsViewModel? = nil
+    ) {
         if let provided = viewModel {
             _viewModel = StateObject(wrappedValue: provided)
         } else {
@@ -30,7 +33,7 @@ struct TeacherCourseLessonsView: View {
             )
         }
     }
-    
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
@@ -64,22 +67,42 @@ struct TeacherCourseLessonsView: View {
             }
             .presentationDetents([.large])
         }
-        .alert("Unable to load content", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { newValue in
-                if !newValue { viewModel.clearError() }
-            }
-        )) {
+        .alert(
+            "Unable to load content",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { newValue in
+                    if !newValue { viewModel.clearError() }
+                }
+            )
+        ) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "An unexpected error occurred.")
         }
     }
-    
+
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Course Lessons")
-                .font(.system(size: 28, weight: .bold))
+            HStack {
+                Text("Course Lessons")
+                    .font(.system(size: 28, weight: .bold))
+                Spacer()
+                if let author = viewModel.course.author {
+                    NavigationLink(
+                        destination: ChatDetailView(
+                            otherUserId: author.id,
+                            otherUserName: author.username ?? "Teacher",
+                            otherUserProfileImage: author.image
+                        )
+                    ) {
+                        Image(systemName: "message.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
+                            .font(.system(size: 32))
+                            .foregroundColor(.brandPrimary)
+                    }
+                }
+            }
             Text(viewModel.courseTitle)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.primary)
@@ -88,7 +111,7 @@ struct TeacherCourseLessonsView: View {
                 .foregroundColor(.secondary)
         }
     }
-    
+
     private var metaSection: some View {
         HStack(spacing: 12) {
             pillView(icon: "person.3", title: viewModel.studentCountLabel)
@@ -98,13 +121,14 @@ struct TeacherCourseLessonsView: View {
             Spacer()
         }
     }
-    
+
     private var contentBlocks: some View {
         Group {
             if viewModel.isLoading && viewModel.displayedBlocks.isEmpty {
                 skeletonCards
             } else if viewModel.displayedBlocks.isEmpty {
-                TeacherLessonEmptyStateCard(message: "No lesson content yet. Tap Add Lesson to get started.")
+                TeacherLessonEmptyStateCard(
+                    message: "No lesson content yet. Tap Add Lesson to get started.")
             } else {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     ForEach(viewModel.displayedRenderableItems) { item in
@@ -114,39 +138,41 @@ struct TeacherCourseLessonsView: View {
             }
         }
     }
-    
+
     private func blockView(for item: TeacherLessonRenderableItem) -> some View {
         switch item {
-        case let .title(_, text):
-            return AnyView(Text(text)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.primary))
-        case let .subtitle(_, text):
-            return AnyView(Text(text)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.secondary)
-                .textCase(.uppercase))
-        case let .paragraph(_, text, style):
+        case .title(_, let text):
+            return AnyView(
+                Text(text)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primary))
+        case .subtitle(_, let text):
+            return AnyView(
+                Text(text)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase))
+        case .paragraph(_, let text, let style):
             return AnyView(paragraphCard(text: text, boxed: style == .boxed))
-        case let .latex(_, content):
+        case .latex(_, let content):
             return AnyView(LessonLatexBlockView(latex: content, accessibilityLabel: content))
-        case let .image(_, reference, caption):
+        case .image(_, let reference, let caption):
             return AnyView(lessonImage(reference: reference, caption: caption))
-        case let .pdf(_, reference, label):
+        case .pdf(_, let reference, let label):
             return AnyView(pdfCard(reference: reference, label: label))
-        case let .link(_, label, detail, url):
+        case .link(_, let label, let detail, let url):
             return AnyView(linkCard(label: label, detail: detail, url: url))
-        case let .checklist(_, items):
+        case .checklist(_, let items):
             return AnyView(checklistCard(items: items))
-        case let .code(_, reference, filename, language):
+        case .code(_, let reference, let filename, let language):
             return AnyView(codeCard(reference: reference, filename: filename, language: language))
         case .divider:
             return AnyView(Divider().padding(.vertical, 8))
-        case let .unknown(_, raw, fallback):
+        case .unknown(_, let raw, let fallback):
             return AnyView(unknownBlock(type: raw, content: fallback))
         }
     }
-    
+
     private func paragraphCard(text: String, boxed: Bool) -> some View {
         Text(text)
             .font(.system(size: 15, weight: .regular))
@@ -158,13 +184,13 @@ struct TeacherCourseLessonsView: View {
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(boxed ? 0.05 : 0), radius: boxed ? 12 : 0)
     }
-    
+
     private func lessonImage(reference: LessonMediaReference, caption: String?) -> some View {
         LessonRemoteImageView(reference: reference, caption: caption) { ref in
             try await viewModel.imageData(for: ref)
         }
     }
-    
+
     private func pdfCard(reference: LessonMediaReference, label: String) -> some View {
         Button {
             Task {
@@ -197,7 +223,7 @@ struct TeacherCourseLessonsView: View {
         }
         .buttonStyle(.plain)
     }
-    
+
     private func linkCard(label: String, detail: String?, url: URL?) -> some View {
         Button {
             guard let target = url else { return }
@@ -229,10 +255,10 @@ struct TeacherCourseLessonsView: View {
         .buttonStyle(.plain)
         .disabled(url == nil)
     }
-    
+
     private func checklistCard(items: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-                ForEach(items, id: \.self) { item in
+            ForEach(items, id: \.self) { item in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14, weight: .bold))
@@ -248,7 +274,7 @@ struct TeacherCourseLessonsView: View {
         .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground)))
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
     }
-    
+
     private func unknownBlock(type: String, content: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Unsupported block (\(type))")
@@ -264,13 +290,15 @@ struct TeacherCourseLessonsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 18).fill(Color(.secondarySystemBackground)))
     }
-    
-    private func codeCard(reference: LessonMediaReference, filename: String?, language: String?) -> some View {
+
+    private func codeCard(reference: LessonMediaReference, filename: String?, language: String?)
+        -> some View
+    {
         LessonCodeBlock(reference: reference, filename: filename, language: language) { ref in
             await viewModel.documentURL(for: ref, fileExtension: "code")
         }
     }
-    
+
     private var skeletonCards: some View {
         VStack(spacing: 16) {
             TeacherLessonSkeletonCard(height: 200)
@@ -278,7 +306,7 @@ struct TeacherCourseLessonsView: View {
             TeacherLessonSkeletonCard(height: 220)
         }
     }
-    
+
     private func pillView(icon: String, title: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
@@ -290,7 +318,7 @@ struct TeacherCourseLessonsView: View {
         .padding(.vertical, 6)
         .background(Capsule().fill(Color(.secondarySystemBackground)))
     }
-    
+
     private var addLessonButton: some View {
         Button {
             viewModel.showAddLessonSheet = true
@@ -304,19 +332,22 @@ struct TeacherCourseLessonsView: View {
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(LinearGradient(colors: [Color.brandPrimary, Color.brandPrimaryHover], startPoint: .leading, endPoint: .trailing))
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.brandPrimary, Color.brandPrimaryHover],
+                            startPoint: .leading, endPoint: .trailing))
             )
             .foregroundColor(.white)
             .padding(.horizontal, DS.paddingMD)
             .padding(.vertical, 12)
         }
     }
-    
+
 }
 
 private struct TeacherLessonEmptyStateCard: View {
     let message: String
-    
+
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "text.book.closed")
@@ -340,12 +371,14 @@ private struct TeacherLessonEmptyStateCard: View {
 private struct TeacherLessonSkeletonCard: View {
     let height: CGFloat
     @State private var phase: CGFloat = 0
-    
+
     var body: some View {
         RoundedRectangle(cornerRadius: 24)
             .fill(
                 LinearGradient(
-                    gradient: Gradient(colors: [Color(.systemGray6), Color(.systemGray5), Color(.systemGray6)]),
+                    gradient: Gradient(colors: [
+                        Color(.systemGray6), Color(.systemGray5), Color(.systemGray6),
+                    ]),
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -353,7 +386,10 @@ private struct TeacherLessonSkeletonCard: View {
             .frame(height: height)
             .overlay(
                 LinearGradient(
-                    gradient: Gradient(colors: [Color.white.opacity(0.0), Color.white.opacity(0.5), Color.white.opacity(0.0)]),
+                    gradient: Gradient(colors: [
+                        Color.white.opacity(0.0), Color.white.opacity(0.5),
+                        Color.white.opacity(0.0),
+                    ]),
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -369,11 +405,11 @@ private struct LessonRemoteImageView: View {
     let reference: LessonMediaReference
     let caption: String?
     let loader: (LessonMediaReference) async throws -> Data
-    
+
     @State private var image: Image?
     @State private var isLoading = false
     @State private var error: String?
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
@@ -402,7 +438,7 @@ private struct LessonRemoteImageView: View {
             .frame(maxWidth: .infinity)
             .clipped()
             .cornerRadius(24)
-            
+
             if let caption, !caption.isEmpty {
                 Text(caption)
                     .font(.system(size: 13, weight: .medium))
@@ -411,7 +447,7 @@ private struct LessonRemoteImageView: View {
         }
         .task(id: reference.blockId) { await loadImage() }
     }
-    
+
     private func loadImage() async {
         guard !isLoading, image == nil else { return }
         isLoading = true
@@ -434,11 +470,11 @@ private struct LessonCodeBlock: View {
     let filename: String?
     let language: String?
     let loader: (LessonMediaReference) async -> URL?
-    
+
     @State private var code: String?
     @State private var isLoading = false
     @State private var errorMessage: String?
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
@@ -470,7 +506,7 @@ private struct LessonCodeBlock: View {
         .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 8)
         .task(id: reference.blockId) { await loadCode() }
     }
-    
+
     private var header: some View {
         HStack {
             if let filename, !filename.isEmpty {
@@ -497,7 +533,7 @@ private struct LessonCodeBlock: View {
             .disabled(code == nil)
         }
     }
-    
+
     private func loadCode() async {
         guard !isLoading else { return }
         isLoading = true
@@ -520,7 +556,7 @@ private struct AddLessonSheetView: View {
     @Binding var form: AddLessonForm
     var onSubmit: () -> Void
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationView {
             Form {
@@ -556,7 +592,7 @@ private struct AddLessonSheetView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private var dynamicFields: some View {
         switch form.type {
@@ -568,7 +604,7 @@ private struct AddLessonSheetView: View {
         default:
             EmptyView()
         }
-        
+
         if form.type == .link {
             Section(header: Text("Link Details")) {
                 TextField("Label", text: $form.body)
@@ -578,21 +614,21 @@ private struct AddLessonSheetView: View {
                     .textContentType(.URL)
             }
         }
-        
+
         if form.type == .pdf {
             Section(header: Text("PDF")) {
                 TextField("File name", text: $form.filename)
                 TextField("Description", text: $form.body)
             }
         }
-        
+
         if form.type == .fullImage {
             Section(header: Text("Image")) {
                 TextField("Image file", text: $form.filename)
                 TextField("Caption", text: $form.body)
             }
         }
-        
+
         if form.type == .checklist {
             Section(header: Text("Checklist items")) {
                 TextEditor(text: $form.checklistRaw)
@@ -602,7 +638,7 @@ private struct AddLessonSheetView: View {
                     .foregroundColor(.secondary)
             }
         }
-        
+
         if form.type == .code {
             Section(header: Text("Metadata")) {
                 TextField("Filename", text: $form.filename)

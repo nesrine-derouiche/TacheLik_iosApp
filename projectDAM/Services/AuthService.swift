@@ -194,6 +194,7 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
     /// Logout current user
     func logout() async throws {
         UserDefaults.standard.removeObject(forKey: tokenKey)
+        UserDefaults.standard.removeObject(forKey: "userId")
         UserDefaults.standard.set(true, forKey: logoutFlagKey) // Mark that user manually logged out
         currentUser = nil
     }
@@ -401,9 +402,9 @@ final class AuthService: AuthServiceProtocol, ObservableObject {
     // MARK: - Private Methods
     
     private func saveUser(_ user: User, token: String) {
-        // Only save token, not user data
-        // User data will always be fetched fresh from API
+        // Save token and minimal user info needed for app logic
         UserDefaults.standard.set(token, forKey: tokenKey)
+        UserDefaults.standard.set(user.id, forKey: "userId") // Needed for chat logic
         currentUser = user
     }
     

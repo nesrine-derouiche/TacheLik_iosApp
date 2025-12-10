@@ -10,18 +10,25 @@ struct LessonsView: View {
     @State private var showingQuizGenerator = false
     @State private var generatedQuiz: QuizSummary?
     @State private var navigateToGeneratedQuiz = false
+    @State private var navigateToChat = false
     @State private var showingGameView = false
     @State private var showingReelGenerator = false
-    
+
     // MARK: - Initializers
-    init(courseId: String, accessType: LessonAccessType, isOwned: Bool = false, lessonService: LessonServiceProtocol = DIContainer.shared.lessonService) {
-        _viewModel = StateObject(wrappedValue: LessonsViewModel(courseId: courseId, accessType: accessType, isOwned: isOwned, lessonService: lessonService))
+    init(
+        courseId: String, accessType: LessonAccessType, isOwned: Bool = false,
+        lessonService: LessonServiceProtocol = DIContainer.shared.lessonService
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: LessonsViewModel(
+                courseId: courseId, accessType: accessType, isOwned: isOwned,
+                lessonService: lessonService))
     }
-    
+
     init(viewModel: LessonsViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
-    
+
     // MARK: - Body
     var body: some View {
         ZStack {
@@ -36,6 +43,15 @@ struct LessonsView: View {
                 if viewModel.lesson?.courseId != nil {
                     HStack(spacing: 12) {
                         Button {
+                            navigateToChat = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "message.fill")
+                                Text("Message")
+                            }
+                        }
+
+                        Button {
                             showingReelGenerator = true
                         } label: {
                             HStack(spacing: 6) {
@@ -43,7 +59,7 @@ struct LessonsView: View {
                                 Text("Reel")
                             }
                         }
-                        
+
                         Button {
                             showingQuizGenerator = true
                         } label: {
@@ -52,7 +68,7 @@ struct LessonsView: View {
                                 Text("Quiz")
                             }
                         }
-                        
+
                         Button {
                             showingGameView = true
                         } label: {
@@ -86,6 +102,21 @@ struct LessonsView: View {
             }
             .hidden()
         )
+        .background(
+            Group {
+                if let lesson = viewModel.lesson {
+                    NavigationLink(
+                        destination: ChatDetailView(
+                            otherUserId: lesson.teacher.id,
+                            otherUserName: lesson.teacher.name,
+                            otherUserProfileImage: lesson.teacher.profileImage
+                        ),
+                        isActive: $navigateToChat
+                    ) { EmptyView() }
+                }
+            }
+            .hidden()
+        )
         .task { await viewModel.loadLesson() }
         .refreshable { await viewModel.loadLesson(force: true) }
         .onChange(of: viewModel.visibleVideos, perform: handleVideoListChange)
@@ -104,11 +135,12 @@ struct LessonsView: View {
         }
         .fullScreenCover(isPresented: $showingGameView) {
             if let courseId = viewModel.lesson?.courseId {
-                AIGameSelectionView(courseId: courseId, courseName: viewModel.lesson?.title ?? "Course")
+                AIGameSelectionView(
+                    courseId: courseId, courseName: viewModel.lesson?.title ?? "Course")
             }
         }
     }
-    
+
     // MARK: - Content States
     @ViewBuilder
     private var content: some View {
@@ -137,7 +169,7 @@ struct LessonsView: View {
             emptyState
         }
     }
-    
+
     // MARK: - Sections
     private func headerSection(for lesson: Lesson) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -148,7 +180,7 @@ struct LessonsView: View {
                 }
             }
             .padding(.horizontal, DS.paddingMD)
-            
+
             Text(lesson.title)
                 .font(.system(size: 30, weight: .black, design: .rounded))
                 .lineSpacing(4)
@@ -156,15 +188,15 @@ struct LessonsView: View {
                 .padding(.horizontal, DS.paddingMD)
         }
     }
-    
+
     private func metadataSection(for lesson: Lesson) -> some View {
         let totalMinutes = lesson.videos.reduce(0) { $0 + $1.duration } / 60
         let stats: [(String, String, String)] = [
             ("play.rectangle.fill", "Videos", "\(lesson.videos.count)"),
             ("clock.fill", "Runtime", "\(totalMinutes) min"),
-            ("book.fill", "Course", lesson.courseId ?? "—")
+            ("book.fill", "Course", lesson.courseId ?? "—"),
         ]
-        
+
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 14) {
                 ForEach(stats, id: \.1) { stat in
@@ -174,7 +206,7 @@ struct LessonsView: View {
             .padding(.horizontal, DS.paddingMD)
         }
     }
-    
+
     private var videoHeroSection: some View {
         let currentVideo = selectedVideo
         return VStack(alignment: .leading, spacing: 16) {
@@ -193,7 +225,7 @@ struct LessonsView: View {
                             )
                         )
                         .frame(height: 220)
-                    
+
                     VStack(spacing: 10) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 28, weight: .bold))
@@ -218,13 +250,13 @@ struct LessonsView: View {
                             )
                         )
                         .frame(height: 220)
-                    
+
                     VStack(alignment: .leading, spacing: 10) {
                         Text(currentVideo?.title ?? "Select a video")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(2)
-                        
+
                         HStack(spacing: 12) {
                             infoPill(icon: "clock", text: currentVideo?.formattedDuration ?? "–")
                                 .foregroundColor(.white.opacity(0.9))
@@ -246,7 +278,7 @@ struct LessonsView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedVideoId)
         .padding(.horizontal, DS.paddingMD)
     }
-    
+
     private var videoTimelineSection: some View {
         VStack(spacing: 0) {
             HStack {
@@ -258,19 +290,21 @@ struct LessonsView: View {
                 }
             }
             .padding([.horizontal, .bottom], DS.paddingMD)
-            
+
             if viewModel.visibleVideos.isEmpty {
                 EmptyStateCard(message: "Videos will appear here once available.")
                     .padding(.horizontal, DS.paddingMD)
                     .padding(.bottom, DS.paddingMD)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(viewModel.visibleVideos.enumerated()), id: \.element.id) { index, video in
+                    ForEach(Array(viewModel.visibleVideos.enumerated()), id: \.element.id) {
+                        index, video in
                         VideoListItemView(
                             video: video,
                             isSelected: selectedVideoId == video.id,
                             index: index + 1,
-                            isLocked: viewModel.isLockedPaidCourse && viewModel.accessType == .privateCourse
+                            isLocked: viewModel.isLockedPaidCourse
+                                && viewModel.accessType == .privateCourse
                         )
                         .onTapGesture {
                             guard !viewModel.isLockedPaidCourse else { return }
@@ -281,14 +315,15 @@ struct LessonsView: View {
                                 updateYouTubePlayer(with: video)
                             } else {
                                 Task {
-                                    await DIContainer.shared.vdoCipherService.playPaidVideo(videoId: video.id)
+                                    await DIContainer.shared.vdoCipherService.playPaidVideo(
+                                        videoId: video.id)
                                 }
                             }
                         }
                         .onAppear {
                             viewModel.loadMoreVideosIfNeeded(currentVideoId: video.id)
                         }
-                        
+
                         if index < viewModel.visibleVideos.count - 1 {
                             Divider()
                                 .padding(.horizontal, DS.paddingMD)
@@ -296,7 +331,7 @@ struct LessonsView: View {
                     }
                 }
             }
-            
+
             if viewModel.hasMoreVideos {
                 HStack(spacing: 12) {
                     ProgressView()
@@ -314,7 +349,7 @@ struct LessonsView: View {
         .padding(.horizontal, DS.paddingMD)
         .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 4)
     }
-    
+
     private func lessonDescriptionSection(_ description: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
@@ -332,7 +367,7 @@ struct LessonsView: View {
         .padding(.horizontal, DS.paddingMD)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
-    
+
     private func footerSection(for lesson: Lesson) -> some View {
         VStack(spacing: 6) {
             Text("Need this lesson offline?")
@@ -351,7 +386,7 @@ struct LessonsView: View {
         )
         .padding(.horizontal, DS.paddingMD)
     }
-    
+
     // MARK: - States
     private var loadingState: some View {
         VStack(spacing: 20) {
@@ -361,7 +396,7 @@ struct LessonsView: View {
         }
         .padding(24)
     }
-    
+
     private func errorState(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -385,7 +420,7 @@ struct LessonsView: View {
         }
         .padding(32)
     }
-    
+
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "book")
@@ -399,7 +434,7 @@ struct LessonsView: View {
         }
         .padding(32)
     }
-    
+
     // MARK: - Helpers
     private var accessBadge: some View {
         let label: String
@@ -414,7 +449,7 @@ struct LessonsView: View {
             label = "Premium Lesson"
             colors = [Color.purple.opacity(0.9), Color.purple.opacity(0.7)]
         }
-        
+
         return Text(label)
             .font(.system(size: 12, weight: .bold))
             .foregroundColor(.white)
@@ -422,10 +457,12 @@ struct LessonsView: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(
+                        LinearGradient(
+                            colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
             )
     }
-    
+
     private func infoPill(icon: String, text: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
@@ -438,7 +475,7 @@ struct LessonsView: View {
         .background(Color.white.opacity(0.2))
         .clipShape(Capsule())
     }
-    
+
     private func statCard(icon: String, title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: icon)
@@ -456,7 +493,7 @@ struct LessonsView: View {
         .cornerRadius(18)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
-    
+
     private func formattedDate(_ isoString: String?) -> String? {
         guard let isoString else { return nil }
         let formatter = ISO8601DateFormatter()
@@ -465,7 +502,7 @@ struct LessonsView: View {
         displayFormatter.dateStyle = .medium
         return displayFormatter.string(from: date)
     }
-    
+
     private func handleVideoListChange(_ videos: [VideoContent]) {
         guard let first = videos.first else {
             selectedVideoId = nil
@@ -483,15 +520,17 @@ struct LessonsView: View {
             }
         }
     }
-    
+
     private var selectedVideo: VideoContent? {
         guard let id = selectedVideoId else { return viewModel.visibleVideos.first }
-        return viewModel.visibleVideos.first(where: { $0.id == id }) ?? viewModel.visibleVideos.first
+        return viewModel.visibleVideos.first(where: { $0.id == id })
+            ?? viewModel.visibleVideos.first
     }
 
     private func updateYouTubePlayer(with video: VideoContent) {
         guard viewModel.accessType == .publicCourse,
-              let youtubeId = video.youtubeVideoId else {
+            let youtubeId = video.youtubeVideoId
+        else {
             return
         }
         print("[LessonsView] Updating YouTube player with id=\(youtubeId) for video id=\(video.id)")
@@ -511,21 +550,27 @@ struct VideoListItemView: View {
     let isSelected: Bool
     let index: Int
     let isLocked: Bool
-    
+
     @State private var isPressed = false
-    
+
     var body: some View {
         HStack(spacing: DS.paddingMD) {
             ZStack {
                 Circle()
                     .fill(
                         isLocked
-                        ? LinearGradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : (
-                            isSelected
-                            ? LinearGradient(colors: [Color.brandPrimary, Color.brandPrimaryHover], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            : LinearGradient(colors: [Color(.secondarySystemBackground), Color(.tertiarySystemBackground)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
+                            ? LinearGradient(
+                                colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.4)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : (isSelected
+                                ? LinearGradient(
+                                    colors: [Color.brandPrimary, Color.brandPrimaryHover],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(
+                                    colors: [
+                                        Color(.secondarySystemBackground),
+                                        Color(.tertiarySystemBackground),
+                                    ], startPoint: .topLeading, endPoint: .bottomTrailing))
                     )
                 if isLocked {
                     Image(systemName: "lock.fill")
@@ -542,8 +587,10 @@ struct VideoListItemView: View {
                 }
             }
             .frame(width: 42, height: 42)
-            .shadow(color: isSelected ? Color.brandPrimary.opacity(0.25) : .clear, radius: 8, x: 0, y: 2)
-            
+            .shadow(
+                color: isSelected ? Color.brandPrimary.opacity(0.25) : .clear, radius: 8, x: 0, y: 2
+            )
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(video.title)
                     .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
@@ -559,12 +606,15 @@ struct VideoListItemView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            Image(systemName: isLocked ? "lock.fill" : (isSelected ? "checkmark.circle.fill" : "chevron.right"))
-                .font(.system(size: isSelected ? 18 : 12, weight: .semibold))
-                .foregroundColor(isLocked ? .secondary : (isSelected ? .brandPrimary : .secondary))
-                .opacity(isLocked ? 0.7 : (isSelected ? 1 : 0.4))
+            Image(
+                systemName: isLocked
+                    ? "lock.fill" : (isSelected ? "checkmark.circle.fill" : "chevron.right")
+            )
+            .font(.system(size: isSelected ? 18 : 12, weight: .semibold))
+            .foregroundColor(isLocked ? .secondary : (isSelected ? .brandPrimary : .secondary))
+            .opacity(isLocked ? 0.7 : (isSelected ? 1 : 0.4))
         }
         .padding(DS.paddingMD)
         .contentShape(Rectangle())
@@ -579,7 +629,7 @@ struct VideoListItemView: View {
 private struct ShimmerCard: View {
     var height: CGFloat
     @State private var phase: CGFloat = -1
-    
+
     var body: some View {
         RoundedRectangle(cornerRadius: 24, style: .continuous)
             .fill(Color(.secondarySystemBackground))
@@ -587,7 +637,10 @@ private struct ShimmerCard: View {
             .overlay(
                 GeometryReader { geometry in
                     LinearGradient(
-                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.6), Color.white.opacity(0.1)],
+                        colors: [
+                            Color.white.opacity(0.1), Color.white.opacity(0.6),
+                            Color.white.opacity(0.1),
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

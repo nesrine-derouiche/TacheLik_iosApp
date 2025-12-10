@@ -2,20 +2,22 @@ import SwiftUI
 
 struct MainTabView: View {
     // MARK: - Student Tabs
-    enum StudentTab: Int, CaseIterable { case home, classes, explore, quiz, settings }
-    
+    enum StudentTab: Int, CaseIterable { case home, classes, explore, quiz, messages, settings }
+
     // MARK: - Admin Tabs
     enum AdminTab: Int, CaseIterable { case dashboard, requests, quizzes, users, settings }
-    
+
     // MARK: - Teacher Tabs
     enum TeacherTab: Int, CaseIterable { case dashboard, myClasses, quizzes, messages, settings }
-    
+
     // MARK: - Properties
     @StateObject private var roleManager = DIContainer.shared.roleManager
     @State private var selectedStudentTab: StudentTab = .home
     @State private var selectedAdminTab: AdminTab = .dashboard
     @State private var selectedTeacherTab: TeacherTab = .dashboard
-    
+
+    @State private var isTabBarHidden: Bool = false
+
     var body: some View {
         ZStack(alignment: .bottom) {
             Group {
@@ -29,19 +31,29 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
+
             // Show appropriate tab bar based on role
-            if roleManager.currentRole == .admin {
-                adminTabBar()
-            } else if roleManager.currentRole == .mentor {
-                teacherTabBar()
-            } else {
-                studentTabBar()
+            if !isTabBarHidden {
+                if roleManager.currentRole == .admin {
+                    adminTabBar()
+                        .transition(.move(edge: .bottom))
+                } else if roleManager.currentRole == .mentor {
+                    teacherTabBar()
+                        .transition(.move(edge: .bottom))
+                } else {
+                    studentTabBar()
+                        .transition(.move(edge: .bottom))
+                }
             }
         }
         .ignoresSafeArea(.keyboard)
+        .onPreferenceChange(TabBarHiddenKey.self) { value in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isTabBarHidden = value
+            }
+        }
     }
-    
+
     // MARK: - Student Tab Content
     @ViewBuilder
     private func studentTabContent() -> some View {
@@ -50,10 +62,15 @@ struct MainTabView: View {
         case .classes: ClassesView()
         case .explore: ExploreView()
         case .quiz: StudentQuizListView()
+        case .messages: 
+            NavigationView {
+                ChatListView()
+            }
+            .navigationViewStyle(.stack)
         case .settings: SettingsView()
         }
     }
-    
+
     // MARK: - Admin Tab Content
     @ViewBuilder
     private func adminTabContent() -> some View {
@@ -70,7 +87,7 @@ struct MainTabView: View {
             SettingsView()
         }
     }
-    
+
     // MARK: - Teacher Tab Content
     @ViewBuilder
     private func teacherTabContent() -> some View {
@@ -82,24 +99,27 @@ struct MainTabView: View {
         case .quizzes:
             QuizListView()
         case .messages:
-            TeacherMessagesView()
+            NavigationView {
+                ChatListView() // Teachers now use the same chat view as students
+            }
+            .navigationViewStyle(.stack)
         case .settings:
             SettingsView()
         }
     }
-    
+
     // MARK: - Student Tab Bar
     @ViewBuilder
     private func studentTabBar() -> some View {
         StudentTabBar(selected: $selectedStudentTab)
     }
-    
+
     // MARK: - Admin Tab Bar
     @ViewBuilder
     private func adminTabBar() -> some View {
         AdminTabBar(selected: $selectedAdminTab)
     }
-    
+
     // MARK: - Teacher Tab Bar
     @ViewBuilder
     private func teacherTabBar() -> some View {
@@ -113,13 +133,13 @@ private struct StudentTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let compact = width < 380
-            let tabWidth = compact ? (width - 32) / 5 : (width - 48) / 5
-            
+            let tabWidth = compact ? (width - 32) / 6 : (width - 48) / 6
+
             HStack(spacing: compact ? 4 : 8) {
                 StudentTabButton(
                     icon: "house.fill",
@@ -131,7 +151,7 @@ private struct StudentTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 StudentTabButton(
                     icon: "book.fill",
                     title: "Classes",
@@ -142,7 +162,7 @@ private struct StudentTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 StudentTabButton(
                     icon: "magnifyingglass.circle.fill",
                     title: "Explore",
@@ -153,7 +173,7 @@ private struct StudentTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 StudentTabButton(
                     icon: "checkmark.circle.fill",
                     title: "Quiz",
@@ -164,7 +184,18 @@ private struct StudentTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
+                StudentTabButton(
+                    icon: "message.fill",
+                    title: "Messages",
+                    tab: .messages,
+                    selected: $selected,
+                    compact: compact,
+                    tint: .brandAccent,
+                    animation: animation,
+                    tabWidth: tabWidth
+                )
+
                 StudentTabButton(
                     icon: "gearshape.fill",
                     title: "Profile",
@@ -185,33 +216,34 @@ private struct StudentTabBar: View {
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
-            .position(x: width/2, y: DS.barHeight/2)
+            .position(x: width / 2, y: DS.barHeight / 2)
         }
         .frame(height: DS.barHeight)
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
     }
-    
+
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
         ZStack {
             BlurBackground()
-            
+
             LinearGradient(
                 colors: [
                     Color.brandPrimary.opacity(0.1),
-                    Color.brandSecondary.opacity(0.1)
+                    Color.brandSecondary.opacity(0.1),
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
             .frame(height: 1)
             .frame(maxHeight: .infinity, alignment: .top)
-            
+
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
                             Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
-                            Color.clear
+                            Color.clear,
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -221,16 +253,16 @@ private struct StudentTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
-    
+
     private var currentUser: User? {
         authService.currentUser
     }
-    
+
     private var profileImageSource: String? {
         guard let source = currentUser?.image, !source.isEmpty else { return nil }
         return source
     }
-    
+
     private var profileInitials: String {
         let fallback = "YOU"
         guard let username = currentUser?.username, !username.isEmpty else { return fallback }
@@ -258,7 +290,7 @@ private struct StudentTabButton: View {
     let animation: Namespace.ID
     let tabWidth: CGFloat
     let avatarConfig: TabAvatarConfig?
-    
+
     init(
         icon: String,
         title: String,
@@ -280,9 +312,9 @@ private struct StudentTabButton: View {
         self.tabWidth = tabWidth
         self.avatarConfig = avatarConfig
     }
-    
+
     @State private var isPressed = false
-    
+
     var isSelected: Bool { selected == tab }
     private var iconBackgroundSize: CGFloat {
         let base = compact ? 36.0 : 40.0
@@ -299,7 +331,7 @@ private struct StudentTabButton: View {
         iconBackgroundSize + 2
     }
     private var labelSpacing: CGFloat { compact ? 4 : 5 }
-    
+
     var body: some View {
         Button {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
@@ -323,7 +355,7 @@ private struct StudentTabButton: View {
                             .matchedGeometryEffect(id: "STUDENT_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
-                    
+
                     if let avatarConfig {
                         ProfileAvatarView(
                             imageSource: avatarConfig.imageSource,
@@ -336,24 +368,25 @@ private struct StudentTabButton: View {
                         Image(systemName: icon)
                             .font(.system(size: iconSize, weight: .semibold))
                             .foregroundStyle(
-                                isSelected ?
-                                    LinearGradient(
+                                isSelected
+                                    ? LinearGradient(
                                         colors: [tint, tint.opacity(0.8)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(
+                                    )
+                                    : LinearGradient(
                                         colors: [Color.secondary, Color.secondary],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                             )
                             .scaleEffect(isPressed ? 0.85 : 1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                     }
                 }
                 .frame(height: iconContainerHeight)
-                
+
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
@@ -361,8 +394,8 @@ private struct StudentTabButton: View {
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
             }
-//            .frame(width: tabWidth)
-//            .frame(maxWidth: .infinity)
+            //            .frame(width: tabWidth)
+            //            .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
@@ -387,9 +420,9 @@ private struct ProfileAvatarView: View {
     let tint: Color
     let isSelected: Bool
     let diameter: CGFloat
-    
+
     private var strokeWidth: CGFloat { isSelected ? 2.2 : 1.6 }
-    
+
     var body: some View {
         avatarContent
             .frame(width: diameter, height: diameter)
@@ -399,11 +432,14 @@ private struct ProfileAvatarView: View {
                 Circle()
                     .stroke(tint.opacity(isSelected ? 0.9 : 0.35), lineWidth: strokeWidth)
             )
-            .shadow(color: tint.opacity(isSelected ? 0.35 : 0.12), radius: isSelected ? 10 : 6, x: 0, y: 4)
+            .shadow(
+                color: tint.opacity(isSelected ? 0.35 : 0.12), radius: isSelected ? 10 : 6, x: 0,
+                y: 4
+            )
             .scaleEffect(isSelected ? 1.05 : 1.0)
             .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
-    
+
     @ViewBuilder
     private var avatarContent: some View {
         if let image = decodedBase64Image {
@@ -412,7 +448,8 @@ private struct ProfileAvatarView: View {
                 .scaledToFill()
                 .transition(.opacity)
         } else if let url = remoteURL {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.25))) { phase in
+            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.25))) {
+                phase in
                 switch phase {
                 case .success(let image):
                     image
@@ -432,7 +469,7 @@ private struct ProfileAvatarView: View {
             placeholder
         }
     }
-    
+
     private var placeholder: some View {
         Circle()
             .fill(
@@ -448,20 +485,22 @@ private struct ProfileAvatarView: View {
                     .foregroundColor(.white)
             )
     }
-    
+
     private var remoteURL: URL? {
         guard let source = imageSource,
-              !source.isEmpty,
-              !source.hasPrefix("data:image") else { return nil }
+            !source.isEmpty,
+            !source.hasPrefix("data:image")
+        else { return nil }
         return URL(string: source)
     }
-    
+
     private var decodedBase64Image: UIImage? {
         guard let source = imageSource,
-              source.hasPrefix("data:image"),
-              let cleaned = source.components(separatedBy: "base64,").last,
-              let data = Data(base64Encoded: cleaned, options: .ignoreUnknownCharacters),
-              let image = UIImage(data: data) else { return nil }
+            source.hasPrefix("data:image"),
+            let cleaned = source.components(separatedBy: "base64,").last,
+            let data = Data(base64Encoded: cleaned, options: .ignoreUnknownCharacters),
+            let image = UIImage(data: data)
+        else { return nil }
         return image
     }
 }
@@ -472,13 +511,13 @@ private struct AdminTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let compact = width < 380
-            let tabWidth = compact ? (width - 32) / 5 : (width - 48) / 5
-            
+            let tabWidth = compact ? (width - 32) / 6 : (width - 48) / 6
+
             HStack(spacing: compact ? 4 : 8) {
                 AdminTabButton(
                     icon: "square.grid.2x2.fill",
@@ -490,7 +529,7 @@ private struct AdminTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 AdminTabButton(
                     icon: "list.clipboard.fill",
                     title: "Requests",
@@ -501,7 +540,7 @@ private struct AdminTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 AdminTabButton(
                     icon: "checkmark.circle.fill",
                     title: "Quiz",
@@ -512,7 +551,7 @@ private struct AdminTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 AdminTabButton(
                     icon: "person.3.fill",
                     title: "Users",
@@ -523,7 +562,7 @@ private struct AdminTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 AdminTabButton(
                     icon: "gearshape.fill",
                     title: "Profile",
@@ -544,33 +583,34 @@ private struct AdminTabBar: View {
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
-            .position(x: width/2, y: DS.barHeight/2)
+            .position(x: width / 2, y: DS.barHeight / 2)
         }
         .frame(height: DS.barHeight)
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
     }
-    
+
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
         ZStack {
             BlurBackground()
-            
+
             LinearGradient(
                 colors: [
                     Color.brandPrimary.opacity(0.1),
-                    Color.brandSecondary.opacity(0.1)
+                    Color.brandSecondary.opacity(0.1),
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
             .frame(height: 1)
             .frame(maxHeight: .infinity, alignment: .top)
-            
+
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
                             Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
-                            Color.clear
+                            Color.clear,
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -580,16 +620,16 @@ private struct AdminTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
-    
+
     private var currentUser: User? {
         authService.currentUser
     }
-    
+
     private var profileImageSource: String? {
         guard let source = currentUser?.image, !source.isEmpty else { return nil }
         return source
     }
-    
+
     private var profileInitials: String {
         let fallback = "YOU"
         guard let username = currentUser?.username, !username.isEmpty else { return fallback }
@@ -612,7 +652,7 @@ private struct AdminTabButton: View {
     let animation: Namespace.ID
     let tabWidth: CGFloat
     let avatarConfig: TabAvatarConfig?
-    
+
     init(
         icon: String,
         title: String,
@@ -634,9 +674,9 @@ private struct AdminTabButton: View {
         self.tabWidth = tabWidth
         self.avatarConfig = avatarConfig
     }
-    
+
     @State private var isPressed = false
-    
+
     var isSelected: Bool { selected == tab }
     private var iconBackgroundSize: CGFloat {
         let base = compact ? 36.0 : 40.0
@@ -653,7 +693,7 @@ private struct AdminTabButton: View {
         iconBackgroundSize + 2
     }
     private var labelSpacing: CGFloat { compact ? 4 : 5 }
-    
+
     var body: some View {
         Button {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
@@ -677,7 +717,7 @@ private struct AdminTabButton: View {
                             .matchedGeometryEffect(id: "ADMIN_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
-                    
+
                     if let avatarConfig {
                         ProfileAvatarView(
                             imageSource: avatarConfig.imageSource,
@@ -690,24 +730,25 @@ private struct AdminTabButton: View {
                         Image(systemName: icon)
                             .font(.system(size: iconSize, weight: .semibold))
                             .foregroundStyle(
-                                isSelected ?
-                                    LinearGradient(
+                                isSelected
+                                    ? LinearGradient(
                                         colors: [tint, tint.opacity(0.8)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(
+                                    )
+                                    : LinearGradient(
                                         colors: [Color.secondary, Color.secondary],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                             )
                             .scaleEffect(isPressed ? 0.85 : 1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                     }
                 }
                 .frame(height: iconContainerHeight)
-                
+
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
@@ -741,13 +782,13 @@ private struct TeacherTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var animation
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let compact = width < 380
             let tabWidth = compact ? (width - 24) / 4 : (width - 40) / 4
-            
+
             HStack(spacing: compact ? 4 : 8) {
                 TeacherTabButton(
                     icon: "square.grid.2x2.fill",
@@ -759,7 +800,7 @@ private struct TeacherTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 TeacherTabButton(
                     icon: "book.circle.fill",
                     title: "My Classes",
@@ -770,7 +811,7 @@ private struct TeacherTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 TeacherTabButton(
                     icon: "checkmark.circle.fill",
                     title: "Quiz",
@@ -781,7 +822,7 @@ private struct TeacherTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 TeacherTabButton(
                     icon: "message.fill",
                     title: "Messages",
@@ -792,7 +833,7 @@ private struct TeacherTabBar: View {
                     animation: animation,
                     tabWidth: tabWidth
                 )
-                
+
                 TeacherTabButton(
                     icon: "gearshape.fill",
                     title: "Profile",
@@ -813,33 +854,34 @@ private struct TeacherTabBar: View {
             .frame(width: width)
             .background(tabBarBackground(colorScheme))
             .frame(height: DS.barHeight, alignment: .center)
-            .position(x: width/2, y: DS.barHeight/2)
+            .position(x: width / 2, y: DS.barHeight / 2)
         }
         .frame(height: DS.barHeight)
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
     }
-    
+
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
         ZStack {
             BlurBackground()
-            
+
             LinearGradient(
                 colors: [
                     Color.brandPrimary.opacity(0.1),
-                    Color.brandSecondary.opacity(0.1)
+                    Color.brandSecondary.opacity(0.1),
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
             .frame(height: 1)
             .frame(maxHeight: .infinity, alignment: .top)
-            
+
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
                             Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
-                            Color.clear
+                            Color.clear,
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -849,16 +891,16 @@ private struct TeacherTabBar: View {
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
-    
+
     private var currentUser: User? {
         authService.currentUser
     }
-    
+
     private var profileImageSource: String? {
         guard let source = currentUser?.image, !source.isEmpty else { return nil }
         return source
     }
-    
+
     private var profileInitials: String {
         let fallback = "YOU"
         guard let username = currentUser?.username, !username.isEmpty else { return fallback }
@@ -881,7 +923,7 @@ private struct TeacherTabButton: View {
     let animation: Namespace.ID
     let tabWidth: CGFloat
     let avatarConfig: TabAvatarConfig?
-    
+
     init(
         icon: String,
         title: String,
@@ -903,9 +945,9 @@ private struct TeacherTabButton: View {
         self.tabWidth = tabWidth
         self.avatarConfig = avatarConfig
     }
-    
+
     @State private var isPressed = false
-    
+
     var isSelected: Bool { selected == tab }
     private var iconBackgroundSize: CGFloat {
         let base = compact ? 36.0 : 40.0
@@ -922,7 +964,7 @@ private struct TeacherTabButton: View {
         iconBackgroundSize + 2
     }
     private var labelSpacing: CGFloat { compact ? 4 : 5 }
-    
+
     var body: some View {
         Button {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
@@ -946,7 +988,7 @@ private struct TeacherTabButton: View {
                             .matchedGeometryEffect(id: "TEACHER_TAB_BACKGROUND", in: animation)
                             .transition(.scale.combined(with: .opacity))
                     }
-                    
+
                     if let avatarConfig {
                         ProfileAvatarView(
                             imageSource: avatarConfig.imageSource,
@@ -959,24 +1001,25 @@ private struct TeacherTabButton: View {
                         Image(systemName: icon)
                             .font(.system(size: iconSize, weight: .semibold))
                             .foregroundStyle(
-                                isSelected ?
-                                    LinearGradient(
+                                isSelected
+                                    ? LinearGradient(
                                         colors: [tint, tint.opacity(0.8)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(
+                                    )
+                                    : LinearGradient(
                                         colors: [Color.secondary, Color.secondary],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                             )
                             .scaleEffect(isPressed ? 0.85 : 1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                            .animation(
+                                .spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                     }
                 }
                 .frame(height: iconContainerHeight)
-                
+
                 Text(title)
                     .font(.system(size: isSelected ? 11 : 10, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? tint : .secondary)
@@ -984,8 +1027,8 @@ private struct TeacherTabButton: View {
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
             }
-//            .frame(width: tabWidth)
-//            .frame(maxWidth: .infinity)
+            //            .frame(width: tabWidth)
+            //            .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 3 : 4)
             .contentShape(Rectangle())
         }
