@@ -16,6 +16,7 @@ protocol ReelsServiceProtocol {
     func getComments(reelId: String) async throws -> [Comment]
     func deleteComment(reelId: String, commentId: String) async throws -> Int
     func generateReels(videoId: String) async throws -> [Reel]
+    func generateReels(videoUrl: String) async throws -> [Reel]
     func toggleBookmark(reelId: String) async throws -> Bool
     func getBookmarkedReels() async throws -> [Reel]
 }
@@ -131,6 +132,25 @@ final class ReelsService: ReelsServiceProtocol {
             headers: authHeaders
         )
         
+        return response.reels
+    }
+
+    func generateReels(videoUrl: String) async throws -> [Reel] {
+        let body = ["videoUrl": videoUrl]
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+
+        struct GenerateResponse: Decodable {
+            let message: String
+            let reels: [Reel]
+        }
+
+        let response: GenerateResponse = try await networkService.request(
+            endpoint: "/reels/generate",
+            method: .POST,
+            body: jsonData,
+            headers: authHeaders
+        )
+
         return response.reels
     }
     

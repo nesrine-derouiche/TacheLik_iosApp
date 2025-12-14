@@ -33,6 +33,9 @@ final class DIContainer {
     let teacherCoursesService: TeacherCoursesServiceProtocol
     let teacherAnalyticsService: TeacherAnalyticsServiceProtocol
     let studentHomeService: StudentHomeServiceProtocol
+    let homeDashboardService: HomeDashboardServiceProtocol
+    let homeCacheStore: HomeCacheStore
+    let networkMonitor: NetworkMonitor
     let puzzleService: PuzzleServiceProtocol
     let reelsService: ReelsServiceProtocol
     
@@ -65,6 +68,9 @@ final class DIContainer {
         self.teacherCoursesService = TeacherCoursesService(networkService: networkService, authService: authService)
         self.teacherAnalyticsService = TeacherAnalyticsService(authService: authService)
         self.studentHomeService = StudentHomeService(networkService: networkService, authService: authService)
+        self.homeDashboardService = HomeDashboardService(networkService: networkService, authService: authService)
+        self.homeCacheStore = HomeCacheStore()
+        self.networkMonitor = NetworkMonitor()
         self.puzzleService = PuzzleService(networkService: networkService, authService: authService)
         self.reelsService = ReelsService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
@@ -148,6 +154,25 @@ final class DIContainer {
     /// Create StudentHomeViewModel with injected dependencies
     func makeStudentHomeViewModel() -> StudentHomeViewModel {
         return StudentHomeViewModel(studentHomeService: studentHomeService, authService: authService)
+    }
+
+    /// Create StudentDashboardHomeViewModel (home-v1 endpoint)
+    func makeStudentDashboardHomeViewModel() -> StudentDashboardHomeViewModel {
+        return StudentDashboardHomeViewModel(
+            service: homeDashboardService,
+            cache: homeCacheStore,
+            networkMonitor: networkMonitor
+        )
+    }
+
+    /// Create TeacherDashboardHomeViewModel (home-v1 endpoint)
+    func makeTeacherDashboardHomeViewModel() -> TeacherDashboardHomeViewModel {
+        return TeacherDashboardHomeViewModel(
+            service: homeDashboardService,
+            cache: homeCacheStore,
+            authService: authService,
+            networkMonitor: networkMonitor
+        )
     }
     
 }

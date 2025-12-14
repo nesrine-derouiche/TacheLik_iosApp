@@ -52,6 +52,22 @@ struct MainTabView: View {
                 isTabBarHidden = value
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .teacherTabSwitchRequest)) { notification in
+            guard roleManager.currentRole == .mentor else { return }
+            guard let rawValue = notification.userInfo?[TeacherTabSwitchKeys.tab] as? Int else { return }
+            guard let tab = TeacherTab(rawValue: rawValue) else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTeacherTab = tab
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .studentTabSwitchRequest)) { notification in
+            guard roleManager.currentRole == .student || roleManager.currentRole == .none else { return }
+            guard let rawValue = notification.userInfo?[StudentTabSwitchKeys.tab] as? Int else { return }
+            guard let tab = StudentTab(rawValue: rawValue) else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedStudentTab = tab
+            }
+        }
     }
 
     // MARK: - Student Tab Content
@@ -125,6 +141,19 @@ struct MainTabView: View {
     private func teacherTabBar() -> some View {
         TeacherTabBar(selected: $selectedTeacherTab)
     }
+}
+
+private enum TeacherTabSwitchKeys {
+    static let tab = "tab"
+}
+
+private enum StudentTabSwitchKeys {
+    static let tab = "tab"
+}
+
+extension Notification.Name {
+    static let teacherTabSwitchRequest = Notification.Name("TeacherTabSwitchRequest")
+    static let studentTabSwitchRequest = Notification.Name("StudentTabSwitchRequest")
 }
 
 // MARK: - Student Tab Bar

@@ -9,7 +9,6 @@ import SwiftUI
 
 struct AdminDashboardView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    @State private var isShowingWalletAlert = false
     @State private var activeQuickAction: AdminQuickAction?
     @State private var totalStudents = 2847
     @State private var totalMentors = 47
@@ -67,14 +66,10 @@ struct AdminDashboardView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     UnifiedTopAppBarActions(
                         userCredits: userCredits,
-                        isShowingWalletAlert: $isShowingWalletAlert
+                        isShowingWalletAlert: .constant(false),
+                        showNotifications: false
                     )
                 }
-            }
-            .alert("Wallet", isPresented: $isShowingWalletAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Wallet Screen will be developed soon.")
             }
             .alert(item: $activeQuickAction) { action in
                 Alert(

@@ -1,85 +1,46 @@
-//
-//  TeacherDashboardView.swift
-//  projectDAM
-//
-//  Created on 11/10/2025.
-//
-
 import SwiftUI
 
 struct TeacherDashboardView: View {
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    @StateObject private var viewModel = DIContainer.shared.makeTeacherDashboardViewModel()
-    @State private var isShowingWalletAlert = false
-    
-    private var currentUser: User? {
-        authService.currentUser
-    }
-    
-    private var userCredits: Int {
-        currentUser?.credit ?? 0
-    }
-    
+    @StateObject private var viewModel = DIContainer.shared.makeTeacherDashboardHomeViewModel()
+
+    @State private var didAppear = false
+
+    private var currentUser: User? { authService.currentUser }
+    private var userCredits: Int { currentUser?.credit ?? 0 }
+
     var body: some View {
         NavigationView {
-            ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color(.systemBackground), Color(.systemGray6).opacity(0.5)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-                
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // Header with greeting
-                        headerSection()
-                        
-                        // Revenue Overview Card
-                        revenueOverviewCard()
-                        
-                        // Performance Stats Grid
-                        performanceStatsGrid()
-                        
-                        // Top Courses Section
-                        topCoursesSection()
-                        
-                        // Quick Actions
-                        quickActionsSection()
-                        
-                        // Recent Student Activity
-                        recentActivitySection()
-                        
-                        Spacer(minLength: 30)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 16) {
+                    headerSection
+
+                    if !viewModel.isOnline {
+                        OfflineBanner(subtitle: lastUpdatedText)
                     }
-                    .padding(.horizontal, DS.paddingMD)
-                    .padding(.vertical, DS.paddingMD)
-                }
-                
-                // Loading overlay
-                if viewModel.isLoading {
-                    ZStack {
-                        Color.black.opacity(0.2)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .scaleEffect(1.3)
-                                .tint(.brandPrimary)
-                            Text("Loading dashboard...")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.secondary)
+
+                    quickActionsRow
+
+                    switch viewModel.uiState {
+                    case .loading:
+                        skeletonContent
+                    case .error(let message, _, let isOffline, _):
+                        if isOffline {
+                            OfflineBanner(subtitle: lastUpdatedText)
                         }
-                        .padding(24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.1), radius: 10)
-                        )
+                        errorCard(message: message)
+                    case .content(let home, _):
+                        quickStatsGrid(home: home)
+                        pendingActionsSection(home: home)
+                        engagementSection(home: home)
+                        analyticsSection(home: home)
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .padding(.bottom, DS.barHeight + 16)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -88,637 +49,586 @@ struct TeacherDashboardView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     UnifiedTopAppBarActions(
                         userCredits: userCredits,
-                        isShowingWalletAlert: $isShowingWalletAlert,
+                        isShowingWalletAlert: .constant(false),
                         searchAction: {},
-                        notificationsAction: {}
+                        notificationsAction: {},
+                        showSearch: false,
+                        showNotifications: false,
+                        showNotificationDot: hasAttentionItems
                     )
                 }
             }
             .onAppear {
-                viewModel.fetchDashboardData()
-            }
-            .refreshable {
-                viewModel.refreshData()
-            }
-            .alert("Wallet", isPresented: $isShowingWalletAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Wallet Screen will be developed soon.")
+                if !didAppear {
+                    didAppear = true
+                    viewModel.onAppear()
+                }
             }
         }
         .navigationViewStyle(.stack)
     }
-    
-    // MARK: - Header Section
-    private func headerSection() -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(getGreeting())
-                    .font(.system(size: 14, weight: .medium))
+
+    private var quickActionsRow: some View {
+        HStack(spacing: 14) {
+            NavigationLink(destination: BadgesView()) {
+                quickActionButton(title: "Badges", systemImage: "rosette", tint: .brandAccent)
+            }
+            NavigationLink(destination: BookmarksView()) {
+                quickActionButton(title: "Saved Reels", systemImage: "bookmark.fill", tint: .brandPrimary)
+            }
+            NavigationLink(destination: WalletView()) {
+                quickActionButton(title: "Wallet", systemImage: "wallet.pass.fill", tint: .brandSuccess)
+            }
+            Button {
+                switchToTeacherTab(.messages)
+            } label: {
+                quickActionButton(title: "Messages", systemImage: "message.fill", tint: .brandSecondary)
+            }
+        }
+        .buttonStyle(PressableScaleButtonStyle())
+    }
+
+    private var headerSection: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(greeting)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.secondary)
-                
-                Text(currentUser?.username ?? "Instructor")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primary)
-            }
-            
-            Spacer()
-            
-            // Profile avatar
-            if let profileImage = currentUser?.image, !profileImage.isEmpty {
-                AsyncImage(url: URL(string: profileImage)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Image(systemName: "person.circle.fill")
-                        .resizable()
-                        .foregroundColor(.brandPrimary)
-                }
-                .frame(width: 50, height: 50)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.brandPrimary.opacity(0.3), lineWidth: 2))
-            } else {
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .frame(width: 50, height: 50)
+
+                Text(displayName)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.primary, .primary.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                Text("Teacher")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.brandPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.brandPrimary.opacity(0.1))
+                    .cornerRadius(12)
+            }
+
+            Spacer()
+
+            if let user = currentUser {
+                ProfileAvatarView(user: user, size: 52)
             }
         }
-        .padding(.bottom, 8)
     }
-    
-    // MARK: - Revenue Overview Card
-    private func revenueOverviewCard() -> some View {
-        VStack(spacing: 0) {
-            // Main revenue display
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Total Revenue")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Text(viewModel.formattedRevenue)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("\(viewModel.totalSales) sales this month")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(.white.opacity(0.9))
-                }
-                
-                Spacer()
-                
-                // Revenue icon
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.2))
-                        .frame(width: 60, height: 60)
-                    
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(.white)
+
+    private var skeletonContent: some View {
+        VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 160, alignment: .leading)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
                 }
             }
-            .padding(20)
-            .background(
-                LinearGradient(
-                    colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            
-            // Revenue breakdown
-            HStack(spacing: 0) {
-                RevenueBreakdownItem(
-                    title: "Pending",
-                    value: viewModel.formattedPendingPayout,
-                    icon: "clock.fill",
-                    color: .brandWarning
-                )
-                
-                Divider()
-                    .frame(height: 40)
-                
-                RevenueBreakdownItem(
-                    title: "Withdrawn",
-                    value: viewModel.formattedWithdrawn,
-                    icon: "arrow.down.circle.fill",
-                    color: .brandSuccess
-                )
-                
-                Divider()
-                    .frame(height: 40)
-                
-                RevenueBreakdownItem(
-                    title: "Your Share",
-                    value: "\(Int(viewModel.teacherEarningsPercentage))%",
-                    icon: "percent",
-                    color: .brandSecondary
-                )
+
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 140, alignment: .leading)
+                SkeletonBlock(height: 140)
             }
-            .padding(.vertical, 12)
-            .background(Color(.systemBackground))
+
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 140, alignment: .leading)
+                SkeletonBlock(height: 160)
+            }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
-    
-    // MARK: - Performance Stats Grid
-    private func performanceStatsGrid() -> some View {
+
+    private func errorCard(message: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.brandWarning)
+            Text("We couldn't refresh right now")
+                .font(.system(size: 16, weight: .semibold))
+            Text(message)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Text(viewModel.isOnline ? "Retrying automatically…" : "Will retry when you're back online.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(18)
+        .background(Color(.systemBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+    }
+
+    private func quickStatsGrid(home: TeacherHomeData) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Performance")
+            Text("Quick stats")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.primary)
-            
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ], spacing: 12) {
-                PerformanceStatCard(
-                    icon: "person.2.fill",
-                    title: "Total Students",
-                    value: "\(viewModel.totalStudents)",
-                    trend: viewModel.activeStudents > 0 ? "+\(viewModel.activeStudents) active" : nil,
-                    trendPositive: true,
-                    color: .brandPrimary
-                )
-                
-                PerformanceStatCard(
-                    icon: "book.closed.fill",
-                    title: "Active Courses",
-                    value: "\(viewModel.activeCourses)",
-                    trend: nil,
-                    trendPositive: true,
-                    color: .brandSecondary
-                )
-                
-                PerformanceStatCard(
-                    icon: "play.circle.fill",
-                    title: "Video Views",
-                    value: formatNumber(viewModel.videoViews),
-                    trend: nil,
-                    trendPositive: true,
-                    color: .brandSuccess
-                )
-                
-                PerformanceStatCard(
-                    icon: "creditcard.fill",
-                    title: "Avg. Price",
-                    value: String(format: "%.0f TND", viewModel.averagePrice),
-                    trend: nil,
-                    trendPositive: true,
-                    color: .brandWarning
-                )
-            }
-        }
-    }
-    
-    // MARK: - Top Courses Section
-    private func topCoursesSection() -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Top Performing Courses")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                if !viewModel.topCourses.isEmpty {
-                    Text("View All")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.brandPrimary)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                Button {
+                    switchToTeacherTab(.myClasses)
+                } label: {
+                    statCard(title: "Students", value: "\(home.quickStats.totalStudents)", icon: "person.2.fill", tint: .brandPrimary)
+                }
+
+                Button {
+                    switchToTeacherTab(.myClasses)
+                } label: {
+                    statCard(title: "Active courses", value: "\(home.quickStats.activeCourses)", icon: "book.closed.fill", tint: .brandSecondary)
+                }
+
+                Button {
+                    switchToTeacherTab(.myClasses)
+                } label: {
+                    statCard(title: "Pending courses", value: "\(home.quickStats.pendingCourses)", icon: "clock.fill", tint: .brandWarning)
+                }
+                NavigationLink(destination: WalletView()) {
+                    statCard(title: "Revenue", value: formattedCurrency(home.quickStats.totalRevenue), icon: "dollarsign.circle.fill", tint: .brandSuccess)
                 }
             }
-            
-            if viewModel.topCourses.isEmpty {
-                EmptyStateCard(
-                    icon: "trophy",
-                    message: "No course data yet",
-                    submessage: "Your top courses will appear here"
-                )
-            } else {
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func switchToTeacherTab(_ tab: MainTabView.TeacherTab) {
+        NotificationCenter.default.post(
+            name: .teacherTabSwitchRequest,
+            object: nil,
+            userInfo: ["tab": tab.rawValue]
+        )
+    }
+
+    private func pendingActionsSection(home: TeacherHomeData) -> some View {
+        let pa = home.pendingActions
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Needs attention")
+                .font(.system(size: 18, weight: .bold))
+
+            VStack(spacing: 10) {
+                attentionRow(title: "Course requests", value: pa.pendingCourseRequests, icon: "doc.text.fill")
+                attentionRow(title: "Withdrawals", value: pa.pendingWithdrawals, icon: "arrow.down.circle.fill")
+                attentionRow(title: "Unread messages", value: pa.unreadMessages, icon: "message.fill")
+                attentionRow(title: "Edits awaiting approval", value: pa.courseEditsAwaitingApproval, icon: "pencil.circle.fill")
+            }
+            .padding(16)
+            .background(Color(.systemBackground))
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+        }
+    }
+
+    @ViewBuilder
+    private func engagementSection(home: TeacherHomeData) -> some View {
+        let items = recentActivityItems(home: home)
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Recent activity")
+                    .font(.system(size: 18, weight: .bold))
+
                 VStack(spacing: 10) {
-                    ForEach(viewModel.topCourses.prefix(3), id: \.id) { course in
-                        TopCourseRow(course: course, rank: (viewModel.topCourses.firstIndex(where: { $0.id == course.id }) ?? 0) + 1)
+                    ForEach(items.prefix(3)) { item in
+                        activityRow(item)
                     }
                 }
                 .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                )
+                .background(Color(.systemBackground))
+                .cornerRadius(18)
+                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
             }
         }
     }
-    
-    // MARK: - Quick Actions Section
-    private func quickActionsSection() -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Actions")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 12) {
-                QuickActionButton(
-                    icon: "book.fill",
-                    title: "My Courses",
-                    color: .brandPrimary,
-                    badge: viewModel.activeCourses > 0 ? viewModel.activeCourses : nil
-                ) {}
-                
-                QuickActionButton(
-                    icon: "person.2.fill",
-                    title: "Students",
-                    color: .brandSecondary,
-                    badge: viewModel.totalStudents > 0 ? viewModel.totalStudents : nil
-                ) {}
-                
-                QuickActionButton(
-                    icon: "chart.bar.fill",
-                    title: "Analytics",
-                    color: .brandSuccess,
-                    badge: nil
-                ) {}
-                
-                QuickActionButton(
-                    icon: "wallet.pass.fill",
-                    title: "Earnings",
-                    color: .brandWarning,
-                    badge: nil
-                ) {}
-            }
-        }
-    }
-    
-    // MARK: - Recent Activity Section
-    private func recentActivitySection() -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Activity")
+
+    @ViewBuilder
+    private func analyticsSection(home: TeacherHomeData) -> some View {
+        let points = home.analyticsCards.revenueChart
+        if !points.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Revenue")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                if !viewModel.recentTransactions.isEmpty {
-                    Text("See All")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.brandPrimary)
+
+                RevenueLineChart(points: points)
+                    .frame(height: 160)
+                    .padding(14)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(18)
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+            }
+        }
+    }
+
+    private func quickActionButton(title: String, systemImage: String, tint: Color) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            .frame(width: 64, height: 54)
+
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+
+    private struct PressableScaleButtonStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.92 : 1)
+                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: configuration.isPressed)
+        }
+    }
+
+    private struct ActivityItem: Identifiable {
+        enum Kind {
+            case enrollment
+            case message
+        }
+
+        let id: String
+        let kind: Kind
+        let date: Date?
+        let title: String
+        let subtitle: String
+    }
+
+    private func recentActivityItems(home: TeacherHomeData) -> [ActivityItem] {
+        let enrollmentItems: [ActivityItem] = home.engagementFeed.recentEnrollments.map { enrollment in
+            ActivityItem(
+                id: "enrollment|\(enrollment.id)",
+                kind: .enrollment,
+                date: parseISODate(enrollment.enrolledAt),
+                title: enrollment.studentName,
+                subtitle: "Enrolled in \(enrollment.courseName)"
+            )
+        }
+
+        let messageItems: [ActivityItem] = home.engagementFeed.recentMessages.map { message in
+            ActivityItem(
+                id: "message|\(message.id)",
+                kind: .message,
+                date: parseISODate(message.sentAt),
+                title: message.senderName,
+                subtitle: message.content
+            )
+        }
+
+        return (enrollmentItems + messageItems)
+            .sorted { lhs, rhs in
+                switch (lhs.date, rhs.date) {
+                case let (l?, r?):
+                    return l > r
+                case (nil, _?):
+                    return false
+                case (_?, nil):
+                    return true
+                case (nil, nil):
+                    return lhs.id > rhs.id
                 }
             }
-            
-            if viewModel.recentTransactions.isEmpty && !viewModel.isLoading {
-                EmptyStateCard(
-                    icon: "person.2.slash",
-                    message: "No recent activity",
-                    submessage: "Student enrollments will appear here"
-                )
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(viewModel.recentTransactions.prefix(5).enumerated()), id: \.element.id) { index, transaction in
-                        StudentActivityItemView(
-                            initials: transaction.studentInitials,
-                            name: transaction.studentName,
-                            course: transaction.courseName,
-                            action: transaction.activityAction,
-                            timeAgo: transaction.timeAgo,
-                            actionIcon: transaction.activityIcon,
-                            actionColor: .brandSuccess
-                        )
-                        
-                        if index < min(viewModel.recentTransactions.count - 1, 4) {
-                            Divider()
-                                .padding(.vertical, 10)
+    }
+
+    private func activityRow(_ item: ActivityItem) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.brandPrimary.opacity(0.12))
+                Image(systemName: item.kind == .enrollment ? "person.badge.plus.fill" : "message.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.brandPrimary)
+            }
+            .frame(width: 30, height: 30)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                Text(item.subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+        }
+    }
+
+    private func parseISODate(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        let formatterWithFraction = ISO8601DateFormatter()
+        formatterWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatterWithFraction.date(from: value) {
+            return date
+        }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
+    }
+
+    private struct RevenueLineChart: View {
+        let points: [TeacherRevenueChartPoint]
+
+        private var normalizedPoints: [(label: String, value: Double)] {
+            points.map { (label: $0.month, value: $0.revenue) }
+        }
+
+        var body: some View {
+            let data = normalizedPoints
+            let values = data.map { $0.value }
+            let minValue = values.min() ?? 0
+            let maxValue = values.max() ?? 0
+            let range = max(0.000001, maxValue - minValue)
+            let count = max(1, data.count)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Last months")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if let last = data.last {
+                        Text(formatCurrency(last.value))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
+                }
+
+                GeometryReader { proxy in
+                    let size = proxy.size
+                    ZStack {
+                        Path { path in
+                            guard data.count >= 2 else { return }
+                            for index in data.indices {
+                                let x = size.width * CGFloat(index) / CGFloat(count - 1)
+                                let y = size.height * (1 - CGFloat((data[index].value - minValue) / range))
+                                if index == data.startIndex {
+                                    path.move(to: CGPoint(x: x, y: y))
+                                } else {
+                                    path.addLine(to: CGPoint(x: x, y: y))
+                                }
+                            }
+                        }
+                        .stroke(Color.brandSuccess, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+                        if data.count == 1 {
+                            let y = size.height * (1 - CGFloat((data[0].value - minValue) / range))
+                            Circle()
+                                .fill(Color.brandSuccess)
+                                .frame(width: 8, height: 8)
+                                .position(x: size.width / 2, y: y)
                         }
                     }
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                )
-            }
-        }
-    }
-    
-    // MARK: - Helper Functions
-    private func getGreeting() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12: return "Good Morning"
-        case 12..<17: return "Good Afternoon"
-        default: return "Good Evening"
-        }
-    }
-    
-    private func formatNumber(_ number: Int) -> String {
-        if number >= 1000000 {
-            return String(format: "%.1fM", Double(number) / 1000000)
-        } else if number >= 1000 {
-            return String(format: "%.1fK", Double(number) / 1000)
-        }
-        return "\(number)"
-    }
-}
+                .frame(height: 98)
 
-// MARK: - Revenue Breakdown Item
-private struct RevenueBreakdownItem: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(color)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Performance Stat Card
-private struct PerformanceStatCard: View {
-    let icon: String
-    let title: String
-    let value: String
-    let trend: String?
-    let trendPositive: Bool
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 36, height: 36)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(color)
-                }
-                
-                Spacer()
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                
-                if let trend = trend {
-                    Text(trend)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(trendPositive ? .brandSuccess : .brandError)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-        )
-    }
-}
-
-// MARK: - Top Course Row
-private struct TopCourseRow: View {
-    let course: TopCourse
-    let rank: Int
-    
-    var rankColor: Color {
-        switch rank {
-        case 1: return .brandWarning
-        case 2: return .gray
-        case 3: return .orange.opacity(0.7)
-        default: return .secondary
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Rank badge
-            ZStack {
-                Circle()
-                    .fill(rankColor.opacity(0.2))
-                    .frame(width: 32, height: 32)
-                
-                Text("\(rank)")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(rankColor)
-            }
-            
-            // Course info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(course.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                
-                Text("\(course.enrollments) students")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            // Revenue
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(String(format: "%.0f", course.revenue))
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.brandSuccess)
-                
-                Text("TND")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-}
-
-// MARK: - Empty State Card
-private struct EmptyStateCard: View {
-    let icon: String
-    let message: String
-    let submessage: String
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 36, weight: .light))
-                .foregroundColor(.secondary.opacity(0.6))
-            
-            VStack(spacing: 4) {
-                Text(message)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.secondary)
-                
-                Text(submessage)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(.secondary.opacity(0.8))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-        )
-    }
-}
-
-// MARK: - Quick Action Button Component
-private struct QuickActionButton: View {
-    let icon: String
-    let title: String
-    let color: Color
-    var badge: Int? = nil
-    var action: () -> Void = {}
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    color.opacity(0.2),
-                                    color.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(color)
-                    
-                    // Badge
-                    if let badge = badge, badge > 0 {
-                        Text(badge > 99 ? "99+" : "\(badge)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.brandError)
-                            )
-                            .offset(x: 18, y: -18)
+                HStack(spacing: 0) {
+                    ForEach(Array(data.enumerated()), id: \.offset) { _, item in
+                        Text(item.label)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                 }
-                .frame(height: 56)
-                
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, DS.paddingMD)
-            .background(
-                RoundedRectangle(cornerRadius: DS.cornerRadiusMD)
-                    .fill(Color(.systemBackground))
-                    .stroke(color.opacity(0.2), lineWidth: 1)
-            )
         }
+
+        private func formatCurrency(_ value: Double) -> String {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .currency
+            formatter.maximumFractionDigits = 2
+            return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        }
+    }
+
+    private func statCard(title: String, value: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(tint)
+                Spacer()
+            }
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func attentionRow(title: String, value: Int, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.brandPrimary)
+                .frame(width: 24)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.primary)
+            Spacer()
+            Text("\(value)")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(value > 0 ? .brandWarning : .secondary)
+        }
+    }
+
+    private func feedCard<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.brandPrimary)
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                Spacer()
+            }
+            content()
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func feedRow(primary: String, secondary: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(primary)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            Text(secondary)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func emptyCard(title: String, subtitle: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "tray")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.brandPrimary.opacity(0.7))
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+            Text(subtitle)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(18)
+        .background(Color(.systemBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func formattedCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "TND"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value))"
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default: return "Good evening"
+        }
+    }
+
+    private var displayName: String {
+        switch viewModel.uiState {
+        case .content(let home, _):
+            return home.teacher.username.isEmpty ? (currentUser?.username ?? "Instructor") : home.teacher.username
+        default:
+            return currentUser?.username ?? "Instructor"
+        }
+    }
+
+    private var hasAttentionItems: Bool {
+        guard case .content(let home, _) = viewModel.uiState else { return false }
+        let pa = home.pendingActions
+        return pa.pendingCourseRequests > 0 || pa.pendingWithdrawals > 0 || pa.unreadMessages > 0 || pa.courseEditsAwaitingApproval > 0
+    }
+
+    private var lastUpdatedText: String? {
+        guard case .content(_, let savedAt) = viewModel.uiState else { return nil }
+        guard let savedAt else { return nil }
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        return "Last updated: \(df.string(from: savedAt))"
     }
 }
 
-// MARK: - Student Activity Item Component
-private struct StudentActivityItemView: View {
-    let initials: String
-    let name: String
-    let course: String
-    let action: String
-    let timeAgo: String
-    let actionIcon: String
-    let actionColor: Color
-    
+private struct ProfileAvatarView: View {
+    let user: User
+    let size: CGFloat
+
     var body: some View {
-        HStack(spacing: 12) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.brandPrimary.opacity(0.3),
-                                Color.brandAccent.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.brandPrimary, .brandPrimary.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                
-                Text(initials)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.brandPrimary)
-            }
-            .frame(width: 40, height: 40)
-            
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    Image(systemName: actionIcon)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(actionColor)
-                }
-                
-                HStack(spacing: 6) {
-                    Text(course)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.secondary)
-                    
-                    Text("•")
-                        .foregroundColor(.secondary)
-                    
-                    Text(action)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            Text(timeAgo)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
+                )
+                .frame(width: size, height: size)
+
+            Text(userInitials)
+                .font(.system(size: size * 0.38, weight: .bold))
+                .foregroundColor(.white)
         }
+        .shadow(color: Color.brandPrimary.opacity(0.3), radius: 6, x: 0, y: 3)
+    }
+
+    private var userInitials: String {
+        let name = user.username
+        let components = name.split(separator: " ")
+        if components.count >= 2 {
+            return String(components[0].prefix(1) + components[1].prefix(1)).uppercased()
+        }
+        return String(name.prefix(2)).uppercased()
     }
 }
 

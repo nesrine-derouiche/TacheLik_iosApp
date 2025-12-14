@@ -5,46 +5,52 @@ struct UnifiedTopAppBarActions: View {
     @Binding var isShowingWalletAlert: Bool
     var searchAction: () -> Void = {}
     var notificationsAction: () -> Void = {}
+    var showSearch: Bool = true
+    var showNotifications: Bool = true
     var showNotificationDot: Bool = true
     
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: searchAction) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            
-            Button(action: notificationsAction) {
-                ZStack {
-                    Image(systemName: "bell.fill")
+            if showSearch {
+                Button(action: searchAction) {
+                    Image(systemName: "magnifyingglass")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.primary)
-                    if showNotificationDot {
-                        Circle()
-                            .fill(LinearGradient.brandPrimaryGradient)
-                            .frame(width: 8, height: 8)
-                            .offset(x: 12, y: -12)
-                    }
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            
-            Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    isShowingWalletAlert = true
+
+            if showNotifications {
+                Button(action: notificationsAction) {
+                    ZStack {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.primary)
+                        if showNotificationDot {
+                            Circle()
+                                .fill(LinearGradient.brandPrimaryGradient)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 12, y: -12)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
-            } label: {
+                .buttonStyle(.plain)
+            }
+            
+            NavigationLink(destination: WalletView()) {
                 TCreditsWalletChip(credits: userCredits)
                     .frame(minWidth: 68, idealWidth: 84, maxHeight: 44)
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            )
         }
     }
 }
