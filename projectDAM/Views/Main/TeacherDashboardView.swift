@@ -53,7 +53,7 @@ struct TeacherDashboardView: View {
                         searchAction: {},
                         notificationsAction: {},
                         showSearch: false,
-                        showNotifications: true,
+                        showNotifications: false,
                         showNotificationDot: hasAttentionItems
                     )
                 }

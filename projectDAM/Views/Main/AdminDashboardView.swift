@@ -66,7 +66,8 @@ struct AdminDashboardView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     UnifiedTopAppBarActions(
                         userCredits: userCredits,
-                        isShowingWalletAlert: .constant(false)
+                        isShowingWalletAlert: .constant(false),
+                        showNotifications: false
                     )
                 }
             }
