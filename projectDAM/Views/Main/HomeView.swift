@@ -4,6 +4,8 @@ struct HomeView: View {
     @StateObject private var viewModel = DIContainer.shared.makeStudentDashboardHomeViewModel()
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
 
+    @StateObject private var reelGenerator = AiReelGeneratorCardViewModel()
+
     @State private var didAppear = false
 
     private var currentUser: User? { authService.currentUser }
@@ -30,8 +32,9 @@ struct HomeView: View {
                         }
                         errorCard(message: message)
                     case .content(let home, _):
-                        quickActionsGrid(home: home)
-                        continueLearningSection(home: home)
+                        quickActionsRow
+                        quickStatsGrid(home: home)
+                        aiReelGeneratorSection
                         goalsSection(home: home)
                     }
                 }
@@ -64,6 +67,34 @@ struct HomeView: View {
             }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private var quickActionsRow: some View {
+        HStack(spacing: 14) {
+            Button {
+                switchToStudentTab(.messages)
+            } label: {
+                quickActionButton(title: "Messages", systemImage: "message.fill", tint: .brandSecondary)
+            }
+
+            Button {
+                switchToStudentTab(.classes)
+            } label: {
+                quickActionButton(title: "Courses", systemImage: "book.fill", tint: .brandAccent)
+            }
+
+            Button {
+                switchToStudentTab(.quiz)
+            } label: {
+                quickActionButton(title: "Quizzes", systemImage: "checkmark.circle.fill", tint: .brandSuccess)
+            }
+
+            NavigationLink(destination: BadgesView()) {
+                quickActionButton(title: "Badges", systemImage: "rosette", tint: .brandPrimary)
+            }
+        }
+        .padding(.horizontal, 20)
+        .buttonStyle(PressableScaleButtonStyle())
     }
 
     private var headerSection: some View {
@@ -167,62 +198,154 @@ struct HomeView: View {
         .padding(.horizontal, 20)
     }
 
-    private func quickActionsGrid(home: StudentHomeData) -> some View {
+    private func quickStatsGrid(home: StudentHomeData) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Quick actions")
+                Text("Quick stats")
                     .font(.system(size: 18, weight: .bold))
                 Spacer()
             }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                metricCard(title: "Messages", value: "\(home.quickActions.unreadMessages)", icon: "bell.fill", tint: .brandPrimary)
-                metricCard(title: "Courses", value: "\(home.quickActions.ownedCourses)", icon: "book.closed.fill", tint: .brandSecondary)
-                metricCard(title: "Quizzes", value: "\(home.quickActions.quizzesTaken)", icon: "checkmark.seal.fill", tint: .brandSuccess)
-                metricCard(title: "Badges", value: "\(home.quickActions.badgesEarned)", icon: "sparkles", tint: .brandAccent)
+                Button {
+                    switchToStudentTab(.messages)
+                } label: {
+                    metricCard(title: "Messages", value: "\(home.quickActions.unreadMessages)", icon: "message.fill", tint: .brandSecondary)
+                }
+
+                Button {
+                    switchToStudentTab(.classes)
+                } label: {
+                    metricCard(title: "Courses", value: "\(home.quickActions.ownedCourses)", icon: "book.closed.fill", tint: .brandAccent)
+                }
+
+                Button {
+                    switchToStudentTab(.quiz)
+                } label: {
+                    metricCard(title: "Quizzes", value: "\(home.quickActions.quizzesTaken)", icon: "checkmark.seal.fill", tint: .brandSuccess)
+                }
+
+                NavigationLink(destination: BadgesView()) {
+                    metricCard(title: "Badges", value: "\(home.quickActions.badgesEarned)", icon: "rosette", tint: .brandPrimary)
+                }
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
     }
 
-    private func continueLearningSection(home: StudentHomeData) -> some View {
+    private var aiReelGeneratorSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Continue learning")
+                Text("AI Reel Generator")
                     .font(.system(size: 18, weight: .bold))
                 Spacer()
             }
 
-            if home.continueLearning.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.brandPrimary.opacity(0.7))
-                    Text("You're all caught up")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("New lessons will appear here automatically.")
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.brandPrimary)
+
+                    TextField("Paste a YouTube URL", text: $reelGenerator.videoUrlText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.URL)
+                        .submitLabel(.done)
+                        .onChange(of: reelGenerator.videoUrlText) { _ in
+                            reelGenerator.clearStatus()
+                        }
+
+                    if !reelGenerator.trimmedVideoUrl.isEmpty {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                reelGenerator.videoUrlText = ""
+                                reelGenerator.clearStatus()
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Clear link")
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    }
+                }
+                .padding(12)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(14)
+                .animation(.easeInOut(duration: 0.16), value: reelGenerator.trimmedVideoUrl.isEmpty)
+
+                if !reelGenerator.trimmedVideoUrl.isEmpty && !reelGenerator.isValidYouTubeUrl {
+                    Text("Enter a valid YouTube link (youtube.com or youtu.be).")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.brandWarning)
+                }
+
+                if !viewModel.isOnline {
+                    Text("You’re offline. Connect to the internet to generate reels.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .background(Color(.systemBackground))
-                .cornerRadius(18)
-                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-            } else {
-                VStack(spacing: 12) {
-                    ForEach(home.continueLearning.prefix(5)) { item in
-                        NavigationLink {
-                            LessonsView(courseId: item.courseId, accessType: .privateCourse, isOwned: true)
-                        } label: {
-                            continueLearningCard(item: item)
-                        }
-                        .buttonStyle(.plain)
+
+                switch reelGenerator.uiState {
+                case .idle:
+                    EmptyView()
+                case .generating:
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Generating reels…")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondary)
                     }
+                case .success(let count):
+                    Text(count > 0 ? "Reels generated and added to Explore." : "No reels were generated for that video.")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.brandSuccess)
+                case .error(let message):
+                    Text(message)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.brandWarning)
                 }
+
+                Button {
+                    Task { await reelGenerator.generate() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 15, weight: .semibold))
+                        Text("AI Generate")
+                            .fontWeight(.bold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        (reelGenerator.canGenerate && viewModel.isOnline)
+                        ? LinearGradient(colors: [.brandPrimary, .purple], startPoint: .leading, endPoint: .trailing)
+                        : LinearGradient(colors: [.gray], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .foregroundStyle(.white)
+                    .cornerRadius(14)
+                }
+                .disabled(!(reelGenerator.canGenerate && viewModel.isOnline))
+                .opacity((reelGenerator.canGenerate && viewModel.isOnline) ? 1 : 0.6)
             }
+            .padding(16)
+            .background(Color(.systemBackground))
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
         }
         .padding(.horizontal, 20)
+    }
+
+    private func switchToStudentTab(_ tab: MainTabView.StudentTab) {
+        NotificationCenter.default.post(
+            name: .studentTabSwitchRequest,
+            object: nil,
+            userInfo: ["tab": tab.rawValue]
+        )
     }
 
     private func goalsSection(home: StudentHomeData) -> some View {
@@ -261,6 +384,38 @@ struct HomeView: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func quickActionButton(title: String, systemImage: String, tint: Color) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            .frame(width: 64, height: 54)
+
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+
+    private struct PressableScaleButtonStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.92 : 1)
+                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: configuration.isPressed)
+        }
     }
 
     private func continueLearningCard(item: StudentContinueLearningItem) -> some View {
