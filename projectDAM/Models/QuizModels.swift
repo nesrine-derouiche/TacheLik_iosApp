@@ -108,3 +108,24 @@ struct BadgeLeaderboardPage: Decodable {
     let totalPages: Int
     let success: Bool
 }
+
+// MARK: - Quiz Mistake Explanation Models
+
+struct MistakeExplanation: Codable, Identifiable {
+    let id = UUID()
+    let questionText: String
+    let yourAnswer: String
+    let correctAnswer: String
+    let explanation: String
+    
+    enum CodingKeys: String, CodingKey {
+        case questionText, yourAnswer, correctAnswer, explanation
+    }
+}
+
+struct ExplainMistakesResponse: Codable {
+    let success: Bool
+    let explanation: String?
+    let mistakes: [MistakeExplanation]?
+    let message: String?
+}

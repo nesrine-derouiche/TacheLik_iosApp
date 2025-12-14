@@ -8,6 +8,7 @@ protocol QuizServiceProtocol {
     func generateQuizFromCourse(courseId: String, title: String?, description: String?) async throws -> QuizSummary
     func generateQuizFromVideos(videoIds: [String], title: String?, description: String?) async throws -> QuizSummary
     func generateGameQuestionsFromCourse(courseId: String) async throws -> [GameQuestion]
+    func explainQuizMistakes(attemptId: String) async throws -> ExplainMistakesResponse
 }
 
 final class QuizService: QuizServiceProtocol {
@@ -277,5 +278,31 @@ final class QuizService: QuizServiceProtocol {
         }
 
         return response.questions
+    }
+
+    func explainQuizMistakes(attemptId: String) async throws -> ExplainMistakesResponse {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        
+        if AppConfig.enableLogging {
+            print("📡 [QuizService] Requesting AI explanation for attemptId=\(attemptId)")
+        }
+        
+        let response: ExplainMistakesResponse = try await networkService.request(
+            endpoint: "/quiz/attempts/\(attemptId)/explain",
+            method: .POST,
+            body: nil,
+            headers: [
+                "Authorization": "Bearer \(token)",
+                "Content-Type": "application/json"
+            ]
+        )
+        
+        if AppConfig.enableLogging {
+            print("✅ [QuizService] Received AI explanation (success=\(response.success))")
+        }
+        
+        return response
     }
 }

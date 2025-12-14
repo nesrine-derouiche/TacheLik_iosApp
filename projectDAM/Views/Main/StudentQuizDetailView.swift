@@ -2,6 +2,8 @@ import SwiftUI
 
 struct StudentQuizDetailView: View {
     @StateObject private var viewModel: QuizDetailViewModel
+    @StateObject private var resultViewModel = QuizResultViewModel()
+    @State private var showExplanationSheet = false
     @State private var currentQuestionIndex: Int = 0
 
     init(quizId: String, quizService: QuizServiceProtocol = DIContainer.shared.quizService) {
@@ -19,6 +21,13 @@ struct StudentQuizDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadDetail()
+        }
+        .sheet(isPresented: $showExplanationSheet, onDismiss: {
+            resultViewModel.clearExplanation()
+        }) {
+            ExplanationSheetView(viewModel: resultViewModel)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -361,6 +370,71 @@ struct StudentQuizDetailView: View {
 
                     resultCard(for: attempt)
                         .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // AI Assistance Section
+                    VStack(spacing: 12) {
+                        Text("Need help understanding your mistakes?")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                        
+                        // AI Bubble
+                        Button(action: {
+                            Task {
+                                await resultViewModel.fetchExplanation(attemptId: attempt.attemptId)
+                                showExplanationSheet = true
+                            }
+                        }) {
+                            HStack(spacing: 16) {
+                                // AI Icon
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.2))
+                                        .frame(width: 48, height: 48)
+                                    
+                                    if resultViewModel.isLoadingExplanation {
+                                        ProgressView()
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "sparkles")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                
+                                // Text Content
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(resultViewModel.isLoadingExplanation ? "Analyzing..." : "Ask AI for Help")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    
+                                    Text("Get personalized explanations for your mistakes")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.9))
+                                }
+                                
+                                Spacer()
+                                
+                                // Arrow Icon
+                                if !resultViewModel.isLoadingExplanation {
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            .padding(20)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "8B5CF6"), Color(hex: "6366F1")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(20)
+                            .opacity(resultViewModel.isLoadingExplanation ? 0.8 : 1.0)
+                        }
+                        .disabled(resultViewModel.isLoadingExplanation)
+                    }
+                    .padding(.horizontal)
 
                     Spacer(minLength: 40)
                 }
