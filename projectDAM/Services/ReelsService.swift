@@ -120,19 +120,56 @@ final class ReelsService: ReelsServiceProtocol {
         let body = ["videoId": videoId]
         let jsonData = try JSONSerialization.data(withJSONObject: body)
         
-        struct GenerateResponse: Decodable {
+        // 1. Start Generation Job
+        struct GenerationResponse: Decodable {
             let message: String
-            let reels: [Reel]
+            let jobId: String
         }
         
-        let response: GenerateResponse = try await networkService.request(
+        let initialResponse: GenerationResponse = try await networkService.request(
             endpoint: "/reels/generate/id",
             method: .POST,
             body: jsonData,
             headers: authHeaders
         )
         
-        return response.reels
+        let jobId = initialResponse.jobId
+        print("[ReelsService] 🚀 Started reel generation job: \(jobId)")
+        
+        // 2. Poll for Status
+        struct StatusResponse: Decodable {
+            let status: String
+            let reels: [Reel]?
+            let error: String?
+        }
+        
+        // Poll every 5 seconds, timeout after 5 minutes (60 attempts)
+        for i in 0..<60 {
+            try await Task.sleep(nanoseconds: 5 * 1_000_000_000) // 5 seconds
+            
+            let statusResponse: StatusResponse = try await networkService.request(
+                endpoint: "/reels/generate/status/\(jobId)",
+                method: .GET,
+                body: nil,
+                headers: authHeaders
+            )
+            
+            print("[ReelsService] 🔄 Job \(jobId) status: \(statusResponse.status) (Attempt \(i + 1)/60)")
+            
+            if statusResponse.status == "completed" {
+                if let reels = statusResponse.reels {
+                    return reels
+                } else {
+                    throw NetworkError.serverError(200, "Job completed but returned no reels")
+                }
+            } else if statusResponse.status == "failed" {
+                throw NetworkError.serverError(500, statusResponse.error ?? "Generation failed")
+            }
+            
+            // If pending/processing, continue loop
+        }
+        
+        throw NetworkError.serverError(408, "Generation timed out after polling")
     }
 
     func generateReels(videoUrl: String) async throws -> [Reel] {

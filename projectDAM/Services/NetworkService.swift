@@ -42,7 +42,8 @@ protocol NetworkServiceProtocol {
         endpoint: String,
         method: HTTPMethod,
         body: Data?,
-        headers: [String: String]?
+        headers: [String: String]?,
+        timeout: TimeInterval?
     ) async throws -> T
 
     func upload<T: Decodable>(
@@ -56,6 +57,24 @@ protocol NetworkServiceProtocol {
 // MARK: - HTTP Method
 enum HTTPMethod: String {
     case GET, POST, PUT, DELETE, PATCH
+}
+
+// MARK: - Network Service Protocol Extension
+extension NetworkServiceProtocol {
+    func request<T: Decodable>(
+        endpoint: String,
+        method: HTTPMethod,
+        body: Data?,
+        headers: [String: String]?
+    ) async throws -> T {
+        return try await request(
+            endpoint: endpoint,
+            method: method,
+            body: body,
+            headers: headers,
+            timeout: nil
+        )
+    }
 }
 
 // MARK: - Network Service Implementation
@@ -77,7 +96,8 @@ final class NetworkService: NetworkServiceProtocol {
         endpoint: String,
         method: HTTPMethod = .GET,
         body: Data? = nil,
-        headers: [String: String]? = nil
+        headers: [String: String]? = nil,
+        timeout: TimeInterval? = nil
     ) async throws -> T {
 
         guard let url = URL(string: baseURL + endpoint) else {
@@ -87,6 +107,9 @@ final class NetworkService: NetworkServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.httpBody = body
+        if let timeout = timeout {
+            request.timeoutInterval = timeout
+        }
 
         // Set default headers
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
