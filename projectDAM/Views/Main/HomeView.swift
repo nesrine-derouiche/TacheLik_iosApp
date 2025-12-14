@@ -1,76 +1,44 @@
-//
-//  HomeView.swift
-//  projectDAM
-//
-//  Professional student home dashboard with dynamic data
-//
-
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var viewModel = DIContainer.shared.makeStudentHomeViewModel()
+    @StateObject private var viewModel = DIContainer.shared.makeStudentDashboardHomeViewModel()
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
-    @AppStorage("isLoggedIn") private var isLoggedIn = false
-    @State private var isShowingWalletAlert = false
-    
-    private var currentUser: User? {
-        authService.currentUser
-    }
-    
-    private var userCredits: Int {
-        currentUser?.credit ?? 0
-    }
-    
+
+    @State private var didAppear = false
+
+    private var currentUser: User? { authService.currentUser }
+    private var userCredits: Int { currentUser?.credit ?? 0 }
+
     var body: some View {
         NavigationView {
-            ZStack {
-                GeometryReader { geometry in
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 20) {
-                            // MARK: - Header Section
-                            headerSection
-                            
-                            // MARK: - Learning Overview Card
-                            learningOverviewCard
-                            
-                            // MARK: - Quick Stats Grid
-                            quickStatsGrid
-                            
-                            // MARK: - Continue Learning Section
-                            if !viewModel.recentCourses.isEmpty {
-                                continueLearningSection
-                            } else if !viewModel.isLoading {
-                                // Empty state for no courses
-                                emptyCoursesSection
-                            }
-                            
-                            // MARK: - Quick Actions
-                            quickActionsSection
-                            
-                            // MARK: - Classes Summary
-                            if !viewModel.classesSummary.isEmpty {
-                                classesSummarySection
-                            }
-                            
-                            // MARK: - Achievements Section
-                            if !viewModel.userBadges.isEmpty {
-                                achievementsSection
-                            }
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    headerSection
+
+                    if !viewModel.isOnline {
+                        OfflineBanner(subtitle: lastUpdatedText)
+                            .padding(.horizontal, 20)
+                    }
+
+                    switch viewModel.uiState {
+                    case .loading:
+                        skeletonContent
+                    case .error(let message, _, let isOffline, _):
+                        if isOffline {
+                            OfflineBanner(subtitle: lastUpdatedText)
+                                .padding(.horizontal, 20)
                         }
-                        .padding(.vertical, 16)
-                        .padding(.bottom, DS.barHeight + 16)
-                    }
-                    .background(Color(.systemGroupedBackground))
-                    .refreshable {
-                        await viewModel.refresh()
+                        errorCard(message: message)
+                    case .content(let home, _):
+                        quickActionsGrid(home: home)
+                        continueLearningSection(home: home)
+                        goalsSection(home: home)
                     }
                 }
-                
-                // Loading overlay
-                if viewModel.isLoading {
-                    loadingOverlay
-                }
+                .padding(.vertical, 16)
+                .padding(.bottom, DS.barHeight + 16)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -79,149 +47,47 @@ struct HomeView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     UnifiedTopAppBarActions(
                         userCredits: userCredits,
-                        isShowingWalletAlert: $isShowingWalletAlert
+                        isShowingWalletAlert: .constant(false),
+                        searchAction: {},
+                        notificationsAction: {},
+                        showSearch: false,
+                        showNotifications: true,
+                        showNotificationDot: unreadDot
                     )
                 }
             }
-            .alert("Wallet", isPresented: $isShowingWalletAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Wallet Screen will be developed soon.")
-            }
-            .task {
-                await viewModel.loadData()
+            .onAppear {
+                if !didAppear {
+                    didAppear = true
+                    viewModel.onAppear()
+                }
             }
         }
+        .navigationViewStyle(.stack)
     }
-    
-    // MARK: - Loading Overlay
-    private var loadingOverlay: some View {
-        Color.black.opacity(0.1)
-            .ignoresSafeArea()
-            .overlay(
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .tint(.brandPrimary)
-                    Text("Loading your dashboard...")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .padding(24)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
-                )
-            )
-    }
-    
-    // MARK: - Empty Courses Section
-    private var emptyCoursesSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Continue Learning")
-                    .font(.system(size: 20, weight: .bold))
-                Spacer()
-            }
-            
-            VStack(spacing: 16) {
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 48))
-                    .foregroundColor(.brandPrimary.opacity(0.6))
-                
-                VStack(spacing: 8) {
-                    Text("No courses yet")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    Text("Explore our catalog and start your learning journey today!")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                
-                NavigationLink {
-                    ExploreView()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Explore Courses")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.brandPrimary)
-                    .cornerRadius(12)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(24)
-            .background(Color(.systemBackground))
-            .cornerRadius(18)
-            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - Achievements Section
-    private var achievementsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Your Achievements")
-                    .font(.system(size: 20, weight: .bold))
-                
-                Spacer()
-                
-                if let user = currentUser {
-                    NavigationLink {
-                        UserBadgesView(userId: user.id, username: user.username)
-                    } label: {
-                        Text("See All")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.brandPrimary)
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(viewModel.userBadges.prefix(5)) { badge in
-                        BadgeCard(badge: badge)
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-    }
-    
-    // MARK: - Header Section
+
     private var headerSection: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(viewModel.greeting)
+                Text(greeting)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.secondary)
-                
-                Text(viewModel.userName)
+
+                Text(displayName)
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.primary, .primary.opacity(0.8)],
+                            colors: [.primary, .primary.opacity(0.85)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                
-                // Role badge
-                if let user = currentUser {
+
+                if let role = currentUser?.role.rawValue, !role.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: "graduationcap.fill")
                             .font(.system(size: 11, weight: .semibold))
-                        Text(user.role.rawValue)
+                        Text(role)
                             .font(.system(size: 12, weight: .semibold))
                     }
                     .foregroundColor(.brandPrimary)
@@ -231,238 +97,256 @@ struct HomeView: View {
                     .cornerRadius(12)
                 }
             }
-            
+
             Spacer()
-            
-            // Profile Avatar
+
             if let user = currentUser {
                 ProfileAvatarView(user: user, size: 52)
             }
         }
         .padding(.horizontal, 20)
     }
-    
-    // MARK: - Learning Overview Card
-    private var learningOverviewCard: some View {
+
+    private var skeletonContent: some View {
         VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Learning Overview")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
-                    Text("Your Progress")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                Spacer()
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 18, cornerRadius: 10)
+                    .frame(maxWidth: 180, alignment: .leading)
+                SkeletonBlock(height: 44, cornerRadius: 14)
             }
-            
-            HStack(spacing: 20) {
-                OverviewStatItem(
-                    value: "\(viewModel.totalCourses)",
-                    label: "Courses",
-                    icon: "book.fill"
-                )
-                
-                Divider()
-                    .frame(height: 40)
-                    .background(Color.white.opacity(0.3))
-                
-                OverviewStatItem(
-                    value: viewModel.formattedTotalHours,
-                    label: "Learning Hours",
-                    icon: "clock.fill"
-                )
-                
-                Divider()
-                    .frame(height: 40)
-                    .background(Color.white.opacity(0.3))
-                
-                OverviewStatItem(
-                    value: "\(viewModel.classesSummary.count)",
-                    label: "Classes",
-                    icon: "folder.fill"
-                )
-            }
-        }
-        .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(20)
-        .shadow(color: Color.brandPrimary.opacity(0.3), radius: 15, x: 0, y: 8)
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - Quick Stats Grid
-    private var quickStatsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible(), spacing: 12),
-            GridItem(.flexible(), spacing: 12)
-        ], spacing: 12) {
-            StudentStatCard(
-                title: "In Progress",
-                value: "\(viewModel.coursesInProgress)",
-                icon: "play.circle.fill",
-                color: .blue
-            )
-            
-            StudentStatCard(
-                title: "Completed",
-                value: "\(viewModel.coursesCompleted)",
-                icon: "checkmark.circle.fill",
-                color: .green
-            )
-            
-            StudentStatCard(
-                title: "Day Streak",
-                value: "\(viewModel.learningStreak)",
-                icon: "flame.fill",
-                color: .orange
-            )
-            
-            StudentStatCard(
-                title: "Achievements",
-                value: "\(viewModel.achievementsCount)",
-                icon: "trophy.fill",
-                color: .purple
-            )
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - Continue Learning Section
-    private var continueLearningSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Continue Learning")
-                    .font(.system(size: 20, weight: .bold))
-                
-                Spacer()
-                
-                if viewModel.recentCourses.count > 3 {
-                    Button(action: {}) {
-                        Text("See All")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.brandPrimary)
-                    }
+            .padding(.horizontal, 20)
+
+            VStack(spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 140, alignment: .leading)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
+                    SkeletonBlock(height: 92)
                 }
             }
             .padding(.horizontal, 20)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(Array(viewModel.recentCourses.prefix(5).enumerated()), id: \.element.id) { index, ownedCourse in
+
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 180, alignment: .leading)
+                SkeletonBlock(height: 140)
+            }
+            .padding(.horizontal, 20)
+
+            VStack(alignment: .leading, spacing: 12) {
+                SkeletonBlock(height: 20, cornerRadius: 10)
+                    .frame(maxWidth: 120, alignment: .leading)
+                SkeletonBlock(height: 120)
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func errorCard(message: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.brandWarning)
+            Text("We couldn't refresh right now")
+                .font(.system(size: 16, weight: .semibold))
+            Text(message)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Text(viewModel.isOnline ? "Retrying automatically…" : "Will retry when you're back online.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(18)
+        .background(Color(.systemBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .padding(.horizontal, 20)
+    }
+
+    private func quickActionsGrid(home: StudentHomeData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Quick actions")
+                    .font(.system(size: 18, weight: .bold))
+                Spacer()
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                metricCard(title: "Messages", value: "\(home.quickActions.unreadMessages)", icon: "bell.fill", tint: .brandPrimary)
+                metricCard(title: "Courses", value: "\(home.quickActions.ownedCourses)", icon: "book.closed.fill", tint: .brandSecondary)
+                metricCard(title: "Quizzes", value: "\(home.quickActions.quizzesTaken)", icon: "checkmark.seal.fill", tint: .brandSuccess)
+                metricCard(title: "Badges", value: "\(home.quickActions.badgesEarned)", icon: "sparkles", tint: .brandAccent)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func continueLearningSection(home: StudentHomeData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Continue learning")
+                    .font(.system(size: 18, weight: .bold))
+                Spacer()
+            }
+
+            if home.continueLearning.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.brandPrimary.opacity(0.7))
+                    Text("You're all caught up")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("New lessons will appear here automatically.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(18)
+                .background(Color(.systemBackground))
+                .cornerRadius(18)
+                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(home.continueLearning.prefix(5)) { item in
                         NavigationLink {
-                            LessonsView(
-                                courseId: ownedCourse.course.id,
-                                accessType: .privateCourse,
-                                isOwned: true
-                            )
+                            LessonsView(courseId: item.courseId, accessType: .privateCourse, isOwned: true)
                         } label: {
-                            StudentCourseCard(
-                                course: ownedCourse.course,
-                                color: cardColors[index % cardColors.count]
-                            )
+                            continueLearningCard(item: item)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 20)
             }
         }
+        .padding(.horizontal, 20)
     }
-    
-    // MARK: - Quick Actions Section
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Quick Actions")
-                .font(.system(size: 20, weight: .bold))
-                .padding(.horizontal, 20)
-            
-            HStack(spacing: 12) {
-                // My Courses - Navigate to MyCoursesView
-                NavigationLink {
-                    MyCoursesView()
-                } label: {
-                    QuickActionButton(
-                        icon: "book.fill",
-                        title: "My Courses",
-                        color: .brandPrimary,
-                        badge: viewModel.totalCourses
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // Classes - Navigate to ClassesView
-                NavigationLink {
-                    ClassesView()
-                } label: {
-                    QuickActionButton(
-                        icon: "folder.fill",
-                        title: "Classes",
-                        color: .purple,
-                        badge: viewModel.classesSummary.count
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // Explore - Navigate to ExploreView
-                NavigationLink {
-                    ExploreView()
-                } label: {
-                    QuickActionButton(
-                        icon: "magnifyingglass",
-                        title: "Explore",
-                        color: .orange,
-                        badge: 0
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // Settings - Navigate to SettingsView
-                NavigationLink {
-                    SettingsView()
-                } label: {
-                    QuickActionButton(
-                        icon: "gear",
-                        title: "Settings",
-                        color: .gray,
-                        badge: 0
-                    )
-                }
-                .buttonStyle(.plain)
+
+    private func goalsSection(home: StudentHomeData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Goals")
+                    .font(.system(size: 18, weight: .bold))
+                Spacer()
             }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    // MARK: - Classes Summary Section
-    private var classesSummarySection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Your Classes")
-                .font(.system(size: 20, weight: .bold))
-                .padding(.horizontal, 20)
-            
+
             VStack(spacing: 12) {
-                ForEach(viewModel.classesSummary.prefix(4)) { classSummary in
-                    ClassSummaryRow(classSummary: classSummary)
-                }
+                goalCard(title: "Daily", goal: home.goals.daily)
+                goalCard(title: "Weekly", goal: home.goals.weekly)
             }
-            .padding(.horizontal, 20)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func metricCard(title: String, value: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(tint)
+                Spacer()
+            }
+            Text(value)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.primary)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func continueLearningCard(item: StudentContinueLearningItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(item.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+
+            ProgressView(value: Double(max(0, min(100, item.progress))), total: 100)
+                .tint(.brandPrimary)
+
+            Text("\(max(0, min(100, item.progress)))% complete")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private func goalCard(title: String, goal: StudentGoalWindow) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(goal.xp.value) \(goal.xp.unit)")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.primary)
+            }
+
+            Text("Quizzes completed: \(goal.quizzesCompleted)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+
+            if let msg = goal.message, !msg.isEmpty {
+                Text(msg)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default: return "Good evening"
         }
     }
-    
-    // MARK: - Color Palette for Cards
-    private var cardColors: [Color] {
-        [.brandPrimary, .purple, .blue, .orange, .green]
+
+    private var displayName: String {
+        switch viewModel.uiState {
+        case .content(let home, _):
+            return home.user.username.isEmpty ? (currentUser?.username ?? "Student") : home.user.username
+        default:
+            return currentUser?.username ?? "Student"
+        }
+    }
+
+    private var unreadDot: Bool {
+        guard case .content(let home, _) = viewModel.uiState else { return false }
+        return home.quickActions.unreadMessages > 0
+    }
+
+    private var lastUpdatedText: String? {
+        guard case .content(_, let savedAt) = viewModel.uiState else { return nil }
+        guard let savedAt else { return nil }
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        return "Last updated: \(df.string(from: savedAt))"
     }
 }
 
