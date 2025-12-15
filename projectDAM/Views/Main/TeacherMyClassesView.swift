@@ -13,7 +13,6 @@ struct TeacherMyClassesView: View {
     @StateObject private var viewModel: TeacherMyClassesViewModel
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var showComingSoonAlert = false
     @State private var selectedCourseForLessons: TeacherCourse?
     @State private var selectedClassForLessons: TeacherClass?
     
@@ -72,13 +71,26 @@ struct TeacherMyClassesView: View {
             .presentationDragIndicator(.visible)
             .interactiveDismissDisabled(viewModel.isSubmittingCourseEdit)
         }
+        .sheet(isPresented: $viewModel.showCreateCourseSheet, onDismiss: {
+            viewModel.closeCreateCourseSheet()
+        }) {
+            CreateCourseSheetView(
+                viewModel: viewModel,
+                onDismiss: {
+                    viewModel.closeCreateCourseSheet()
+                }
+            )
+            .presentationDetents([.fraction(0.95)])
+            .presentationDragIndicator(.visible)
+            .interactiveDismissDisabled(viewModel.isCreatingCourse)
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
         }
     }
-    
+
     // MARK: - Content View
     @ViewBuilder
     private var contentView: some View {
@@ -188,9 +200,6 @@ struct TeacherMyClassesView: View {
             // Stats Summary
             statsSummary()
             
-            // Create New Course Button
-            createCourseButton()
-            
             // Classes List
             classesListView()
         }
@@ -285,55 +294,6 @@ struct TeacherMyClassesView: View {
         .padding(.bottom, DS.paddingMD)
     }
     
-    // MARK: - Create New Course Button
-    private func createCourseButton() -> some View {
-        VStack {
-            Button(action: {
-                showComingSoonAlert = true
-            }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                    
-                    Text("Create New Class")
-                        .font(.system(size: 16, weight: .semibold))
-                    
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .foregroundColor(.white)
-                .background(
-                    LinearGradient(
-                        colors: [Color.brandPrimary, Color.brandPrimaryHover],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .cornerRadius(DS.cornerRadiusMD)
-            }
-            .padding(.horizontal, DS.paddingMD)
-            .padding(.vertical, 12)
-        }
-        .sheet(isPresented: $viewModel.showCreateCourseSheet, onDismiss: {
-            viewModel.closeCreateCourseSheet()
-        }) {
-            CreateCourseSheetView(
-                viewModel: viewModel,
-                onDismiss: {
-                    viewModel.closeCreateCourseSheet()
-                }
-            )
-            .presentationDetents([.fraction(0.95)])
-            .presentationDragIndicator(.visible)
-            .interactiveDismissDisabled(viewModel.isCreatingCourse)
-        }
-        .alert("Coming soon", isPresented: $showComingSoonAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Class creation is almost ready. For now, add courses from an existing class.")
-        }
-    }
     
     // MARK: - Classes List View
     private func classesListView() -> some View {
@@ -620,9 +580,9 @@ private struct TeacherCourseCard: View {
                 
                 Button(action: {}) {
                     HStack(spacing: 6) {
-                        Image(systemName: "chart.bar.fill")
+                        Image(systemName: "archivebox.fill")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Analytics")
+                        Text("Archive / Unarchive")
                             .font(.system(size: 12, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
