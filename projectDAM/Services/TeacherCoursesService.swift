@@ -22,6 +22,8 @@ protocol TeacherCoursesServiceProtocol {
         changeReason: String,
         imageAttachment: CourseImageAttachment?
     ) async throws -> CourseEditRequestResponse
+    func archiveCourse(id: String) async throws -> BasicMessageResponse
+    func unarchiveCourse(id: String) async throws -> BasicMessageResponse
 }
 
 // MARK: - Service Implementation
@@ -209,6 +211,38 @@ final class TeacherCoursesService: TeacherCoursesServiceProtocol {
             headers: ["Authorization": "Bearer \(token)"]
         )
     }
+
+    /// Archive a course (DELETE /course/archive/:id)
+    func archiveCourse(id: String) async throws -> BasicMessageResponse {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        if AppConfig.enableLogging {
+            print("📡 [TeacherCoursesService] Archiving course \(id)")
+        }
+        return try await networkService.request(
+            endpoint: "/course/archive/\(id)",
+            method: .DELETE,
+            body: nil,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+    }
+
+    /// Unarchive a course (PUT /course/unarchive/:id)
+    func unarchiveCourse(id: String) async throws -> BasicMessageResponse {
+        guard let token = authService.getAuthToken() else {
+            throw NetworkError.unauthorized
+        }
+        if AppConfig.enableLogging {
+            print("📡 [TeacherCoursesService] Unarchiving course \(id)")
+        }
+        return try await networkService.request(
+            endpoint: "/course/unarchive/\(id)",
+            method: .PUT,
+            body: nil,
+            headers: ["Authorization": "Bearer \(token)"]
+        )
+    }
 }
 
 // MARK: - Mock Service (for preview/testing)
@@ -265,4 +299,20 @@ final class MockTeacherCoursesService: TeacherCoursesServiceProtocol {
             message: "Mock edit request submitted successfully"
         )
     }
+
+    func archiveCourse(id: String) async throws -> BasicMessageResponse {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return BasicMessageResponse(success: true, message: "Course archived successfully")
+    }
+    
+    func unarchiveCourse(id: String) async throws -> BasicMessageResponse {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return BasicMessageResponse(success: true, message: "Course unarchived successfully")
+    }
+}
+
+// MARK: - Generic Message Response
+struct BasicMessageResponse: Decodable {
+    let success: Bool
+    let message: String?
 }

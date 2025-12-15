@@ -8,11 +8,14 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import Combine
 
 struct TeacherMyClassesView: View {
     @StateObject private var viewModel: TeacherMyClassesViewModel
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingArchiveResult = false
+    @State private var archiveResultMessage = ""
     @State private var selectedCourseForLessons: TeacherCourse?
     @State private var selectedClassForLessons: TeacherClass?
     
@@ -88,6 +91,19 @@ struct TeacherMyClassesView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
+        }
+        .alert("Success", isPresented: $showingArchiveResult) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(archiveResultMessage)
+        }
+        .onReceive(viewModel.$archiveActionError.compactMap { $0 }) { message in
+            errorMessage = message
+            showingError = true
+        }
+        .onReceive(viewModel.$archiveActionSuccessMessage.compactMap { $0 }) { message in
+            archiveResultMessage = message
+            showingArchiveResult = true
         }
     }
 
@@ -328,6 +344,14 @@ struct TeacherMyClassesView: View {
                         },
                         onEditCourse: { course in
                             viewModel.startEditCourseFlow(for: course)
+                        },
+                        onArchiveToggle: { course in
+                            Task {
+                                await viewModel.toggleArchive(for: course)
+                            }
+                        },
+                        isCourseArchiving: { courseId in
+                            viewModel.isCourseArchiving(courseId)
                         }
                     )
                 }
@@ -417,6 +441,8 @@ private struct ClassCard: View {
     let onCreateCourse: () -> Void
     let onOpenLessons: (TeacherCourse) -> Void
     let onEditCourse: (TeacherCourse) -> Void
+    let onArchiveToggle: (TeacherCourse) -> Void
+    let isCourseArchiving: (String) -> Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -491,11 +517,16 @@ private struct ClassCard: View {
                     ForEach(classWithCourses.courses) { course in
                         TeacherCourseCard(
                             course: course,
+                            isArchived: (course.approvalStatus?.lowercased() == "archived"),
+                            isArchiving: isCourseArchiving(course.id),
                             onOpenLessons: {
                                 onOpenLessons(course)
                             },
                             onEdit: {
                                 onEditCourse(course)
+                            },
+                            onArchiveToggle: {
+                                onArchiveToggle(course)
                             }
                         )
                     }
@@ -510,8 +541,11 @@ private struct ClassCard: View {
 // MARK: - Teacher Course Card Component
 private struct TeacherCourseCard: View {
     let course: TeacherCourse
+    let isArchived: Bool
+    let isArchiving: Bool
     let onOpenLessons: () -> Void
     let onEdit: () -> Void
+    let onArchiveToggle: () -> Void
     @State private var showMenu = false
     
     var body: some View {
@@ -578,12 +612,18 @@ private struct TeacherCourseCard: View {
                     .cornerRadius(8)
                 }
                 
-                Button(action: {}) {
+                Button(action: onArchiveToggle) {
                     HStack(spacing: 6) {
                         Image(systemName: "archivebox.fill")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Archive / Unarchive")
-                            .font(.system(size: 12, weight: .semibold))
+                        if isArchiving {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .scaleEffect(0.8)
+                        } else {
+                            Text(isArchived ? "Unarchive" : "Archive")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -592,7 +632,9 @@ private struct TeacherCourseCard: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.brandPrimary, lineWidth: 1.5)
                     )
+                    .opacity(isArchiving ? 0.7 : 1)
                 }
+                .disabled(isArchiving)
             }
         }
         .padding(DS.paddingMD)

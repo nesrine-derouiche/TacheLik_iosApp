@@ -49,6 +49,9 @@ final class TeacherMyClassesViewModel: ObservableObject {
     @Published var editCourseError: String?
     @Published var editCourseSuccessMessage: String?
     @Published var didSubmitCourseEditSuccessfully: Bool = false
+    @Published var archivingCourseIds: Set<String> = []
+    @Published var archiveActionError: String?
+    @Published var archiveActionSuccessMessage: String?
     
     // MARK: - Private Properties
     private let teacherCoursesService: TeacherCoursesServiceProtocol
@@ -677,5 +680,33 @@ final class TeacherMyClassesViewModel: ObservableObject {
         editCourseError = nil
         didSubmitCourseEditSuccessfully = true
         await loadCourses()
+    }
+
+    // MARK: - Archive / Unarchive
+    func isCourseArchiving(_ courseId: String) -> Bool {
+        archivingCourseIds.contains(courseId)
+    }
+    
+    func toggleArchive(for course: TeacherCourse) async {
+        guard !archivingCourseIds.contains(course.id) else { return }
+        archiveActionError = nil
+        archiveActionSuccessMessage = nil
+        archivingCourseIds.insert(course.id)
+        defer { archivingCourseIds.remove(course.id) }
+        let isArchived = course.approvalStatus?.lowercased() == "archived"
+        do {
+            if isArchived {
+                let response = try await teacherCoursesService.unarchiveCourse(id: course.id)
+                archiveActionSuccessMessage = response.message ?? "Course unarchived successfully"
+            } else {
+                let response = try await teacherCoursesService.archiveCourse(id: course.id)
+                archiveActionSuccessMessage = response.message ?? "Course archived successfully"
+            }
+            await refreshCourses()
+        } catch let networkError as NetworkError {
+            archiveActionError = networkError.errorDescription ?? (isArchived ? "Failed to unarchive course" : "Failed to archive course")
+        } catch {
+            archiveActionError = error.localizedDescription
+        }
     }
 }
