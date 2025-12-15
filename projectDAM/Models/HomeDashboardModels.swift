@@ -57,9 +57,55 @@ struct StudentContinueLearningItem: Codable, Equatable, Identifiable {
     var id: String { courseId }
 
     let courseId: String
+    /// UI title. Backward-compatible: decodes from `title` (legacy) or `courseName` (backend).
     let title: String
+    /// Percent complete (0-100). Backend may return null.
     let progress: Int
+    /// Backward-compatible: decodes from `lastAccessed` (legacy) or `lastTouchedAt` (backend).
     let lastAccessed: String?
+
+    enum CodingKeys: String, CodingKey {
+        case courseId
+        case title
+        case courseName
+        case progress
+        case lastAccessed
+        case lastTouchedAt
+    }
+
+    init(courseId: String, title: String, progress: Int, lastAccessed: String?) {
+        self.courseId = courseId
+        self.title = title
+        self.progress = progress
+        self.lastAccessed = lastAccessed
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.courseId = try container.decode(String.self, forKey: .courseId)
+
+        let decodedTitle = (try? container.decodeIfPresent(String.self, forKey: .title))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .courseName))
+            ?? ""
+        self.title = decodedTitle
+
+        // Backend may return null for progress; treat as 0.
+        self.progress = (try? container.decodeIfPresent(Int.self, forKey: .progress)) ?? 0
+
+        self.lastAccessed = (try? container.decodeIfPresent(String.self, forKey: .lastAccessed))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .lastTouchedAt))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(courseId, forKey: .courseId)
+        // Encode both legacy and backend keys for maximum compatibility.
+        try container.encode(title, forKey: .title)
+        try container.encode(title, forKey: .courseName)
+        try container.encode(progress, forKey: .progress)
+        try container.encodeIfPresent(lastAccessed, forKey: .lastAccessed)
+        try container.encodeIfPresent(lastAccessed, forKey: .lastTouchedAt)
+    }
 }
 
 struct StudentGoals: Codable, Equatable {
@@ -145,11 +191,78 @@ struct TeacherRecentEnrollment: Codable, Equatable, Identifiable {
 }
 
 struct TeacherRecentMessage: Codable, Equatable, Identifiable {
-    var id: String { "\(senderName)|\(sentAt ?? "")|\(content.prefix(24))" }
+    /// Prefer backend-provided id when available.
+    let id: String
 
+    /// Backward-compatible: decodes from `senderName` (legacy) or `fromUserId` (backend).
     let senderName: String
+    /// Backward-compatible: decodes from `content` (legacy) or `contentPreview` (backend).
     let content: String
+    /// Backward-compatible: decodes from `sentAt` (legacy) or `createdAt` (backend).
     let sentAt: String?
+    let isRead: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case senderName
+        case fromUserId
+        case content
+        case contentPreview
+        case sentAt
+        case createdAt
+        case isRead
+    }
+
+    init(id: String, senderName: String, content: String, sentAt: String?, isRead: Bool?) {
+        self.id = id
+        self.senderName = senderName
+        self.content = content
+        self.sentAt = sentAt
+        self.isRead = isRead
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // id might be absent in some legacy payloads; synthesize a stable fallback.
+        let rawId = (try? container.decodeIfPresent(String.self, forKey: .id))
+
+        let explicitName = try? container.decodeIfPresent(String.self, forKey: .senderName)
+        let fromUserId = try? container.decodeIfPresent(String.self, forKey: .fromUserId)
+
+        if let explicitName, !explicitName.isEmpty {
+            self.senderName = explicitName
+        } else if let fromUserId, !fromUserId.isEmpty {
+            self.senderName = "User \(fromUserId.prefix(6))"
+        } else {
+            self.senderName = "Message"
+        }
+
+        let content = (try? container.decodeIfPresent(String.self, forKey: .content))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .contentPreview))
+            ?? ""
+        self.content = content
+
+        let sentAt = (try? container.decodeIfPresent(String.self, forKey: .sentAt))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .createdAt))
+        self.sentAt = sentAt
+
+        self.isRead = (try? container.decodeIfPresent(Bool.self, forKey: .isRead))
+
+        self.id = rawId ?? "\(self.senderName)|\(sentAt ?? "")|\(content.prefix(24))"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        // Encode both legacy and backend keys for maximum compatibility.
+        try container.encode(senderName, forKey: .senderName)
+        try container.encode(content, forKey: .content)
+        try container.encode(content, forKey: .contentPreview)
+        try container.encodeIfPresent(sentAt, forKey: .sentAt)
+        try container.encodeIfPresent(sentAt, forKey: .createdAt)
+        try container.encodeIfPresent(isRead, forKey: .isRead)
+    }
 }
 
 struct TeacherAnalyticsCards: Codable, Equatable {
