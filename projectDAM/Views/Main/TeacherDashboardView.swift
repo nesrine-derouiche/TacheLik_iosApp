@@ -40,6 +40,9 @@ struct TeacherDashboardView: View {
                 .padding(.vertical, 16)
                 .padding(.bottom, DS.barHeight + 16)
             }
+            .refreshable {
+                await viewModel.refreshSilently()
+            }
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -73,8 +76,10 @@ struct TeacherDashboardView: View {
             NavigationLink(destination: BadgesView()) {
                 quickActionButton(title: "Badges", systemImage: "rosette", tint: .brandAccent)
             }
-            NavigationLink(destination: BookmarksView()) {
-                quickActionButton(title: "Saved Reels", systemImage: "bookmark.fill", tint: .brandPrimary)
+            Button {
+                switchToTeacherTab(.quizzes)
+            } label: {
+                quickActionButton(title: "Quiz", systemImage: "checkmark.circle.fill", tint: .brandPrimary)
             }
             NavigationLink(destination: WalletView()) {
                 quickActionButton(title: "Wallet", systemImage: "wallet.pass.fill", tint: .brandSuccess)
@@ -461,6 +466,8 @@ struct TeacherDashboardView: View {
         private func formatCurrency(_ value: Double) -> String {
             let formatter = NumberFormatter()
             formatter.numberStyle = .currency
+            formatter.currencyCode = "TND"
+            formatter.currencySymbol = "TND"
             formatter.maximumFractionDigits = 2
             return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
         }

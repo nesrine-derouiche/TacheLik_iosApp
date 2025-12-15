@@ -9,6 +9,13 @@ struct SettingsView: View {
     private var currentUser: User? {
         authService.currentUser
     }
+
+    private var shouldShowSavedReels: Bool {
+        // Remove Saved Reels from Teacher settings only.
+        // Some accounts may be teachers via role OR via `isTeacher` flag.
+        guard let user = currentUser else { return true }
+        return user.role != .mentor && user.isTeacher != true
+    }
     
     var body: some View {
         NavigationView {
@@ -167,15 +174,17 @@ struct SettingsView: View {
                                     iconColor: .brandSuccess
                                 )
                             }
-                            
-                            Divider().padding(.leading, 56)
-                            
-                            NavigationLink(destination: BookmarksView()) {
-                                SettingsRowNavigation(
-                                    icon: "bookmark.fill",
-                                    title: "Saved Reels",
-                                    iconColor: .yellow
-                                )
+
+                            if shouldShowSavedReels {
+                                Divider().padding(.leading, 56)
+
+                                NavigationLink(destination: BookmarksView()) {
+                                    SettingsRowNavigation(
+                                        icon: "bookmark.fill",
+                                        title: "Saved Reels",
+                                        iconColor: .yellow
+                                    )
+                                }
                             }
                         }
                         .background(Color(.systemBackground))
