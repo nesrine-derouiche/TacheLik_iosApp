@@ -5,7 +5,8 @@ struct MainTabView: View {
     enum StudentTab: Int, CaseIterable { case home, classes, explore, quiz, messages, settings }
 
     // MARK: - Admin Tabs
-    enum AdminTab: Int, CaseIterable { case dashboard, requests, quizzes, users, settings }
+    // MARK: - Admin Tabs
+    enum AdminTab: Int, CaseIterable { case dashboard, myClasses, quizzes, messages, settings }
 
     // MARK: - Teacher Tabs
     enum TeacherTab: Int, CaseIterable { case dashboard, myClasses, quizzes, messages, settings }
@@ -68,6 +69,19 @@ struct MainTabView: View {
                 selectedStudentTab = tab
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .adminTabSwitchRequest)) { notification in
+            guard roleManager.currentRole == .admin else { return }
+            guard let rawValue = notification.userInfo?[AdminTabSwitchKeys.tabRawValue] as? Int else { return }
+            // AdminTab and TeacherTab cases might not align perfectly by rawValue if order differs, 
+            // but here we are receiving TeacherTab rawValue from AdminHomeView.
+            // TeacherTab: dashboard=0, myClasses=1, quizzes=2, messages=3, settings=4
+            // AdminTab: dashboard=0, myClasses=1, quizzes=2, messages=3, settings=4
+            // They align perfectly now.
+            guard let tab = AdminTab(rawValue: rawValue) else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedAdminTab = tab
+            }
+        }
     }
 
     // MARK: - Student Tab Content
@@ -92,13 +106,16 @@ struct MainTabView: View {
     private func adminTabContent() -> some View {
         switch selectedAdminTab {
         case .dashboard:
-            AdminDashboardView()
-        case .requests:
-            AdminRequestsView()
+            AdminHomeView()
+        case .myClasses:
+            TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel())
         case .quizzes:
             QuizListView()
-        case .users:
-            AdminUsersView()
+        case .messages:
+            NavigationView {
+                ChatListView()
+            }
+            .navigationViewStyle(.stack)
         case .settings:
             SettingsView()
         }
@@ -149,6 +166,10 @@ private enum TeacherTabSwitchKeys {
 
 private enum StudentTabSwitchKeys {
     static let tab = "tab"
+}
+
+private enum AdminTabSwitchKeys {
+    static let tabRawValue = "tabRawValue"
 }
 
 extension Notification.Name {
@@ -560,12 +581,12 @@ private struct AdminTabBar: View {
                 )
 
                 AdminTabButton(
-                    icon: "list.clipboard.fill",
-                    title: "Requests",
-                    tab: .requests,
+                    icon: "book.fill", // Changed icon for My Classes
+                    title: "Classes", // Changed title
+                    tab: .myClasses, // Changed tab
                     selected: $selected,
                     compact: compact,
-                    tint: .brandWarning,
+                    tint: .brandAccent, // Changed color
                     animation: animation,
                     tabWidth: tabWidth
                 )
@@ -582,9 +603,9 @@ private struct AdminTabBar: View {
                 )
 
                 AdminTabButton(
-                    icon: "person.3.fill",
-                    title: "Users",
-                    tab: .users,
+                    icon: "message.fill", // Changed icon for Messages
+                    title: "Messages", // Changed title
+                    tab: .messages, // Changed tab
                     selected: $selected,
                     compact: compact,
                     tint: .brandSuccess,

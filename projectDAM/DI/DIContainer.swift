@@ -38,6 +38,7 @@ final class DIContainer {
     let networkMonitor: NetworkMonitor
     let puzzleService: PuzzleServiceProtocol
     let reelsService: ReelsServiceProtocol
+    let adminDashboardService: AdminDashboardServiceProtocol
     
     // MARK: - Observable Services
     /// Access AuthService as ObservableObject for SwiftUI
@@ -74,6 +75,7 @@ final class DIContainer {
         self.puzzleService = PuzzleService(networkService: networkService, authService: authService)
         self.reelsService = ReelsService(networkService: networkService, authService: authService)
         self.roleManager = RoleManager()
+        self.adminDashboardService = AdminDashboardService(authService: authService)
         
         // Initialize socket service with configuration from AppConfig
         let socketConfig = SocketConfiguration(
@@ -174,5 +176,8 @@ final class DIContainer {
             networkMonitor: networkMonitor
         )
     }
-    
+
+    func makeAdminHomeViewModel() -> AdminHomeViewModel {
+        return AdminHomeViewModel(service: adminDashboardService)
+    }
 }

@@ -8,7 +8,8 @@
 import Foundation
 import Combine
 import AVFoundation
-import UIKit
+import SwiftUI
+
 
 @MainActor
 class ReelsViewModel: ObservableObject {
