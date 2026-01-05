@@ -135,15 +135,7 @@ struct SettingsView: View {
                                 )
                             }
                             
-                            Divider().padding(.leading, 56)
-                            
-                            NavigationLink(destination: Text("Email Settings")) {
-                                SettingsRowNavigation(
-                                    icon: "envelope.fill",
-                                    title: "Email Settings",
-                                    iconColor: .green
-                                )
-                            }
+
                             
                             Divider().padding(.leading, 56)
                             
