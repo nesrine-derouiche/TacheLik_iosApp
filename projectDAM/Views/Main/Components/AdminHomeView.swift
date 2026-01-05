@@ -1,102 +1,194 @@
-
 import SwiftUI
 import Combine
-
-// MARK: - ViewModel
-
-@MainActor
-class AdminHomeViewModel: ObservableObject {
-    @Published var uiState: UIState = .loading
-    @Published var isOnline: Bool = true // Simplified for now, can hook into NetworkMonitor later
-    
-    private let service: AdminDashboardServiceProtocol
-    
-    enum UIState {
-        case loading
-        case content(AdminStatsData)
-        case error(String)
-    }
-    
-    init(service: AdminDashboardServiceProtocol) {
-        self.service = service
-    }
-    
-    func onAppear() {
-        loadData()
-    }
-    
-    func refresh() async {
-        await loadData(isRefresh: true)
-    }
-    
-    private func loadData(isRefresh: Bool = false) {
-        if !isRefresh { uiState = .loading }
-        
-        Task {
-            do {
-                let data = try await service.fetchDashboardStats()
-                uiState = .content(data)
-            } catch {
-                uiState = .error(error.localizedDescription)
-            }
-        }
-    }
-}
+import Foundation
 
 // MARK: - View
 
 struct AdminHomeView: View {
-    @StateObject private var viewModel = DIContainer.shared.makeAdminHomeViewModel()
+    @StateObject private var viewModel = AdminHomeViewModel()
     @ObservedObject private var authService = DIContainer.shared.authService as! AuthService
     
     // For navigation switching
     @State private var didAppear = false
+    @State private var headerLoadingState: HeaderLoadingState = .loading
+    @State private var animateContent = false
+    
+    enum HeaderLoadingState: Equatable {
+        case loading
+        case loaded
+        case error(String)
+    }
     
     var body: some View {
         NavigationView {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    headerSection
+                VStack(spacing: 20) {
+                    // Header Section - Always Visible
+                    headerSectionWrapper
                         .padding(.top, 16)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     
                     quickActionsGrid
+                        .opacity(animateContent ? 1 : 0)
                     
                     contentSection
+                        .opacity(animateContent ? 1 : 0)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, DS.barHeight + 20)
             }
             .refreshable {
-                await viewModel.refresh()
+                viewModel.send(action: .refresh)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationBarHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    toolbarLeadingView
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    toolbarTrailingView
+                }
+            }
         }
         .onAppear {
             if !didAppear {
                 didAppear = true
-                viewModel.onAppear()
+                initializeHeader()
+                viewModel.send(action: .loadData)
+            }
+        }
+        .onChange(of: authService.currentUser) { _, _ in
+            updateHeaderState()
+        }
+    }
+    
+    // MARK: - Header Section Wrapper
+    
+    @ViewBuilder
+    private var headerSectionWrapper: some View {
+        switch headerLoadingState {
+        case .loading:
+            HeaderSkeletonView()
+                .redacted(reason: .placeholder)
+        case .loaded:
+            headerSection
+        case .error(let message):
+            ErrorHeaderView(message: message) {
+                updateHeaderState()
             }
         }
     }
     
-    // MARK: - Components
+    // MARK: - Header Section
     
+    @ViewBuilder
     private var headerSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.secondary)
-                Text(authService.currentUser?.username ?? "Admin")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.primary)
+        if let user = authService.currentUser {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(greeting)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .opacity(0.8)
+
+                    Text(user.username)
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.primary, .primary.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .lineLimit(1)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "shield.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Administrator")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [.brandPrimary, .brandPrimary.opacity(0.85)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(12)
+                }
+                
+                Spacer()
+                
+                ProfileAvatarView(user: user, size: 56)
+                    .transition(.scale.combined(with: .opacity))
             }
-            Spacer()
-            // Admin Avatar or Logo
-            if let user = authService.currentUser {
-                ProfileAvatarView(user: user, size: 50)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(.systemBackground))
+                    .shadow(
+                        color: Color.black.opacity(0.08),
+                        radius: 12,
+                        x: 0,
+                        y: 4
+                    )
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        } else {
+            HeaderSkeletonView()
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func initializeHeader() {
+        updateHeaderState()
+    }
+    
+    private func updateHeaderState() {
+        if authService.currentUser != nil {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                headerLoadingState = .loaded
+                animateContent = true
             }
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                headerLoadingState = .loading
+                animateContent = false
+            }
+        }
+    }
+    
+    // MARK: - Toolbar Views
+    
+    @ViewBuilder
+    private var toolbarLeadingView: some View {
+        UnifiedTopAppBarLogoView()
+            .transition(.opacity.combined(with: .scale))
+    }
+    
+    @ViewBuilder
+    private var toolbarTrailingView: some View {
+        if headerLoadingState == .loaded, let user = authService.currentUser {
+            UnifiedTopAppBarActions(
+                userCredits: user.credit ?? 0,
+                isShowingWalletAlert: .constant(false),
+                searchAction: {},
+                notificationsAction: {},
+                showSearch: false,
+                showNotifications: false,
+                showNotificationDot: false
+            )
+            .transition(.opacity.combined(with: .move(edge: .trailing)))
+        } else {
+            // Skeleton loading for credit display
+            ToolbarCreditsSkeleton()
+                .transition(.opacity)
         }
     }
     
@@ -109,13 +201,12 @@ struct AdminHomeView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 // Student Actions
                 quickActionButton(title: "Students", icon: "person.2.fill", color: .brandPrimary) {
-                    // Navigate to Teacher MyClasses (which Admin uses now)
-                     switchToTeacherTab(.myClasses)
+                    switchToTeacherTab(.myClasses)
                 }
                 
-                // Teacher Actions (maybe same MyClasses or distinct if available)
+                // Teacher Actions
                 quickActionButton(title: "Teachers", icon: "graduationcap.fill", color: .brandSecondary) {
-                    switchToTeacherTab(.myClasses) // Admin sees everything there
+                    switchToTeacherTab(.myClasses)
                 }
                 
                 // Quizzes
@@ -129,6 +220,9 @@ struct AdminHomeView: View {
                 }
             }
         }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
     }
     
     private func quickActionButton(title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -156,59 +250,216 @@ struct AdminHomeView: View {
     
     @ViewBuilder
     private var contentSection: some View {
-        switch viewModel.uiState {
-        case .loading:
-            ProgressView()
-                .padding(.top, 40)
+        switch viewModel.viewState {
+        case .loading, .idle:
+            VStack(spacing: 16) {
+                SkeletonChartView()
+                SkeletonChartView()
+            }
+            .transition(.opacity)
         case .content(let data):
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 UserGrowthChart(title: "Student Growth", data: data.students, color: .brandPrimary)
                 UserGrowthChart(title: "Teacher Growth", data: data.teachers, color: .brandSecondary)
             }
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
         case .error(let message):
-            VStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.largeTitle)
-                    .foregroundColor(.orange)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Button("Retry") {
-                    viewModel.onAppear()
-                }
+            ContentErrorView(message: message) {
+                viewModel.send(action: .loadData)
             }
-            .padding(.top, 40)
+            .transition(.opacity)
         }
     }
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Good morning," }
-        if hour < 17 { return "Good afternoon," }
-        return "Good evening,"
+        switch hour {
+        case 0..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default: return "Good evening"
+        }
     }
     
     private func switchToTeacherTab(_ tab: MainTabView.TeacherTab) {
-        // Admin uses TeacherTabs for navigation now
-        // But wait, MainTabView for Admin has AdminTab enum.
-        // We need to request switch.
-        // If Admin shares views with Teacher, we need to map AdminTab to TeacherTab functionality OR just switch AdminTab.
-        // AdminTab: dashboard, requests, quizzes, users, settings.
-        // MyClasses and Messages are NOT in AdminTab enum in original code.
-        // The plan was to duplicate Teacher tabs logic into Admin tabs.
-        // So I will update MainTabView to likely just use TeacherTab ENUM for Admin too?
-        // Or keep AdminTab but rename cases to match Teacher.
-        // Let's assume MainTabView will be updated to have .classes, .messages.
-        
-        // For now, I will post a notification that MainTabView listens to.
-        // Since I haven't updated MainTabView yet, I'll define keys assuming I'll update them.
-        // Actually, I can just use a new Notification name "AdminTabSwitchRequest".
-        
         NotificationCenter.default.post(
             name: .adminTabSwitchRequest,
             object: nil,
-            userInfo: ["tabRawValue": tab.rawValue] // This is tricky if Enums don't match.
+            userInfo: ["tabRawValue": tab.rawValue]
         )
+    }
+}
+
+// MARK: - Helper Views
+
+// Skeleton Loading View for Header
+struct HeaderSkeletonView: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 80, height: 14)
+                
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 28)
+                
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.brandPrimary.opacity(0.15))
+                    .frame(width: 110, height: 32)
+            }
+            
+            Spacer()
+            
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 56, height: 56)
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .shimmer(isActive: isAnimating)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+    }
+}
+
+// Error State View for Header
+struct ErrorHeaderView: View {
+    let message: String
+    let retryAction: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.orange)
+                    .padding(.top, 4)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Header Loading Failed")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(message)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                
+                Spacer()
+            }
+            
+            Button(action: retryAction) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Retry")
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(10)
+                .background(Color.brandPrimary)
+                .cornerRadius(10)
+            }
+        }
+        .padding(14)
+        .background(Color.orange.opacity(0.08))
+        .cornerRadius(16)
+        .border(Color.orange.opacity(0.2), width: 1)
+    }
+}
+
+// Skeleton Loading View for Charts
+struct SkeletonChartView: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 100, height: 18)
+                
+                Spacer()
+                
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 60, height: 16)
+            }
+            
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.2))
+                .frame(height: 180)
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .shimmer(isActive: isAnimating)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+    }
+}
+
+// Content Error View
+struct ContentErrorView: View {
+    let message: String
+    let retryAction: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.orange)
+            
+            VStack(spacing: 8) {
+                Text("Unable to Load Dashboard")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text(message)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button(action: retryAction) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Try Again")
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .background(Color.brandPrimary)
+                .cornerRadius(12)
+            }
+            .padding(.top, 8)
+        }
+        .padding(20)
+        .background(Color.orange.opacity(0.08))
+        .cornerRadius(20)
+    }
+}
+
+// MARK: - Shimmer Extension
+extension View {
+    func shimmer(isActive: Bool) -> some View {
+        self
+            .opacity(isActive ? 0.6 : 1)
+            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isActive)
     }
 }
 
@@ -332,7 +583,31 @@ private struct ProfileAvatarView: View {
     }
 }
 
-// Notification Extension
+// MARK: - Toolbar Credits Skeleton
+struct ToolbarCreditsSkeleton: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 50, height: 20)
+            
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 20, height: 20)
+        }
+        .shimmer(isActive: isAnimating)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+    }
+}
+
+
+// MARK: - Notification Extension
 extension Notification.Name {
     static let adminTabSwitchRequest = Notification.Name("AdminTabSwitchRequest")
 }

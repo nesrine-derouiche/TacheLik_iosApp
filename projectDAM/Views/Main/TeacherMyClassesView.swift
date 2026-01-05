@@ -42,18 +42,7 @@ struct TeacherMyClassesView: View {
                         .foregroundColor(.brandPrimary)
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task {
-                            await viewModel.refreshCourses()
-                        }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.brandPrimary)
-                    }
-                    .disabled(viewModel.isRefreshing)
-                }
+
             }
         }
         .navigationViewStyle(.stack)
