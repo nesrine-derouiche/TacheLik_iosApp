@@ -19,20 +19,6 @@ struct ClassesView: View {
         .navigationTitle("Classes")
         .navigationBarTitleDisplayMode(.inline)
         .appForceNavigationTitle("Classes", displayMode: .never)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    Button(action: {}) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    Button(action: {}) {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                }
-            }
-        }
         .appNavigationBarStyle(.standard)
         .background(Color.appGroupedBackground)
         .task {

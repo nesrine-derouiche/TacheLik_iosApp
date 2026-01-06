@@ -36,12 +36,6 @@
 			);
 			target = 261CBA9D2EBE51AD003C55BA /* projectDAM */;
 		};
-		26FDE7162F0000010057C98D /* Exceptions for "projectDAMTests" folder in "projectDAMTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-			);
-			target = 26FDE7112F0000010057C98D /* projectDAMTests */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -55,9 +49,6 @@
 		};
 		26FDE7152F0000010057C98D /* projectDAMTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				26FDE7162F0000010057C98D /* Exceptions for "projectDAMTests" folder in "projectDAMTests" target */,
-			);
 			path = projectDAMTests;
 			sourceTree = "<group>";
 		};
@@ -70,6 +61,13 @@
 			files = (
 				04A82E932ECA4DA800A12822 /* YouTubePlayerKit in Frameworks */,
 				0475F0502EBF7D72005B54B9 /* SocketIO in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		26FDE7132F0000010057C98D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,36 +188,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		26FDE7142F0000010057C98D /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXSourcesBuildPhase section */
-		26FDE7122F0000010057C98D /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXSourcesBuildPhase section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		26FDE7132F0000010057C98D /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
 		261CBA9C2EBE51AD003C55BA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -233,6 +201,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		26FDE7142F0000010057C98D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -243,54 +218,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		26FDE7122F0000010057C98D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		26FDE7182F0000010057C98D /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 3T555Q6V82;
-				ENABLE_TESTABILITY = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
-			};
-			name = Debug;
-		};
-		26FDE7192F0000010057C98D /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 3T555Q6V82;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
-			};
-			name = Release;
-		};
 		261CBAAC2EBE51AE003C55BA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */;
@@ -480,18 +417,54 @@
 			};
 			name = Release;
 		};
+		26FDE7182F0000010057C98D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3T555Q6V82;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
+			};
+			name = Debug;
+		};
+		26FDE7192F0000010057C98D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3T555Q6V82;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		26FDE7172F0000010057C98D /* Build configuration list for PBXNativeTarget "projectDAMTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				26FDE7182F0000010057C98D /* Debug */,
-				26FDE7192F0000010057C98D /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		261CBA992EBE51AD003C55BA /* Build configuration list for PBXProject "projectDAM" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -506,6 +479,15 @@
 			buildConfigurations = (
 				261CBAAF2EBE51AE003C55BA /* Debug */,
 				261CBAB02EBE51AE003C55BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		26FDE7172F0000010057C98D /* Build configuration list for PBXNativeTarget "projectDAMTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26FDE7182F0000010057C98D /* Debug */,
+				26FDE7192F0000010057C98D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

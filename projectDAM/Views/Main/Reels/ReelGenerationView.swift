@@ -38,9 +38,11 @@ struct ReelGenerationView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !viewModel.isGenerating {
-                        Button("Cancel") {
-                            dismiss()
-                        }
+                        ToolbarIconButton(
+                            systemName: "xmark",
+                            accessibilityLabel: "Cancel",
+                            action: { dismiss() }
+                        )
                     }
                 }
             }

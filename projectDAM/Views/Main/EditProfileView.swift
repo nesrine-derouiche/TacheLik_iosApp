@@ -192,9 +192,7 @@ struct EditProfileView: View {
                     }
                 }
                 readOnlyField(label: "Email", value: viewModel.email)
-                if let date = viewModel.formattedCreationDate {
-                    readOnlyField(label: "Creation Date", value: date)
-                }
+                readOnlyField(label: "Creation Date", value: viewModel.formattedCreationDate ?? "—")
                 readOnlyField(label: "Role", value: viewModel.role.rawValue)
                 
                 // Save Personal Info Button
