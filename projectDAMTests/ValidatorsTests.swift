@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import XCTest
 @testable import projectDAM
 
@@ -49,3 +50,4 @@ final class ValidatorsTests: XCTestCase {
         XCTAssertFalse(Validators.isValidName(""), "Empty name should be invalid")
     }
 }
+#endif
