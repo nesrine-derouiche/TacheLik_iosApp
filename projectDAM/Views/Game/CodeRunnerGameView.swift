@@ -267,7 +267,7 @@ private struct CodeRunnerGameContent: View {
                 .transition(.opacity)
             }
         }
-        .navigationBarHidden(true)
+        .appHideNavigationBar()
         .statusBar(hidden: true)
     }
 }

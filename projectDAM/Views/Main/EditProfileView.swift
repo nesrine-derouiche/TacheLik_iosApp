@@ -38,7 +38,7 @@ struct EditProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Color.appGroupedBackground.ignoresSafeArea())
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -163,9 +163,13 @@ struct EditProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
+        .background(Color.appSurface)
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 10)
     }
     
     private var personalInfoSection: some View {
@@ -181,16 +185,14 @@ struct EditProfileView: View {
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                         .padding()
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.appSurfaceElevated))
                     if !viewModel.usernameValidation.isValid,
                        let message = viewModel.usernameValidation.errorMessage {
                         validationMessage(message)
                     }
                 }
                 readOnlyField(label: "Email", value: viewModel.email)
-                if let date = viewModel.formattedCreationDate {
-                    readOnlyField(label: "Creation Date", value: date)
-                }
+                readOnlyField(label: "Creation Date", value: viewModel.formattedCreationDate ?? "—")
                 readOnlyField(label: "Role", value: viewModel.role.rawValue)
                 
                 // Save Personal Info Button
@@ -208,9 +210,13 @@ struct EditProfileView: View {
                 .disabled(!viewModel.canSavePersonalInfo)
             }
             .padding(20)
-            .background(Color(.systemBackground))
+            .background(Color.appSurface)
             .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.16), radius: 16, x: 0, y: 8)
         }
     }
     
@@ -259,7 +265,7 @@ struct EditProfileView: View {
                     TextEditor(text: $viewModel.bio)
                         .frame(minHeight: 100)
                         .padding(8)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.appSurfaceElevated))
                 }
                 socialField(label: "GitHub", placeholder: "https://github.com/username", text: $viewModel.github, validation: viewModel.githubValidation)
                 socialField(label: "LinkedIn", placeholder: "https://www.linkedin.com/in/username", text: $viewModel.linkedin, validation: viewModel.linkedinValidation)
@@ -280,9 +286,13 @@ struct EditProfileView: View {
                 .disabled(!viewModel.canSaveTeacherInfo)
             }
             .padding(20)
-            .background(Color(.systemBackground))
+            .background(Color.appSurface)
             .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.16), radius: 16, x: 0, y: 8)
         }
     }
     
@@ -416,7 +426,7 @@ struct EditProfileView: View {
             TextField(label, text: text)
                 .textInputAutocapitalization(.words)
                 .padding()
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.appSurfaceElevated))
             if !validation.isValid, let message = validation.errorMessage {
                 validationMessage(message)
             }
@@ -433,7 +443,7 @@ struct EditProfileView: View {
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
                 .padding()
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.appSurfaceElevated))
             if !validation.isValid, let message = validation.errorMessage {
                 validationMessage(message)
             }
@@ -478,7 +488,7 @@ private struct PhotoSelectionSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
-                    .background(Color(.secondarySystemBackground))
+                    .background(Color.appSurfaceElevated)
                     .cornerRadius(18)
                 }
                 if let data = pendingImageData,

@@ -13,6 +13,57 @@ struct LessonsView: View {
     @State private var navigateToChat = false
     @State private var showingGameView = false
     @State private var showingReelGenerator = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    @ToolbarContentBuilder
+    private var lessonToolbar: some ToolbarContent {
+        if viewModel.lesson?.courseId != nil {
+            if #available(iOS 16.0, *) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    lessonToolbarButtons
+                }
+            } else {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    lessonToolbarButtons
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var lessonToolbarButtons: some View {
+        Button {
+            navigateToChat = true
+        } label: {
+            Label("Message", systemImage: "message.fill")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Message")
+
+        Button {
+            showingReelGenerator = true
+        } label: {
+            Label("Reel", systemImage: "wand.and.stars")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Reel")
+
+        Button {
+            showingQuizGenerator = true
+        } label: {
+            Label("Quiz", systemImage: "sparkles")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Quiz")
+
+        Button {
+            showingGameView = true
+        } label: {
+            Label("Game", systemImage: "gamecontroller.fill")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Game")
+    }
 
     // MARK: - Initializers
     init(
@@ -32,55 +83,14 @@ struct LessonsView: View {
     // MARK: - Body
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
+            Color.appBackground
                 .ignoresSafeArea()
             content
         }
         .navigationTitle(viewModel.lessonTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if viewModel.lesson?.courseId != nil {
-                    HStack(spacing: 12) {
-                        Button {
-                            navigateToChat = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "message.fill")
-                                Text("Message")
-                            }
-                        }
-
-                        Button {
-                            showingReelGenerator = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "wand.and.stars")
-                                Text("Reel")
-                            }
-                        }
-
-                        Button {
-                            showingQuizGenerator = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "sparkles")
-                                Text("Quiz")
-                            }
-                        }
-
-                        Button {
-                            showingGameView = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "gamecontroller.fill")
-                                Text("Game")
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        .appForceNavigationTitle(viewModel.lessonTitle, displayMode: .never)
+        .toolbar { lessonToolbar }
         .background(
             NavigationLink(
                 destination: Group {
@@ -219,23 +229,27 @@ struct LessonsView: View {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color.gray.opacity(0.25), Color.gray.opacity(0.35)],
+                                colors: [Color.appSurfaceElevated, Color.appSurface],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(height: 220)
 
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.appBorder.opacity(colorScheme == .dark ? 1.0 : 0.7), lineWidth: 1)
+                        .frame(height: 220)
+
                     VStack(spacing: 10) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.secondary)
                         Text("This premium course is locked")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.primary)
                         Text("Purchase this course to unlock all videos.")
                             .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(24)
                 }
@@ -266,7 +280,7 @@ struct LessonsView: View {
                                 Image(systemName: "square.and.arrow.up")
                                     .foregroundColor(.white)
                                     .padding(10)
-                                    .background(Color.white.opacity(0.15))
+                                    .background(Color.appPillOverlay)
                                     .clipShape(Circle())
                             }
                         }
@@ -289,7 +303,9 @@ struct LessonsView: View {
                     infoPill(icon: "arrow.down", text: "More incoming")
                 }
             }
-            .padding([.horizontal, .bottom], DS.paddingMD)
+            .padding(.horizontal, DS.paddingMD)
+            .padding(.top, DS.paddingMD)
+            .padding(.bottom, DS.paddingSM)
 
             if viewModel.visibleVideos.isEmpty {
                 EmptyStateCard(message: "Videos will appear here once available.")
@@ -344,10 +360,19 @@ struct LessonsView: View {
                 .padding(.vertical, 12)
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.appSurface)
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.appBorder.opacity(colorScheme == .dark ? 1.0 : 0.7), lineWidth: 1)
+        )
         .padding(.horizontal, DS.paddingMD)
-        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 4)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.35 : 0.05),
+            radius: colorScheme == .dark ? 16 : 12,
+            x: 0,
+            y: colorScheme == .dark ? 8 : 4
+        )
     }
 
     private func lessonDescriptionSection(_ description: String) -> some View {
@@ -362,10 +387,19 @@ struct LessonsView: View {
                 .lineSpacing(4)
         }
         .padding(DS.paddingMD)
-        .background(Color(.systemBackground))
+        .background(Color.appSurface)
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.appBorder.opacity(colorScheme == .dark ? 1.0 : 0.7), lineWidth: 1)
+        )
         .padding(.horizontal, DS.paddingMD)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.35 : 0.05),
+            radius: colorScheme == .dark ? 14 : 10,
+            x: 0,
+            y: colorScheme == .dark ? 8 : 4
+        )
     }
 
     private func footerSection(for lesson: Lesson) -> some View {
@@ -472,7 +506,7 @@ struct LessonsView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.white.opacity(0.2))
+        .background(Color.appPillOverlay)
         .clipShape(Capsule())
     }
 
@@ -489,9 +523,18 @@ struct LessonsView: View {
         }
         .padding(16)
         .frame(width: 140, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color.appSurface)
         .cornerRadius(18)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.appBorder.opacity(colorScheme == .dark ? 1.0 : 0.7), lineWidth: 1)
+        )
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.04),
+            radius: colorScheme == .dark ? 14 : 8,
+            x: 0,
+            y: colorScheme == .dark ? 8 : 4
+        )
     }
 
     private func formattedDate(_ isoString: String?) -> String? {
@@ -560,7 +603,7 @@ struct VideoListItemView: View {
                     .fill(
                         isLocked
                             ? LinearGradient(
-                                colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.4)],
+                                colors: [Color.appSurfaceElevated, Color.appSurface],
                                 startPoint: .topLeading, endPoint: .bottomTrailing)
                             : (isSelected
                                 ? LinearGradient(
@@ -568,8 +611,8 @@ struct VideoListItemView: View {
                                     startPoint: .topLeading, endPoint: .bottomTrailing)
                                 : LinearGradient(
                                     colors: [
-                                        Color(.secondarySystemBackground),
-                                        Color(.tertiarySystemBackground),
+                                        Color.appSurface,
+                                        Color.appSurfaceElevated,
                                     ], startPoint: .topLeading, endPoint: .bottomTrailing))
                     )
                 if isLocked {
@@ -629,17 +672,22 @@ struct VideoListItemView: View {
 private struct ShimmerCard: View {
     var height: CGFloat
     @State private var phase: CGFloat = -1
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let bright = colorScheme == .dark ? 0.25 : 0.60
+        let dim = colorScheme == .dark ? 0.08 : 0.10
+
         RoundedRectangle(cornerRadius: 24, style: .continuous)
-            .fill(Color(.secondarySystemBackground))
+            .fill(Color.appSurface)
             .frame(height: height)
             .overlay(
                 GeometryReader { geometry in
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.1), Color.white.opacity(0.6),
-                            Color.white.opacity(0.1),
+                            Color.white.opacity(dim),
+                            Color.white.opacity(bright),
+                            Color.white.opacity(dim),
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -674,7 +722,7 @@ private struct EmptyStateCard: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(.tertiarySystemBackground))
+        .background(Color.appSurfaceElevated)
         .cornerRadius(18)
     }
 }

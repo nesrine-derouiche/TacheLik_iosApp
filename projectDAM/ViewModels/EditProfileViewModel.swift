@@ -120,15 +120,51 @@ final class EditProfileViewModel: ObservableObject {
     }
     
     var formattedCreationDate: String? {
-        guard let creationDate else { return nil }
-        let isoFormatter = ISO8601DateFormatter()
-        if let date = isoFormatter.date(from: creationDate) {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .long
-            formatter.timeStyle = .none
-            return formatter.string(from: date)
+        guard let raw = creationDate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty
+        else {
+            return nil
         }
-        return creationDate
+
+        guard let date = Self.parseISO8601Date(raw) else {
+            return nil
+        }
+
+        return Self.formatCreationDate(date)
+    }
+
+    private static func parseISO8601Date(_ value: String) -> Date? {
+        // Handles common backend formats like:
+        // - 2025-10-19T14:32:59Z
+        // - 2025-10-19T14:32:59.000Z
+        // - 2025-10-19T14:32:59+01:00
+        // - 2025-10-19T14:32:59.000+01:00
+
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: value) {
+            return date
+        }
+
+        let nonFractional = ISO8601DateFormatter()
+        nonFractional.formatOptions = [.withInternetDateTime]
+        return nonFractional.date(from: value)
+    }
+
+    private static func formatCreationDate(_ date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = .autoupdatingCurrent
+        dateFormatter.timeZone = .autoupdatingCurrent
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.locale = .autoupdatingCurrent
+        timeFormatter.timeZone = .autoupdatingCurrent
+        timeFormatter.dateStyle = .none
+        timeFormatter.timeStyle = .short
+
+        return "\(dateFormatter.string(from: date)) • \(timeFormatter.string(from: date))"
     }
     
     // MARK: - Public Methods

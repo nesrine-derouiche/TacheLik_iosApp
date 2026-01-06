@@ -25,27 +25,16 @@ struct TeacherMyClassesView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                Color(.systemBackground)
-                    .ignoresSafeArea()
-                
-                contentView
-            }
-            .background(navigationLinkToLessons)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("My Classes")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.brandPrimary)
-                }
-                
+        ZStack {
+            // Background
+            Color.appGroupedBackground
+                .ignoresSafeArea()
 
-            }
+            contentView
         }
-        .navigationViewStyle(.stack)
+        .background(navigationLinkToLessons)
+        .navigationTitle("My Classes")
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadCourses()
             await viewModel.loadAvailableClasses()

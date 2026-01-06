@@ -88,16 +88,18 @@ struct MainTabView: View {
     @ViewBuilder
     private func studentTabContent() -> some View {
         switch selectedStudentTab {
-        case .home: HomeView()
-        case .classes: ClassesView()
-        case .explore: ExploreView()
-        case .quiz: StudentQuizListView()
-        case .messages: 
-            NavigationView {
-                ChatListView()
-            }
-            .navigationViewStyle(.stack)
-        case .settings: SettingsView()
+        case .home:
+            AppNavigationContainer { HomeView() }
+        case .classes:
+            AppNavigationContainer { ClassesView() }
+        case .explore:
+            AppNavigationContainer { ExploreView() }
+        case .quiz:
+            AppNavigationContainer { StudentQuizListView() }
+        case .messages:
+            AppNavigationContainer { ChatListView() }
+        case .settings:
+            AppNavigationContainer { SettingsView() }
         }
     }
 
@@ -106,18 +108,15 @@ struct MainTabView: View {
     private func adminTabContent() -> some View {
         switch selectedAdminTab {
         case .dashboard:
-            AdminHomeView()
+            AppNavigationContainer { AdminHomeView() }
         case .myClasses:
-            TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel())
+            AppNavigationContainer { TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel()) }
         case .quizzes:
-            QuizListView()
+            AppNavigationContainer { QuizListView() }
         case .messages:
-            NavigationView {
-                ChatListView()
-            }
-            .navigationViewStyle(.stack)
+            AppNavigationContainer { ChatListView() }
         case .settings:
-            SettingsView()
+            AppNavigationContainer { SettingsView() }
         }
     }
 
@@ -126,18 +125,15 @@ struct MainTabView: View {
     private func teacherTabContent() -> some View {
         switch selectedTeacherTab {
         case .dashboard:
-            TeacherDashboardView()
+            AppNavigationContainer { TeacherDashboardView() }
         case .myClasses:
-            TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel())
+            AppNavigationContainer { TeacherMyClassesView(viewModel: DIContainer.shared.makeTeacherMyClassesViewModel()) }
         case .quizzes:
-            QuizListView()
+            AppNavigationContainer { QuizListView() }
         case .messages:
-            NavigationView {
-                ChatListView() // Teachers now use the same chat view as students
-            }
-            .navigationViewStyle(.stack)
+            AppNavigationContainer { ChatListView() }
         case .settings:
-            SettingsView()
+            AppNavigationContainer { SettingsView() }
         }
     }
 
@@ -270,7 +266,7 @@ private struct StudentTabBar: View {
         }
         .frame(height: DS.barHeight)
         .shadow(
-            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+            color: Color.black.opacity(colorScheme == .dark ? 0.32 : 0.1), radius: 18, x: 0, y: -6)
     }
 
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
@@ -292,7 +288,7 @@ private struct StudentTabBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
+                            Color.black.opacity(colorScheme == .dark ? 0.18 : 0.05),
                             Color.clear,
                         ],
                         startPoint: .top,
@@ -300,6 +296,12 @@ private struct StudentTabBar: View {
                     )
                 )
                 .frame(height: 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+
+            // Subtle top border for separation (especially on dark backgrounds).
+            Rectangle()
+                .fill(Color.appDivider)
+                .frame(height: 1)
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
@@ -637,7 +639,7 @@ private struct AdminTabBar: View {
         }
         .frame(height: DS.barHeight)
         .shadow(
-            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+            color: Color.black.opacity(colorScheme == .dark ? 0.32 : 0.1), radius: 18, x: 0, y: -6)
     }
 
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
@@ -659,7 +661,7 @@ private struct AdminTabBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
+                            Color.black.opacity(colorScheme == .dark ? 0.18 : 0.05),
                             Color.clear,
                         ],
                         startPoint: .top,
@@ -667,6 +669,11 @@ private struct AdminTabBar: View {
                     )
                 )
                 .frame(height: 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+
+            Rectangle()
+                .fill(Color.appDivider)
+                .frame(height: 1)
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }
@@ -908,7 +915,7 @@ private struct TeacherTabBar: View {
         }
         .frame(height: DS.barHeight)
         .shadow(
-            color: Color.black.opacity(colorScheme == .dark ? 0.5 : 0.1), radius: 20, x: 0, y: -5)
+            color: Color.black.opacity(colorScheme == .dark ? 0.32 : 0.1), radius: 18, x: 0, y: -6)
     }
 
     private func tabBarBackground(_ colorScheme: ColorScheme) -> some View {
@@ -930,7 +937,7 @@ private struct TeacherTabBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05),
+                            Color.black.opacity(colorScheme == .dark ? 0.18 : 0.05),
                             Color.clear,
                         ],
                         startPoint: .top,
@@ -938,6 +945,11 @@ private struct TeacherTabBar: View {
                     )
                 )
                 .frame(height: 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+
+            Rectangle()
+                .fill(Color.appDivider)
+                .frame(height: 1)
                 .frame(maxHeight: .infinity, alignment: .top)
         }
     }

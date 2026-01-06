@@ -74,16 +74,26 @@ struct QuizGeneratorView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { dismiss() }
+                        ToolbarIconButton(
+                            systemName: "xmark",
+                            accessibilityLabel: "Close",
+                            action: { dismiss() }
+                        )
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button(action: { Task { await generateQuiz() } }) {
                             if isGenerating {
                                 ProgressView()
+                                    .frame(width: 44, height: 44)
                             } else {
-                                Text("Generate")
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 44, height: 44)
                             }
                         }
+                        .accessibilityLabel("Generate")
+                        .buttonStyle(.plain)
                         .disabled(!canGenerate || isGenerating)
                     }
                 }

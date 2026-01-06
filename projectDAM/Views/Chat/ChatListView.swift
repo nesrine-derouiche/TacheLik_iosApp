@@ -56,7 +56,7 @@ struct ChatListView: View {
                         Image(systemName: "person.circle.fill")
                             .resizable()
                             .frame(width: 50, height: 50)
-                            .foregroundColor(.gray)
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -72,19 +72,26 @@ struct ChatListView: View {
                                 .lineLimit(1)
                         }
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundStyle(.secondary)
                     }
                     
                     Spacer()
                     
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.gray)
+                    Image(systemName: "chevron.forward")
+                        .foregroundStyle(.tertiary)
                         .font(.system(size: 14))
                 }
                 .padding(.vertical, 4)
             }
+            .listRowBackground(Color.appSurface)
         }
+        .listStyle(.insetGrouped)
+        .listRowSeparatorTint(Color.appDivider)
+        .scrollContentBackground(.hidden)
+        .background(Color.appGroupedBackground)
         .navigationTitle("Messages")
+        .navigationBarTitleDisplayMode(.inline)
+        .appForceNavigationTitle("Messages", displayMode: .never)
         .onAppear {
             // Only fetch conversations once, not every time we return from chat
             if !hasLoadedConversations {

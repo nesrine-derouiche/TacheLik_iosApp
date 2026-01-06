@@ -221,30 +221,28 @@ struct ReferralDetailSheet: View {
     }
     
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                let maxContentWidth: CGFloat = 640
-                let horizontalPadding = max((geometry.size.width - maxContentWidth) / 2, 20)
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        balanceSection
-                        accountsSection
-                        rechargeSection
-                        referralsSection
-                        historySection
-                        tutorialsSection
-                    }
-                    .frame(maxWidth: maxContentWidth)
-                    .padding(.vertical, 24)
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.bottom, DS.barHeight + 8)
-                    .frame(maxWidth: .infinity, alignment: .center)
+        GeometryReader { geometry in
+            let maxContentWidth: CGFloat = 640
+            let horizontalPadding = max((geometry.size.width - maxContentWidth) / 2, 20)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    balanceSection
+                    accountsSection
+                    rechargeSection
+                    referralsSection
+                    historySection
+                    tutorialsSection
                 }
+                .frame(maxWidth: maxContentWidth)
+                .padding(.vertical, 20)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.bottom, DS.barHeight + 8)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Wallet")
-            .navigationBarTitleDisplayMode(.large)
         }
+        .background(Color.appGroupedBackground.ignoresSafeArea())
+        .navigationTitle("Wallet")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showReferralSheet) {
             ReferralDetailSheet(
                 friendInviteCode: $friendInviteCode,
@@ -1271,7 +1269,7 @@ struct D17ReceiptSheet: View {
             .padding()
             .navigationTitle("Receipt")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarHidden(true)
+            .appHideNavigationBar()
         }
         .sheet(isPresented: $showImagePicker) {
             ImagePicker(image: $tempImage, sourceType: .photoLibrary)

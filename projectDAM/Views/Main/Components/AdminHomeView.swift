@@ -20,35 +20,34 @@ struct AdminHomeView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    // Header Section - Always Visible
-                    headerSectionWrapper
-                        .padding(.top, 16)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    
-                    quickActionsGrid
-                        .opacity(animateContent ? 1 : 0)
-                    
-                    contentSection
-                        .opacity(animateContent ? 1 : 0)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, DS.barHeight + 20)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                // Header Section - Always Visible
+                headerSectionWrapper
+                    .padding(.top, 16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+
+                quickActionsGrid
+                    .opacity(animateContent ? 1 : 0)
+
+                contentSection
+                    .opacity(animateContent ? 1 : 0)
             }
-            .refreshable {
-                viewModel.send(action: .refresh)
+            .padding(.horizontal, 20)
+            .padding(.bottom, DS.barHeight + 20)
+        }
+        .refreshable {
+            viewModel.send(action: .refresh)
+        }
+        .background(Color.appGroupedBackground)
+        .navigationBarTitleDisplayMode(.inline)
+        .appNavigationBarStyle(.transparent)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                toolbarLeadingView
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    toolbarLeadingView
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    toolbarTrailingView
-                }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                toolbarTrailingView
             }
         }
         .onAppear {

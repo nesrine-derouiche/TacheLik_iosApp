@@ -10,65 +10,63 @@ struct TeacherDashboardView: View {
     private var userCredits: Int { currentUser?.credit ?? 0 }
 
     var body: some View {
-        NavigationView {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
-                    headerSection
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 16) {
+                headerSection
 
-                    if !viewModel.isOnline {
+                if !viewModel.isOnline {
+                    OfflineBanner(subtitle: lastUpdatedText)
+                }
+
+                quickActionsRow
+
+                switch viewModel.uiState {
+                case .loading:
+                    skeletonContent
+                case .error(let message, _, let isOffline, _):
+                    if isOffline {
                         OfflineBanner(subtitle: lastUpdatedText)
                     }
-
-                    quickActionsRow
-
-                    switch viewModel.uiState {
-                    case .loading:
-                        skeletonContent
-                    case .error(let message, _, let isOffline, _):
-                        if isOffline {
-                            OfflineBanner(subtitle: lastUpdatedText)
-                        }
-                        errorCard(message: message)
-                    case .content(let home, _):
-                        quickStatsGrid(home: home)
-                        pendingActionsSection(home: home)
-                        engagementSection(home: home)
-                        analyticsSection(home: home)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .padding(.bottom, DS.barHeight + 16)
-            }
-            .refreshable {
-                await viewModel.refreshSilently()
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    UnifiedTopAppBarLogoView()
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    UnifiedTopAppBarActions(
-                        userCredits: userCredits,
-                        isShowingWalletAlert: .constant(false),
-                        searchAction: {},
-                        notificationsAction: {},
-                        showSearch: false,
-                        showNotifications: false,
-                        showNotificationDot: hasAttentionItems
-                    )
+                    errorCard(message: message)
+                case .content(let home, _):
+                    quickStatsGrid(home: home)
+                    pendingActionsSection(home: home)
+                    engagementSection(home: home)
+                    analyticsSection(home: home)
                 }
             }
-            .onAppear {
-                if !didAppear {
-                    didAppear = true
-                    viewModel.onAppear()
-                }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .padding(.bottom, DS.barHeight + 16)
+        }
+        .refreshable {
+            await viewModel.refreshSilently()
+        }
+        .background(Color.appGroupedBackground)
+        .navigationBarTitleDisplayMode(.inline)
+        .appNavigationBarStyle(.transparent)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                UnifiedTopAppBarLogoView()
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                UnifiedTopAppBarActions(
+                    userCredits: userCredits,
+                    isShowingWalletAlert: .constant(false),
+                    searchAction: {},
+                    notificationsAction: {},
+                    showSearch: false,
+                    showNotifications: false,
+                    showNotificationDot: hasAttentionItems
+                )
             }
         }
-        .navigationViewStyle(.stack)
+        .onAppear {
+            if !didAppear {
+                didAppear = true
+                viewModel.onAppear()
+            }
+        }
     }
 
     private var quickActionsRow: some View {

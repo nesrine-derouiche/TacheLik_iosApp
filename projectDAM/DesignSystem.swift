@@ -17,9 +17,10 @@ struct DS {
         // Error/Danger: #dc3545 (red)
         static let error = Color(red: 0.863, green: 0.208, blue: 0.271)
         
-        static let cardBackground = Color(.systemBackground)
-        static let secondaryBackground = Color(.secondarySystemBackground)
-        static let tertiaryBackground = Color(.tertiarySystemBackground)
+        // Use app surfaces to keep cards readable in dark mode (systemBackground becomes pure black).
+        static let cardBackground = Color.appSurface
+        static let secondaryBackground = Color.appSurfaceElevated
+        static let tertiaryBackground = Color.appSurfaceElevated
     }
     
     // MARK: - Spacing
@@ -138,10 +139,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 // MARK: - Card Modifiers
 extension View {
     func cardStyle() -> some View {
-        self
-            .background(DS.Colors.cardBackground)
-            .cornerRadius(DS.cornerRadiusLG)
-            .shadow(color: DS.shadowMD.color, radius: DS.shadowMD.radius, x: DS.shadowMD.x, y: DS.shadowMD.y)
+        self.appCardStyle()
     }
     
     func glassMorphicCard() -> some View {

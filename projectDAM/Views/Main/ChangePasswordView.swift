@@ -145,9 +145,13 @@ struct ChangePasswordView: View {
                         .disabled(isButtonDisabled)
                     }
                     .padding(28)
-                    .background(Color(.systemBackground))
+                    .background(Color.appSurface)
                     .cornerRadius(24)
-                    .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color.appBorder.opacity(0.9), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 10)
                     .padding(.horizontal, 20)
                     
                     Spacer()
@@ -155,7 +159,7 @@ struct ChangePasswordView: View {
                 .padding(.vertical, 20)
                 .padding(.bottom, DS.barHeight + 8)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.appGroupedBackground)
         }
         .navigationTitle("Change Password")
         .navigationBarTitleDisplayMode(.inline)

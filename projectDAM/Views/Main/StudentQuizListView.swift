@@ -11,37 +11,36 @@ struct StudentQuizListView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
+        ZStack {
+            Color.appGroupedBackground
+                .ignoresSafeArea()
 
-                content
-            }
-            .navigationTitle("Quizzes")
-            .navigationBarTitleDisplayMode(.large)
-            .background(
-                NavigationLink(
-                    destination: Group {
-                        if let quiz = selectedQuiz {
-                            StudentQuizDetailView(quizId: quiz.id)
-                        }
-                    },
-                    isActive: Binding(
-                        get: { navigateToQuiz },
-                        set: { isActive in
-                            if !isActive {
-                                navigateToQuiz = false
-                                selectedQuiz = nil
-                            }
-                        }
-                    )
-                ) {
-                    EmptyView()
-                }
-                .hidden()
-            )
+            content
         }
+        .navigationTitle("Quizzes")
+        .navigationBarTitleDisplayMode(.inline)
+        .appForceNavigationTitle("Quizzes", displayMode: .never)
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let quiz = selectedQuiz {
+                        StudentQuizDetailView(quizId: quiz.id)
+                    }
+                },
+                isActive: Binding(
+                    get: { navigateToQuiz },
+                    set: { isActive in
+                        if !isActive {
+                            navigateToQuiz = false
+                            selectedQuiz = nil
+                        }
+                    }
+                )
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
         .task {
             await viewModel.loadQuizzes()
         }
