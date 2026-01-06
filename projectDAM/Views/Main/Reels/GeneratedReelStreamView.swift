@@ -306,23 +306,31 @@ struct GeneratedReelPlayerView: View {
                     // Left Side: Text Info
                     VStack(alignment: .leading, spacing: 8) {
                         // AI Generated Badge
-                        HStack {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 12))
-                            Text("AI Generated")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            LinearGradient(
-                                colors: [.purple, .brandPrimary],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                        HStack(spacing: 10) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 12))
+                                Text("AI Generated")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                LinearGradient(
+                                    colors: [.purple, .brandPrimary],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                        .cornerRadius(12)
+                            .cornerRadius(12)
+
+                            Spacer(minLength: 8)
+
+                            if let createdAt = reel.createdAt, !createdAt.isEmpty {
+                                ReelRelativeTimestampView(createdAt: createdAt)
+                            }
+                        }
                         
                         if let title = reel.title, !title.isEmpty {
                             Text(title)
@@ -546,6 +554,7 @@ struct GeneratedReelSkeletonView: View {
         videoId: "video-123",
         startTime: "00:01:30",
         endTime: "00:02:15",
+        createdAt: nil,
         likesCount: 42,
         commentsCount: 7,
         isLiked: false,
@@ -555,9 +564,9 @@ struct GeneratedReelSkeletonView: View {
 
 #Preview("Multiple Reels") {
     GeneratedReelStreamView(reels: [
-        Reel(id: "reel-1", originalVideoUrl: nil, title: "First Highlight", description: "The best moment from the intro", filePath: "reels/reel_1.mp4", videoId: "v1", startTime: "00:00:30", endTime: "00:01:00", likesCount: 10, commentsCount: 2, isLiked: false, isBookmarked: false),
-        Reel(id: "reel-2", originalVideoUrl: nil, title: "Second Highlight", description: "An exciting part about algorithms", filePath: "reels/reel_2.mp4", videoId: "v1", startTime: "00:05:00", endTime: "00:05:45", likesCount: 25, commentsCount: 5, isLiked: true, isBookmarked: true),
-        Reel(id: "reel-3", originalVideoUrl: nil, title: "Third Highlight", description: "The conclusion summary", filePath: "reels/reel_3.mp4", videoId: "v1", startTime: "00:12:00", endTime: "00:12:30", likesCount: 18, commentsCount: 3, isLiked: false, isBookmarked: false)
+        Reel(id: "reel-1", originalVideoUrl: nil, title: "First Highlight", description: "The best moment from the intro", filePath: "reels/reel_1.mp4", videoId: "v1", startTime: "00:00:30", endTime: "00:01:00", createdAt: nil, likesCount: 10, commentsCount: 2, isLiked: false, isBookmarked: false),
+        Reel(id: "reel-2", originalVideoUrl: nil, title: "Second Highlight", description: "An exciting part about algorithms", filePath: "reels/reel_2.mp4", videoId: "v1", startTime: "00:05:00", endTime: "00:05:45", createdAt: nil, likesCount: 25, commentsCount: 5, isLiked: true, isBookmarked: true),
+        Reel(id: "reel-3", originalVideoUrl: nil, title: "Third Highlight", description: "The conclusion summary", filePath: "reels/reel_3.mp4", videoId: "v1", startTime: "00:12:00", endTime: "00:12:30", createdAt: nil, likesCount: 18, commentsCount: 3, isLiked: false, isBookmarked: false)
     ])
 }
 

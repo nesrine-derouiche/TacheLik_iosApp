@@ -34,7 +34,9 @@ class BookmarksViewModel: ObservableObject {
         print("[BookmarksViewModel] 📚 Loading bookmarked reels...")
         
         do {
-            bookmarkedReels = try await reelsService.getBookmarkedReels()
+            let reels = try await reelsService.getBookmarkedReels()
+            // Saved Reels screen should always reflect that these items are bookmarked.
+            bookmarkedReels = reels.map { $0.updatingBookmark(isBookmarked: true) }
             print("[BookmarksViewModel] ✅ Loaded \(bookmarkedReels.count) bookmarked reels")
         } catch let networkError as NetworkError {
             error = networkError.localizedDescription
@@ -56,6 +58,13 @@ class BookmarksViewModel: ObservableObject {
         print("[BookmarksViewModel] 🔖 Unbookmark action: reelId=\(reel.id), timestamp=\(ISO8601DateFormatter().string(from: Date()))")
         
         // Optimistic removal from list
+        if let player = cachedPlayers[reel.id] {
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
+            player.replaceCurrentItem(with: nil)
+            cachedPlayers.removeValue(forKey: reel.id)
+        }
         bookmarkedReels.remove(at: index)
         
         // Haptic feedback
@@ -67,7 +76,7 @@ class BookmarksViewModel: ObservableObject {
             
             if serverBookmarked {
                 // Reel is still bookmarked (shouldn't happen but handle gracefully)
-                bookmarkedReels.insert(reel, at: min(index, bookmarkedReels.count))
+                bookmarkedReels.insert(reel.updatingBookmark(isBookmarked: true), at: min(index, bookmarkedReels.count))
             }
             print("[BookmarksViewModel] ✅ Bookmark removed")
         } catch {
@@ -75,6 +84,30 @@ class BookmarksViewModel: ObservableObject {
             bookmarkedReels.insert(reel.updatingBookmark(isBookmarked: isBookmarked), at: min(index, bookmarkedReels.count))
             print("[BookmarksViewModel] ❌ Failed to toggle bookmark: \(error)")
         }
+    }
+
+    func toggleLike(reel: Reel) async {
+        guard let index = bookmarkedReels.firstIndex(where: { $0.id == reel.id }) else { return }
+
+        let original = bookmarkedReels[index]
+        let optimisticLiked = !(original.isLiked ?? false)
+        let originalCount = original.likesCount ?? 0
+        let optimisticCount = max(0, originalCount + (optimisticLiked ? 1 : -1))
+
+        bookmarkedReels[index] = original.updatingLike(isLiked: optimisticLiked, count: optimisticCount)
+
+        do {
+            let result = try await reelsService.toggleLike(reelId: reel.id)
+            bookmarkedReels[index] = original.updatingLike(isLiked: result.liked, count: result.likesCount)
+        } catch {
+            bookmarkedReels[index] = original
+            print("[BookmarksViewModel] ❌ Failed to toggle like: \(error)")
+        }
+    }
+
+    func updateReelCommentCount(reelId: String, newCount: Int) {
+        guard let index = bookmarkedReels.firstIndex(where: { $0.id == reelId }) else { return }
+        bookmarkedReels[index] = bookmarkedReels[index].updatingCommentCount(newCount)
     }
     
     // MARK: - Player Management
@@ -87,6 +120,9 @@ class BookmarksViewModel: ObservableObject {
             let playerItem = AVPlayerItem(url: url)
             let player = AVPlayer(playerItem: playerItem)
             player.automaticallyWaitsToMinimizeStalling = false
+            // Ensure preloaded players never create audible overlap.
+            player.isMuted = true
+            player.volume = 0
             cachedPlayers[reel.id] = player
             return player
         }
@@ -136,6 +172,25 @@ class BookmarksViewModel: ObservableObject {
                     _ = getPlayer(for: reel)
                 }
             }
+        }
+    }
+
+    func pauseAllPlayers(except activeReelId: String?) {
+        for (id, player) in cachedPlayers {
+            if id == activeReelId {
+                continue
+            }
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
+        }
+    }
+
+    func stopAllPlayers() {
+        for (_, player) in cachedPlayers {
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
         }
     }
     

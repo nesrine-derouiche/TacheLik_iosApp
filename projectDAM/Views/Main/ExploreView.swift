@@ -1,327 +1,293 @@
 import SwiftUI
 import AVKit
+import Combine
 
+/// Explore (Reels) feed.
+///
+/// UI is rebuilt from scratch to provide a modern, vertically paging reels experience.
+/// All data flow and behaviors remain driven by `ReelsViewModel`.
 struct ExploreView: View {
     @StateObject private var viewModel = ReelsViewModel()
-    
+    @StateObject private var networkMonitor = NetworkMonitor()
+
     @State private var currentReelId: String?
     @State private var seenReelIds: Set<String> = []
 
     var body: some View {
-        GeometryReader { geometry in
-            let screenWidth = geometry.size.width
-            let screenHeight = geometry.size.height
-            let safeArea = geometry.safeAreaInsets
-            
+        GeometryReader { geo in
+            let size = geo.size
+            let safeArea = geo.safeAreaInsets
+
             ZStack {
                 Color.black.ignoresSafeArea()
-                
+
                 if viewModel.isLoading && viewModel.reels.isEmpty {
-                    loadingView
+                    ReelsLoadingStateView()
                 } else if let error = viewModel.error, viewModel.reels.isEmpty {
-                    errorView(message: error)
+                    ReelsErrorStateView(message: error) {
+                        Task { await viewModel.loadInitialReels() }
+                    }
+                } else if viewModel.reels.isEmpty {
+                    ReelsEmptyStateView {
+                        Task { await viewModel.loadInitialReels() }
+                    }
                 } else {
-                    reelsFeedView(
-                        screenWidth: screenWidth,
-                        screenHeight: screenHeight,
-                        safeArea: safeArea
-                    )
-                }
-            }
-            .frame(width: screenWidth, height: screenHeight)
-        }
-        .ignoresSafeArea()
-        .onAppear {
-            Task {
-                await viewModel.loadInitialReels()
-            }
-        }
-        .statusBar(hidden: true)
-    }
-    
-    // MARK: - Loading View
-    private var loadingView: some View {
-        VStack {
-            ProgressView()
-                .tint(.white)
-                .scaleEffect(1.5)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-    }
-    
-    // MARK: - Error View
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundColor(.white)
-            Text(message)
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .padding()
-            Button("Retry") {
-                Task { await viewModel.loadInitialReels() }
-            }
-            .padding()
-            .background(Color.white)
-            .foregroundColor(.black)
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-    }
-    
-    // MARK: - Reels Feed View
-    private func reelsFeedView(screenWidth: CGFloat, screenHeight: CGFloat, safeArea: EdgeInsets) -> some View {
-        TabView(selection: $currentReelId) {
-            ForEach(viewModel.reels) { reel in
-                ZStack {
-                    if reel.id == "END_OF_FEED" {
-                        EndOfFeedView()
-                            .frame(width: screenWidth, height: screenHeight)
-                    } else {
-                        ReelView(
-                            reel: reel,
-                            viewModel: viewModel,
-                            safeAreaInsets: safeArea,
-                            screenSize: CGSize(width: screenWidth, height: screenHeight)
-                        )
-                        .onAppear {
-                            Task {
-                                await viewModel.loadMoreReels(currentItemId: reel.id)
+                    ReelsVerticalPagerView(
+                        reels: viewModel.reels,
+                        currentReelId: $currentReelId,
+                        onCurrentIndexChanged: { index in
+                            viewModel.managePreloading(currentIndex: index)
+                            let activeId = viewModel.reels.indices.contains(index) ? viewModel.reels[index].id : nil
+                            viewModel.pauseAllPlayers(except: activeId)
+                        },
+                        reelContent: { reel in
+                            if reel.id == Reel.endOfFeed.id {
+                                EndOfFeedView()
+                                    .frame(width: size.width, height: size.height)
+                            } else {
+                                ReelCellView(
+                                    reel: reel,
+                                    viewModel: viewModel,
+                                    containerSize: size,
+                                    safeAreaInsets: safeArea,
+                                    isActive: currentReelId == reel.id
+                                )
+                                .frame(width: size.width, height: size.height)
+                                .onAppear {
+                                    Task { await viewModel.loadMoreReels(currentItemId: reel.id) }
+                                }
                             }
+                        }
+                    )
+                    .frame(width: size.width, height: size.height)
+                    .ignoresSafeArea()
+                    .onChange(of: viewModel.reels) { newReels in
+                        guard let first = newReels.first else { return }
+
+                        if currentReelId == nil {
+                            currentReelId = first.id
+                            viewModel.managePreloading(currentIndex: 0)
+                            viewModel.pauseAllPlayers(except: first.id)
+                            return
+                        }
+
+                        // When newly generated reels are inserted at the top, smoothly scroll to them once.
+                        if currentReelId != first.id && !seenReelIds.contains(first.id) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                currentReelId = first.id
+                            }
+                            viewModel.managePreloading(currentIndex: 0)
+                            viewModel.pauseAllPlayers(except: first.id)
+                            seenReelIds.insert(first.id)
+                            print("[ExploreView] 🎬 Scrolled to newly generated reel: \(first.id)")
                         }
                     }
                 }
-                .frame(width: screenWidth, height: screenHeight)
-                .rotationEffect(.degrees(-90))
-                .frame(width: screenHeight, height: screenWidth)
-                .tag(Optional(reel.id))
-            }
-        }
-        .frame(width: screenHeight, height: screenWidth)
-        .rotationEffect(.degrees(90), anchor: .center)
-        .frame(width: screenWidth, height: screenHeight)
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .indexViewStyle(.page(backgroundDisplayMode: .never))
-        .onChange(of: currentReelId) { newId in
-            if let id = newId, let index = viewModel.reels.firstIndex(where: { $0.id == id }) {
-                viewModel.managePreloading(currentIndex: index)
-            }
-        }
-        .onChange(of: viewModel.reels) { newReels in
-            if let firstReel = newReels.first {
-                if currentReelId == nil {
-                    currentReelId = firstReel.id
-                    viewModel.managePreloading(currentIndex: 0)
-                } else if currentReelId != firstReel.id && !seenReelIds.contains(firstReel.id) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        currentReelId = firstReel.id
+
+                if !networkMonitor.isOnline {
+                    VStack {
+                        OfflineBanner(subtitle: "Connect to the internet for best playback")
+                            .padding(.top, safeArea.top + 10)
+                            .padding(.horizontal, 16)
+                        Spacer()
                     }
-                    viewModel.managePreloading(currentIndex: 0)
-                    seenReelIds.insert(firstReel.id)
-                    print("[ExploreView] 🎬 Scrolled to newly generated reel: \(firstReel.id)")
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+        }
+        .onAppear {
+            Task { await viewModel.loadInitialReels() }
+        }
+        .onDisappear {
+            viewModel.stopAllPlayers()
+        }
+        .statusBar(hidden: true)
+    }
+}
+
+// MARK: - Vertical Paging Container
+
+private struct ReelsVerticalPagerView<Content: View>: View {
+    let reels: [Reel]
+    @Binding var currentReelId: String?
+    let onCurrentIndexChanged: (Int) -> Void
+    let reelContent: (Reel) -> Content
+
+    init(
+        reels: [Reel],
+        currentReelId: Binding<String?>,
+        onCurrentIndexChanged: @escaping (Int) -> Void,
+        @ViewBuilder reelContent: @escaping (Reel) -> Content
+    ) {
+        self.reels = reels
+        self._currentReelId = currentReelId
+        self.onCurrentIndexChanged = onCurrentIndexChanged
+        self.reelContent = reelContent
+    }
+
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            GeometryReader { geo in
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(reels) { reel in
+                            reelContent(reel)
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .id(reel.id)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
+                .scrollPosition(id: $currentReelId)
+                .onChange(of: currentReelId) { _, newValue in
+                    guard let newValue else { return }
+                    if let index = reels.firstIndex(where: { $0.id == newValue }) {
+                        onCurrentIndexChanged(index)
+                    }
+                }
+            }
+        } else {
+            // iOS 16 fallback: TabView rotated to vertical paging.
+            // The cell UI is still the new design; the paging mechanism is the only fallback.
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+
+                TabView(selection: $currentReelId) {
+                    ForEach(reels) { reel in
+                        reelContent(reel)
+                            .frame(width: w, height: h)
+                            .rotationEffect(.degrees(-90))
+                            .frame(width: h, height: w)
+                            .tag(Optional(reel.id))
+                    }
+                }
+                .frame(width: h, height: w)
+                .rotationEffect(.degrees(90), anchor: .center)
+                .frame(width: w, height: h)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: currentReelId) { newValue in
+                    guard let newValue else { return }
+                    if let index = reels.firstIndex(where: { $0.id == newValue }) {
+                        onCurrentIndexChanged(index)
+                    }
                 }
             }
         }
     }
 }
 
+// MARK: - Reel Cell (New UI)
 
-struct EndOfFeedView: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "sparkles")
-            .font(.system(size: 60))
-            .foregroundColor(.yellow)
-            
-            Text("You’re all caught up ✨")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Text("More reels coming soon!")
-                .font(.body)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-    }
-}
-
-// MARK: - Reel View Components
-
-struct ReelView: View {
+private struct ReelCellView: View {
     let reel: Reel
     @ObservedObject var viewModel: ReelsViewModel
+    let containerSize: CGSize
     let safeAreaInsets: EdgeInsets
-    let screenSize: CGSize
-    
+    let isActive: Bool
+
     @State private var player: AVPlayer?
     @State private var isPlaying = true
     @State private var showPlayIcon = false
     @State private var showComments = false
-    
-    // Calculate responsive dimensions
-    private var videoContainerSize: CGSize {
-        screenSize
+
+    // Bottom padding that accounts for the custom tab bar area + safe area
+    private var bottomOverlayPadding: CGFloat {
+        max(safeAreaInsets.bottom, 16) + 92
     }
-    
-    // Bottom padding that accounts for tab bar and safe area
-    private var bottomPadding: CGFloat {
-        max(safeAreaInsets.bottom, 34) + 90
-    }
-    
+
     var body: some View {
         ZStack {
             Color.black
-            
-            // Video Player - Centered container
-            GeometryReader { geo in
-                if let player = player {
+
+            // Video layer (always centered and aspect-fill)
+            ZStack {
+                if let player {
                     PlayerView(player: player)
-                        .frame(width: geo.size.width, height: geo.size.height)
                         .contentShape(Rectangle())
-                        .onAppear {
-                            if isPlaying { 
-                                player.play() 
-                            }
-                            NotificationCenter.default.addObserver(
-                                forName: .AVPlayerItemDidPlayToEndTime,
-                                object: player.currentItem,
-                                queue: .main
-                            ) { _ in
-                                player.seek(to: .zero)
-                                if isPlaying { player.play() }
-                            }
-                        }
-                        .onDisappear {
-                            player.pause()
-                        }
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isPlaying.toggle()
-                            }
-                            if isPlaying {
+                        .onTapGesture { togglePlayback() }
+                        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)) { _ in
+                            // Loop seamlessly.
+                            player.seek(to: .zero)
+                            if isActive && isPlaying {
                                 player.play()
-                                showPlayIcon = false
-                            } else {
-                                player.pause()
-                                showPlayIcon = true
                             }
                         }
+                        .onAppear {
+                            applyActivePlaybackState(shouldAutoPlay: true)
+                        }
+                        .onDisappear { player.pause() }
                 } else {
-                    ReelSkeletonView(safeAreaInsets: safeAreaInsets)
-                        .frame(width: geo.size.width, height: geo.size.height)
+                    ReelsVideoSkeletonView()
                 }
+
+                // Subtle top/bottom scrims for readability
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.55), Color.black.opacity(0.0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: max(120, safeAreaInsets.top + 84))
+
+                    Spacer()
+
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.0), Color.black.opacity(0.7)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 240)
+                }
+                .allowsHitTesting(false)
             }
-            
-            // Play/Pause Overlay Icon - Centered
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .clipped()
+
+            // Center play icon (tap-to-pause)
             if showPlayIcon {
                 Image(systemName: "play.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.white.opacity(0.8))
-                    .shadow(radius: 4)
+                    .font(.system(size: 64, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.6), radius: 10, x: 0, y: 4)
                     .transition(.opacity.combined(with: .scale))
                     .allowsHitTesting(false)
             }
-            
-            // Overlay Controls - Positioned at bottom
+
+            // Overlays
             VStack(spacing: 0) {
                 Spacer()
-                
-                HStack(alignment: .bottom, spacing: 12) {
-                    // Left Side: Text Info
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(.white)
-                            
-                            Text(reel.title ?? "Unknown User")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                        
-                        if let description = reel.description, !description.isEmpty {
-                            Text(description)
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                                .lineLimit(2)
-                        }
-                        
-                        HStack(spacing: 4) {
-                            Image(systemName: "music.note")
-                            Text("Original Audio")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.top, 4)
-                    }
-                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-                    
-                    Spacer(minLength: 8)
-                    
-                    // Right Side: Action Buttons
-                    VStack(spacing: 20) {
-                        // Like Button
-                        ActionButton(
-                            icon: "heart.fill",
-                            text: "\(reel.likesCount ?? 0)",
-                            isSelected: reel.isLiked ?? false
-                        ) {
-                            Task {
-                                await viewModel.toggleLike(reel: reel)
-                            }
-                        }
-                        
-                        // Comments Button
-                        ActionButton(
-                            icon: "bubble.right.fill",
-                            text: "\(reel.commentsCount ?? 0)"
-                        ) {
-                            showComments = true
-                        }
-                        
-                        // Enhanced Bookmark Button with visual feedback
-                        BookmarkButton(
-                            isBookmarked: reel.isBookmarked ?? false,
-                            onToggle: {
-                                Task {
-                                    await viewModel.toggleBookmark(reel: reel)
-                                }
-                            }
-                        )
-                        
-                        // Share Button
-                        ActionButton(
-                            icon: "arrowshape.turn.up.right.fill",
-                            text: "Share"
-                        ) {
-                            // Share action
-                        }
-                    }
+
+                HStack(alignment: .bottom, spacing: 16) {
+                    ReelCaptionView(reel: reel)
+
+                    Spacer(minLength: 0)
+
+                    ReelActionsColumn(
+                        reel: reel,
+                        onLike: { Task { await viewModel.toggleLike(reel: reel) } },
+                        onComments: { showComments = true },
+                        onBookmark: { Task { await viewModel.toggleBookmark(reel: reel) } }
+                    )
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, bottomPadding)
+                .padding(.bottom, bottomOverlayPadding)
             }
         }
-        .frame(width: screenSize.width, height: screenSize.height)
+        .frame(width: containerSize.width, height: containerSize.height)
         .clipped()
         .onAppear {
-            // Log the bookmark state when reel appears
-            print("[ReelView] 🎬 Reel ID: \(reel.id), Bookmark State: \(reel.isBookmarked ?? false ? "⭐ SAVED" : "❌ Not Saved")")
-            isPlaying = true
-            showPlayIcon = false
             setupPlayer()
+            applyActivePlaybackState(shouldAutoPlay: true)
         }
         .onDisappear {
             player?.pause()
-            isPlaying = false 
             showPlayIcon = false
+        }
+        .onChange(of: isActive) { _, _ in
+            applyActivePlaybackState(shouldAutoPlay: true)
         }
         .sheet(isPresented: $showComments) {
             if #available(iOS 16.0, *) {
@@ -337,457 +303,392 @@ struct ReelView: View {
             }
         }
     }
-    
+
     private func setupPlayer() {
         let player = viewModel.getPlayer(for: reel)
         self.player = player
-        
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .moviePlayback)
+
+        // Prefer a Reels-like audio experience (single source, consistent start/pause/resume).
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
-        
+    }
+
+    private func applyActivePlaybackState(shouldAutoPlay: Bool) {
+        guard let player else { return }
+
+        if isActive {
+            if shouldAutoPlay {
+                isPlaying = true
+                showPlayIcon = false
+            }
+            player.isMuted = false
+            player.volume = 1
+            if isPlaying {
+                player.play()
+            }
+        } else {
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
+            showPlayIcon = false
+        }
+    }
+
+    private func togglePlayback() {
+        guard isActive else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isPlaying.toggle()
+            showPlayIcon = !isPlaying
+        }
+
         if isPlaying {
-            player.play()
+            player?.play()
+        } else {
+            player?.pause()
         }
     }
 }
 
-// Lightweight Shimmer/Skeleton Loading View
-struct ReelSkeletonView: View {
-    let safeAreaInsets: EdgeInsets
-    @State private var isAnimating = false
-    
-    private var bottomPadding: CGFloat {
-        max(safeAreaInsets.bottom, 34) + 90
+private struct ReelCaptionView: View {
+    let reel: Reel
+
+    @State private var isDescriptionExpanded = false
+    @State private var showAudioDetails = false
+
+    private var trimmedDescription: String? {
+        guard let description = reel.description?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !description.isEmpty
+        else {
+            return nil
+        }
+        return description
     }
-    
+
+    private var audioDisplayText: String {
+        if let id = reel.videoId, !id.isEmpty {
+            return "Original audio • \(id)"
+        }
+        if let urlString = reel.originalVideoUrl, let url = URL(string: urlString) {
+            let host = url.host?.replacingOccurrences(of: "www.", with: "")
+            if let host, !host.isEmpty {
+                return "Original audio • \(host)"
+            }
+            let last = url.lastPathComponent
+            if !last.isEmpty {
+                return "Original audio • \(last)"
+            }
+        }
+        if let filePath = reel.filePath, let last = filePath.components(separatedBy: "/").last, !last.isEmpty {
+            return "Original audio • \(last)"
+        }
+        return "Original audio"
+    }
+
+    private var audioDetailsMessage: String {
+        var lines: [String] = []
+
+        if let id = reel.videoId, !id.isEmpty {
+            lines.append("Video ID: \(id)")
+        }
+        if let start = reel.startTime, !start.isEmpty {
+            lines.append("Start: \(start)")
+        }
+        if let end = reel.endTime, !end.isEmpty {
+            lines.append("End: \(end)")
+        }
+        if let url = reel.originalVideoUrl, !url.isEmpty {
+            lines.append("Source: \(url)")
+        }
+        if let filePath = reel.filePath, !filePath.isEmpty {
+            lines.append("File: \(filePath)")
+        }
+
+        return lines.isEmpty ? "No audio details available for this reel." : lines.joined(separator: "\n")
+    }
+
     var body: some View {
-        ZStack {
-            Color.black
-            
-            // Center loading indicator
-            VStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 4)
-                        .frame(width: 50, height: 50)
-                    
-                    Circle()
-                        .trim(from: 0, to: 0.7)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.brandPrimary, .purple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                        )
-                        .frame(width: 50, height: 50)
-                        .rotationEffect(.degrees(isAnimating ? 360 : 0))
+        VStack(alignment: .leading, spacing: 8) {
+            let createdDate = ReelRelativeTimestampView.parseCreatedAt(reel.createdAt)
+
+            if let title = reel.title, !title.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    if let createdDate {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .accessibilityHidden(true)
+
+                        ReelRelativeTimestampView(createdAt: reel.createdAt ?? "")
+                    }
                 }
-                
-                Text("Loading...")
-                    .font(.caption)
-                    .foregroundStyle(.gray)
+            } else if let createdDate {
+                ReelRelativeTimestampView(createdAt: reel.createdAt ?? "")
             }
-            
-            // Bottom skeleton
-            VStack {
-                Spacer()
-                HStack(alignment: .bottom, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 32, height: 32)
-                            
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 120, height: 16)
-                        }
-                        
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.15))
-                            .frame(width: 200, height: 14)
-                        
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.15))
-                            .frame(width: 150, height: 14)
-                    }
-                    
-                    Spacer(minLength: 8)
-                    
-                    VStack(spacing: 20) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            VStack(spacing: 6) {
-                                Circle()
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(width: 28, height: 28)
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.white.opacity(0.15))
-                                    .frame(width: 20, height: 10)
-                            }
+
+            if let description = trimmedDescription {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.95))
+                    .lineLimit(isDescriptionExpanded ? nil : 2)
+                    .animation(.spring(response: 0.28, dampingFraction: 0.86), value: isDescriptionExpanded)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            isDescriptionExpanded.toggle()
                         }
                     }
+                    .accessibilityAddTraits(.isButton)
+            }
+
+            Button {
+                showAudioDetails = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "music.note")
+                        .font(.caption)
+                    Text(audioDisplayText)
+                        .font(.caption)
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, bottomPadding)
+                .foregroundStyle(.white.opacity(0.9))
+            }
+            .buttonStyle(.plain)
+            .alert("Audio", isPresented: $showAudioDetails) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(audioDetailsMessage)
             }
         }
-        .onAppear {
-            withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
-                isAnimating = true
-            }
+        .shadow(color: .black.opacity(0.6), radius: 6, x: 0, y: 2)
+        .frame(maxWidth: 420, alignment: .leading)
+    }
+}
+
+private struct ReelActionsColumn: View {
+    let reel: Reel
+    let onLike: () -> Void
+    let onComments: () -> Void
+    let onBookmark: () -> Void
+
+    private var likesTitle: String {
+        if let count = reel.likesCount { return "\(count)" }
+        return "—"
+    }
+
+    private var commentsTitle: String {
+        if let count = reel.commentsCount { return "\(count)" }
+        return "—"
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ReelActionButton(
+                systemImage: "heart.fill",
+                title: likesTitle,
+                isSelected: reel.isLiked ?? false,
+                selectedTint: .red,
+                action: onLike
+            )
+
+            ReelActionButton(
+                systemImage: "bubble.right.fill",
+                title: commentsTitle,
+                isSelected: false,
+                selectedTint: .brandPrimary,
+                action: onComments
+            )
+
+            ReelActionButton(
+                systemImage: (reel.isBookmarked ?? false) ? "bookmark.fill" : "bookmark",
+                title: (reel.isBookmarked ?? false) ? "Saved" : "Save",
+                isSelected: reel.isBookmarked ?? false,
+                selectedTint: .brandWarning,
+                action: onBookmark
+            )
         }
     }
 }
 
-struct ActionButton: View {
-    let icon: String
-    let text: String
-    var isSelected: Bool = false
+private struct ReelActionButton: View {
+    let systemImage: String
+    let title: String
+    let isSelected: Bool
+    let selectedTint: Color
     let action: () -> Void
-    
-    @State private var isPressed = false
-    
-    // Determine if this is a heart or bookmark button
-    private var isHeartButton: Bool {
-        icon == "heart.fill"
-    }
-    
-    private var isBookmarkButton: Bool {
-        icon == "bookmark.fill" || icon == "bookmark"
-    }
-    
-    private var selectedColor: Color {
-        if isHeartButton { return .red }
-        if isBookmarkButton { return .yellow }
-        return .brandPrimary
-    }
-    
+
+    @State private var pressed = false
+
     var body: some View {
         Button {
-            // Haptic feedback
-            let impactMed = UIImpactFeedbackGenerator(style: .medium)
-            impactMed.impactOccurred()
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                pressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    pressed = false
+                }
+            }
+
             action()
         } label: {
             VStack(spacing: 6) {
-                ZStack {
-                    // Glow effect for selected state
-                    if isSelected && (isHeartButton || isBookmarkButton) {
-                        Circle()
-                            .fill(selectedColor.opacity(0.3))
-                            .frame(width: 44, height: 44)
-                            .blur(radius: 8)
-                    }
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 28, weight: isSelected ? .bold : .regular))
-                        .foregroundColor(isSelected ? selectedColor : .white)
-                        .scaleEffect(isSelected ? 1.15 : 1.0)
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                }
-                .frame(width: 44, height: 44)
-                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isSelected)
-                .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
-                
-                Text(text)
+                Image(systemName: systemImage)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(isSelected ? selectedTint : .white)
+                    .shadow(color: .black.opacity(0.5), radius: 6, x: 0, y: 2)
+                    .scaleEffect(pressed ? 0.86 : (isSelected ? 1.08 : 1.0))
+
+                Text(title)
                     .font(.caption)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundColor(isSelected ? selectedColor : .white)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isSelected ? selectedTint : .white)
                     .monospacedDigit()
+                    .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
             }
-            .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+            .frame(width: 64)
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !isPressed { isPressed = true }
-                }
-                .onEnded { _ in
-                    isPressed = false
-                }
-        )
     }
 }
 
-// Custom Player using AVPlayerLayer for robust AspectFill with proper centering
-struct PlayerView: UIViewRepresentable {
-    var player: AVPlayer
-    
-    func makeUIView(context: Context) -> PlayerUIView {
-        let view = PlayerUIView(player: player)
-        return view
-    }
-    
-    func updateUIView(_ uiView: PlayerUIView, context: Context) {
-        if uiView.player !== player {
-            uiView.player = player
-        }
-        uiView.playerLayer.videoGravity = .resizeAspectFill
-    }
-    
-    // Inner UIView subclass to handle layer layout with proper centering
-    class PlayerUIView: UIView {
-        var player: AVPlayer? {
-            get { return playerLayer.player }
-            set { playerLayer.player = newValue }
-        }
-        
-        override class var layerClass: AnyClass {
-            return AVPlayerLayer.self
-        }
-        
-        var playerLayer: AVPlayerLayer {
-            return layer as! AVPlayerLayer
-        }
-        
-        init(player: AVPlayer) {
-            super.init(frame: .zero)
-            self.player = player
-            self.backgroundColor = .black
-            self.playerLayer.videoGravity = .resizeAspectFill
-            self.contentMode = .scaleAspectFill
-            self.clipsToBounds = true
-            self.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        }
-        
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            playerLayer.frame = bounds
-            CATransaction.commit()
-        }
-    }
-}
+// MARK: - States
 
-// MARK: - Enhanced Bookmark Button with Visual Feedback
-struct BookmarkButton: View {
-    let isBookmarked: Bool
-    let onToggle: () -> Void
-    
-    @State private var isPressed = false
-    @State private var showSavedIndicator = false
-    @State private var pulseAnimation = false
-    
+private struct ReelsLoadingStateView: View {
     var body: some View {
-        Button {
-            // Haptic feedback
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            
-            // Log the current state before toggling
-            print("[BookmarkButton] 📌 Current state: \(isBookmarked ? "Bookmarked" : "Not Bookmarked"), toggling...")
-            
-            // Show saved indicator when bookmarking
-            if !isBookmarked {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                    showSavedIndicator = true
-                    pulseAnimation = true
-                }
-                
-                // Hide indicator after delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        showSavedIndicator = false
-                    }
-                }
-            }
-            
-            onToggle()
-        } label: {
-            VStack(spacing: 4) {
-                ZStack {
-                    // Prominent glow effect when bookmarked - ALWAYS visible
-                    if isBookmarked {
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [.yellow.opacity(0.5), .orange.opacity(0.2), .clear],
-                                    center: .center,
-                                    startRadius: 5,
-                                    endRadius: 30
-                                )
-                            )
-                            .frame(width: 60, height: 60)
-                            .blur(radius: 6)
-                            .scaleEffect(pulseAnimation ? 1.3 : 1.1)
-                    }
-                    
-                    // Bookmark icon with stronger visual distinction
-                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 30, weight: isBookmarked ? .bold : .regular))
-                        .foregroundStyle(
-                            isBookmarked ?
-                            LinearGradient(
-                                colors: [.yellow, .orange, .yellow],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ) :
-                            LinearGradient(
-                                colors: [.white.opacity(0.9), .white.opacity(0.7)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .scaleEffect(isBookmarked ? 1.2 : 1.0)
-                        .scaleEffect(isPressed ? 0.85 : 1.0)
-                        .rotation3DEffect(
-                            .degrees(isBookmarked ? 360 : 0),
-                            axis: (x: 0, y: 1, z: 0)
-                        )
-                        .shadow(
-                            color: isBookmarked ? .yellow.opacity(0.6) : .black.opacity(0.3),
-                            radius: isBookmarked ? 6 : 2,
-                            x: 0,
-                            y: 2
-                        )
-                    
-                    // Success checkmark overlay - temporary
-                    if showSavedIndicator {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.yellow, .orange],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 20, height: 20)
-                            .overlay(
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(.black)
-                            )
-                            .offset(x: 18, y: -18)
-                            .shadow(color: .yellow.opacity(0.5), radius: 4)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                    
-                    // Persistent "SAVED" badge on bookmarked reels - ALWAYS visible
-                    if isBookmarked && !showSavedIndicator {
-                        VStack(spacing: 0) {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.yellow, .orange],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(width: 16, height: 16)
-                                .overlay(
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.yellow)
-                                        .background(
-                                            Circle()
-                                                .fill(Color.black)
-                                                .frame(width: 10, height: 10)
-                                        )
-                                )
-                        }
-                        .offset(x: 18, y: -18)
-                        .shadow(color: .yellow.opacity(0.4), radius: 3)
-                    }
-                }
-                .frame(width: 50, height: 50)
-                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isBookmarked)
-                .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
-                .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulseAnimation)
-                
-                // Enhanced text label with background for saved state
-                ZStack {
-                    if isBookmarked {
-                        // Background pill for "Saved" text
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.yellow.opacity(0.3), .orange.opacity(0.3)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: 52, height: 18)
-                            .blur(radius: 1)
-                    }
-                    
-                    Text(isBookmarked ? "Saved" : "Save")
-                        .font(.caption)
-                        .fontWeight(isBookmarked ? .black : .semibold)
-                        .foregroundStyle(
-                            isBookmarked ?
-                            LinearGradient(
-                                colors: [.yellow, .orange, .yellow],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ) :
-                            LinearGradient(
-                                colors: [.white, .white.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .shadow(
-                            color: isBookmarked ? .black.opacity(0.5) : .black.opacity(0.3),
-                            radius: 2,
-                            x: 0,
-                            y: 1
-                        )
-                        .scaleEffect(isBookmarked ? 1.05 : 1.0)
-                }
-                .transition(.opacity)
-            }
-            .padding(.vertical, 4)
-            .background(
-                // Subtle background for the entire button when bookmarked
-                isBookmarked ?
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [.yellow.opacity(0.15), .orange.opacity(0.1)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .blur(radius: 2) : nil
-            )
+        VStack(spacing: 14) {
+            ProgressView()
+                .tint(.white)
+                .scaleEffect(1.25)
+
+            Text("Loading reels…")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.9))
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !isPressed { isPressed = true }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsErrorStateView: View {
+    let message: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(Color.brandWarning)
+
+            Text("Something went wrong")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Button("Retry") { onRetry() }
+                .font(.headline)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .clipShape(Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsEmptyStateView: View {
+    let onRefresh: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "film")
+                .font(.system(size: 42, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+
+            Text("No reels yet")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Button("Refresh") { onRefresh() }
+                .font(.headline)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .clipShape(Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsVideoSkeletonView: View {
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            Color.black
+
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.18), lineWidth: 3)
+                        .frame(width: 46, height: 46)
+
+                    Circle()
+                        .trim(from: 0, to: 0.68)
+                        .stroke(
+                            LinearGradient.brandPrimaryGradient,
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        )
+                        .frame(width: 46, height: 46)
+                        .rotationEffect(.degrees(animate ? 360 : 0))
                 }
-                .onEnded { _ in
-                    isPressed = false
-                }
-        )
-        .onChange(of: isBookmarked) { oldValue, newValue in
-            print("[BookmarkButton] 🔄 State changed: \(oldValue) → \(newValue)")
-            if newValue {
-                // Trigger pulse animation when bookmarked
-                pulseAnimation = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    pulseAnimation = false
-                }
-            } else {
-                pulseAnimation = false
+
+                Text("Loading…")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.75))
             }
         }
         .onAppear {
-            print("[BookmarkButton] 👁️ Appeared with state: \(isBookmarked ? "Bookmarked ⭐" : "Not Bookmarked")")
-            // Start pulse animation if already bookmarked
-            if isBookmarked {
-                pulseAnimation = true
+            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                animate = true
             }
         }
+    }
+}
+
+// MARK: - End of Feed
+
+private struct EndOfFeedView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 52, weight: .semibold))
+                .foregroundStyle(Color.brandWarning)
+
+            Text("You’re all caught up")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+
+            Text("More reels coming soon")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 }
 

@@ -12,54 +12,143 @@ import Combine
 struct BookmarksView: View {
     @StateObject private var viewModel = BookmarksViewModel()
     @State private var currentReelId: String?
+    @StateObject private var networkMonitor = NetworkMonitor()
+    @State private var hasAppeared = false
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        GeometryReader { geometry in
-            let screenWidth = geometry.size.width
-            let screenHeight = geometry.size.height
-            let safeArea = geometry.safeAreaInsets
-            
+        GeometryReader { geo in
+            let size = geo.size
+            let safeArea = geo.safeAreaInsets
+
             ZStack {
                 Color.black.ignoresSafeArea()
-                
+
                 if viewModel.isLoading && viewModel.bookmarkedReels.isEmpty {
-                    loadingView
+                    ReelsLoadingStateView()
                 } else if let error = viewModel.error, viewModel.bookmarkedReels.isEmpty {
-                    errorView(message: error)
+                    ReelsErrorStateView(message: error) {
+                        Task { await viewModel.loadBookmarks() }
+                    }
                 } else if viewModel.bookmarkedReels.isEmpty {
-                    emptyStateView
+                    ReelsEmptyStateView {
+                        Task { await viewModel.loadBookmarks() }
+                    }
                 } else {
-                    reelsFeedView(
-                        screenWidth: screenWidth,
-                        screenHeight: screenHeight,
-                        safeArea: safeArea
+                    ReelsVerticalPagerView(
+                        reels: viewModel.bookmarkedReels,
+                        currentReelId: $currentReelId,
+                        onCurrentIndexChanged: { index in
+                            viewModel.managePreloading(currentIndex: index)
+                            let activeId = viewModel.bookmarkedReels.indices.contains(index)
+                                ? viewModel.bookmarkedReels[index].id
+                                : nil
+                            viewModel.pauseAllPlayers(except: activeId)
+                        },
+                        reelContent: { reel in
+                            ReelCellView(
+                                reel: reel,
+                                viewModel: viewModel,
+                                containerSize: size,
+                                safeAreaInsets: safeArea,
+                                isActive: currentReelId == reel.id
+                            )
+                            .frame(width: size.width, height: size.height)
+                        }
                     )
+                    .frame(width: size.width, height: size.height)
+                    .ignoresSafeArea()
                 }
-                
-                // Custom Top Bar
+
+                // Top bar overlay
                 VStack {
-                    topBar(safeAreaTop: safeArea.top)
+                    savedTopBar(safeArea: safeArea)
                     Spacer()
                 }
+                .zIndex(100)
+
+                if !networkMonitor.isOnline {
+                    VStack {
+                        OfflineBanner(subtitle: "Connect to the internet for best playback")
+                            .padding(.top, safeArea.top + 10)
+                            .padding(.horizontal, 16)
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1000)
+                }
             }
-            .frame(width: screenWidth, height: screenHeight)
+            .onChange(of: viewModel.bookmarkedReels) { _, newReels in
+                guard let first = newReels.first else {
+                    currentReelId = nil
+                    viewModel.stopAllPlayers()
+                    return
+                }
+
+                if currentReelId == nil {
+                    currentReelId = first.id
+                    viewModel.managePreloading(currentIndex: 0)
+                    viewModel.pauseAllPlayers(except: first.id)
+                    return
+                }
+
+                if let currentId = currentReelId,
+                   newReels.firstIndex(where: { $0.id == currentId }) == nil {
+                    currentReelId = first.id
+                    viewModel.managePreloading(currentIndex: 0)
+                    viewModel.pauseAllPlayers(except: first.id)
+                }
+            }
+            .onChange(of: currentReelId) { _, newId in
+                viewModel.pauseAllPlayers(except: newId)
+            }
         }
         .navigationBarHidden(true)
         .ignoresSafeArea()
         .onAppear {
-            Task {
-                await viewModel.loadBookmarks()
-            }
+            guard !hasAppeared else { return }
+            hasAppeared = true
+            Task { await viewModel.loadBookmarks() }
         }
         .onDisappear {
-            viewModel.cleanup()
+            viewModel.stopAllPlayers()
         }
         .statusBar(hidden: true)
     }
-    
+
+    private func savedTopBar(safeArea: EdgeInsets) -> some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(Color.black.opacity(0.5))
+                    .clipShape(Circle())
+            }
+
+            Spacer()
+
+            Text("Saved Reels")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            Color.clear
+                .frame(width: 36, height: 36)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, max(safeArea.top, 44) + 4)
+    }
+
+}
+
+/*
     // MARK: - Top Bar
-    private func topBar(safeAreaTop: CGFloat) -> some View {
+        private func topBar(safeAreaTop: CGFloat) -> some View {
         HStack {
             Button {
                 dismiss()
@@ -112,55 +201,109 @@ struct BookmarksView: View {
             
             Text("Loading saved reels...")
                 .font(.subheadline)
+                        @StateObject private var networkMonitor = NetworkMonitor()
                 .foregroundStyle(.gray)
         }
+                        @State private var hasAppeared = false
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
-    // MARK: - Error View
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 24) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(.orange)
-            
-            VStack(spacing: 8) {
-                Text("Oops!")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-            
-            Button {
-                Task {
-                    await viewModel.loadBookmarks()
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Try Again")
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.brandPrimary)
-                .cornerRadius(12)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
+                            GeometryReader { geo in
+                                let size = geo.size
+                                let safeArea = geo.safeAreaInsets
+
+                                ZStack {
+                                    Color.black.ignoresSafeArea()
+
+                                    if viewModel.isLoading && viewModel.bookmarkedReels.isEmpty {
+                                        ReelsLoadingStateView()
+                                    } else if let error = viewModel.error, viewModel.bookmarkedReels.isEmpty {
+                                        ReelsErrorStateView(message: error) {
+                                            Task { await viewModel.loadBookmarks() }
+                                        }
+                                    } else if viewModel.bookmarkedReels.isEmpty {
+                                        ReelsEmptyStateView {
+                                            Task { await viewModel.loadBookmarks() }
+                                        }
+                                    } else {
+                                        ReelsVerticalPagerView(
+                                            reels: viewModel.bookmarkedReels,
+                                            currentReelId: $currentReelId,
+                                            onCurrentIndexChanged: { index in
+                                                viewModel.managePreloading(currentIndex: index)
+                                                let activeId = viewModel.bookmarkedReels.indices.contains(index) ? viewModel.bookmarkedReels[index].id : nil
+                                                viewModel.pauseAllPlayers(except: activeId)
+                                            },
+                                            reelContent: { reel in
+                                                ReelCellView(
+                                                    reel: reel,
+                                                    viewModel: viewModel,
+                                                    containerSize: size,
+                                                    safeAreaInsets: safeArea,
+                                                    isActive: currentReelId == reel.id
+                                                )
+                                                .frame(width: size.width, height: size.height)
+                                            }
+                                        )
+                                        .frame(width: size.width, height: size.height)
+                                        .ignoresSafeArea()
+                                    }
+
+                                    // Top bar overlay
+                                    VStack {
+                                        savedTopBar(safeArea: safeArea)
+                                        Spacer()
+                                    }
+                                    .zIndex(100)
+
+                                    if !networkMonitor.isOnline {
+                                        VStack {
+                                            OfflineBanner(subtitle: "Connect to the internet for best playback")
+                                                .padding(.top, safeArea.top + 10)
+                                                .padding(.horizontal, 16)
+                                            Spacer()
+                                        }
+                                        .transition(.move(edge: .top).combined(with: .opacity))
+                                        .zIndex(1000)
+                                    }
+                                }
+                                .onChange(of: viewModel.bookmarkedReels) { _, newReels in
+                                    guard let first = newReels.first else {
+                                        currentReelId = nil
+                                        viewModel.stopAllPlayers()
+                                        return
+                                    }
+
+                                    if currentReelId == nil {
+                                        currentReelId = first.id
+                                        viewModel.managePreloading(currentIndex: 0)
+                                        viewModel.pauseAllPlayers(except: first.id)
+                                        return
+                                    }
+
+                                    if let currentId = currentReelId,
+                                       newReels.firstIndex(where: { $0.id == currentId }) == nil {
+                                        // Current reel got removed (e.g. un-saved). Move to the next best candidate.
+                                        currentReelId = first.id
+                                        viewModel.managePreloading(currentIndex: 0)
+                                        viewModel.pauseAllPlayers(except: first.id)
+                                    }
+                                }
+                            }
+                            .navigationBarHidden(true)
+                            .ignoresSafeArea()
+                            .onAppear {
+                                guard !hasAppeared else { return }
+                                hasAppeared = true
+                                Task { await viewModel.loadBookmarks() }
+                            }
+                            .onDisappear {
+                                viewModel.stopAllPlayers()
+                            }
+                            .statusBar(hidden: true)
     // MARK: - Empty State View
     private var emptyStateView: some View {
-        VStack(spacing: 24) {
-            ZStack {
+                        // MARK: - Top Bar
+                        private func savedTopBar(safeArea: EdgeInsets) -> some View {
                 Circle()
                     .fill(Color.yellow.opacity(0.15))
                     .frame(width: 100, height: 100)
@@ -168,7 +311,7 @@ struct BookmarksView: View {
                 Image(systemName: "bookmark")
                     .font(.system(size: 44))
                     .foregroundStyle(.yellow)
-            }
+                                        .frame(width: 36, height: 36)
             
             VStack(spacing: 8) {
                 Text("No Saved Reels")
@@ -182,10 +325,10 @@ struct BookmarksView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
-            
+                                    .frame(width: 36, height: 36)
             Button {
                 dismiss()
-            } label: {
+                            .padding(.top, safeArea.top + 8)
                 HStack(spacing: 10) {
                     Image(systemName: "safari.fill")
                     Text("Explore Reels")
@@ -350,6 +493,10 @@ struct BookmarkedReelView: View {
                         .padding(.vertical, 4)
                         .background(Color.yellow)
                         .cornerRadius(12)
+
+                        if let createdAt = reel.createdAt, !createdAt.isEmpty {
+                            ReelRelativeTimestampView(createdAt: createdAt)
+                        }
                         
                         if let title = reel.title, !title.isEmpty {
                             Text(title)
@@ -542,6 +689,560 @@ struct BookmarkSkeletonView: View {
         .onAppear {
             withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
                 isAnimating = true
+            }
+        }
+    }
+}
+
+*/
+
+// MARK: - Explore-Identical Helpers (Saved Reels)
+
+private struct ReelsVerticalPagerView<Content: View>: View {
+    let reels: [Reel]
+    @Binding var currentReelId: String?
+    let onCurrentIndexChanged: (Int) -> Void
+    let reelContent: (Reel) -> Content
+
+    init(
+        reels: [Reel],
+        currentReelId: Binding<String?>,
+        onCurrentIndexChanged: @escaping (Int) -> Void,
+        @ViewBuilder reelContent: @escaping (Reel) -> Content
+    ) {
+        self.reels = reels
+        self._currentReelId = currentReelId
+        self.onCurrentIndexChanged = onCurrentIndexChanged
+        self.reelContent = reelContent
+    }
+
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            GeometryReader { geo in
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(reels) { reel in
+                            reelContent(reel)
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .id(reel.id)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
+                .scrollPosition(id: $currentReelId)
+                .onChange(of: currentReelId) { _, newValue in
+                    guard let newValue else { return }
+                    if let index = reels.firstIndex(where: { $0.id == newValue }) {
+                        onCurrentIndexChanged(index)
+                    }
+                }
+            }
+        } else {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+
+                TabView(selection: $currentReelId) {
+                    ForEach(reels) { reel in
+                        reelContent(reel)
+                            .frame(width: w, height: h)
+                            .rotationEffect(.degrees(-90))
+                            .frame(width: h, height: w)
+                            .tag(Optional(reel.id))
+                    }
+                }
+                .frame(width: h, height: w)
+                .rotationEffect(.degrees(90), anchor: .center)
+                .frame(width: w, height: h)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: currentReelId) { newValue in
+                    guard let newValue else { return }
+                    if let index = reels.firstIndex(where: { $0.id == newValue }) {
+                        onCurrentIndexChanged(index)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ReelCellView: View {
+    let reel: Reel
+    @ObservedObject var viewModel: BookmarksViewModel
+    let containerSize: CGSize
+    let safeAreaInsets: EdgeInsets
+    let isActive: Bool
+
+    @State private var player: AVPlayer?
+    @State private var isPlaying = true
+    @State private var showPlayIcon = false
+    @State private var showComments = false
+
+    private var bottomOverlayPadding: CGFloat {
+        max(safeAreaInsets.bottom, 16) + 120
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+
+            ZStack {
+                if let player {
+                    PlayerView(player: player)
+                        .contentShape(Rectangle())
+                        .onTapGesture { togglePlayback() }
+                        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)) { _ in
+                            player.seek(to: .zero)
+                            if isActive && isPlaying {
+                                player.play()
+                            }
+                        }
+                        .onAppear {
+                            applyActivePlaybackState(shouldAutoPlay: true)
+                        }
+                        .onDisappear { player.pause() }
+                } else {
+                    ReelsVideoSkeletonView()
+                }
+
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.55), Color.black.opacity(0.0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: max(120, safeAreaInsets.top + 84))
+
+                    Spacer()
+
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.0), Color.black.opacity(0.7)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 240)
+                }
+                .allowsHitTesting(false)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .clipped()
+
+            if showPlayIcon {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 64, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.6), radius: 10, x: 0, y: 4)
+                    .transition(.opacity.combined(with: .scale))
+                    .allowsHitTesting(false)
+            }
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                HStack(alignment: .bottom, spacing: 16) {
+                    ReelCaptionView(reel: reel)
+
+                    Spacer(minLength: 0)
+
+                    ReelActionsColumn(
+                        reel: reel,
+                        onLike: { Task { await viewModel.toggleLike(reel: reel) } },
+                        onComments: { showComments = true },
+                        onBookmark: { Task { await viewModel.toggleBookmark(reel: reel) } }
+                    )
+                    .padding(.bottom, 12)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, bottomOverlayPadding)
+            }
+        }
+        .frame(width: containerSize.width, height: containerSize.height)
+        .clipped()
+        .onAppear {
+            setupPlayer()
+            applyActivePlaybackState(shouldAutoPlay: true)
+        }
+        .onDisappear {
+            player?.pause()
+            showPlayIcon = false
+        }
+        .onChange(of: isActive) { _, _ in
+            applyActivePlaybackState(shouldAutoPlay: true)
+        }
+        .sheet(isPresented: $showComments) {
+            if #available(iOS 16.0, *) {
+                CommentsSheet(reelId: reel.id) { newCount in
+                    viewModel.updateReelCommentCount(reelId: reel.id, newCount: newCount)
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            } else {
+                CommentsSheet(reelId: reel.id) { newCount in
+                    viewModel.updateReelCommentCount(reelId: reel.id, newCount: newCount)
+                }
+            }
+        }
+    }
+
+    private func setupPlayer() {
+        let player = viewModel.getPlayer(for: reel)
+        self.player = player
+
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
+    private func applyActivePlaybackState(shouldAutoPlay: Bool) {
+        guard let player else { return }
+
+        if isActive {
+            if shouldAutoPlay {
+                isPlaying = true
+                showPlayIcon = false
+            }
+            player.isMuted = false
+            player.volume = 1
+            if isPlaying {
+                player.play()
+            }
+        } else {
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
+            showPlayIcon = false
+        }
+    }
+
+    private func togglePlayback() {
+        guard isActive else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isPlaying.toggle()
+            showPlayIcon = !isPlaying
+        }
+
+        if isPlaying {
+            player?.play()
+        } else {
+            player?.pause()
+        }
+    }
+}
+
+private struct ReelCaptionView: View {
+    let reel: Reel
+
+    @State private var isDescriptionExpanded = false
+    @State private var showAudioDetails = false
+
+    private var trimmedDescription: String? {
+        guard let description = reel.description?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !description.isEmpty
+        else {
+            return nil
+        }
+        return description
+    }
+
+    private var audioDisplayText: String {
+        if let id = reel.videoId, !id.isEmpty {
+            return "Original audio • \(id)"
+        }
+        if let urlString = reel.originalVideoUrl, let url = URL(string: urlString) {
+            let host = url.host?.replacingOccurrences(of: "www.", with: "")
+            if let host, !host.isEmpty {
+                return "Original audio • \(host)"
+            }
+            let last = url.lastPathComponent
+            if !last.isEmpty {
+                return "Original audio • \(last)"
+            }
+        }
+        if let filePath = reel.filePath, let last = filePath.components(separatedBy: "/").last, !last.isEmpty {
+            return "Original audio • \(last)"
+        }
+        return "Original audio"
+    }
+
+    private var audioDetailsMessage: String {
+        var lines: [String] = []
+
+        if let id = reel.videoId, !id.isEmpty {
+            lines.append("Video ID: \(id)")
+        }
+        if let start = reel.startTime, !start.isEmpty {
+            lines.append("Start: \(start)")
+        }
+        if let end = reel.endTime, !end.isEmpty {
+            lines.append("End: \(end)")
+        }
+        if let url = reel.originalVideoUrl, !url.isEmpty {
+            lines.append("Source: \(url)")
+        }
+        if let filePath = reel.filePath, !filePath.isEmpty {
+            lines.append("File: \(filePath)")
+        }
+
+        return lines.isEmpty ? "No audio details available for this reel." : lines.joined(separator: "\n")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let createdDate = ReelRelativeTimestampView.parseCreatedAt(reel.createdAt)
+
+            if let title = reel.title, !title.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    if let createdDate {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .accessibilityHidden(true)
+
+                        ReelRelativeTimestampView(createdAt: reel.createdAt ?? "")
+                    }
+                }
+            } else if let createdDate {
+                ReelRelativeTimestampView(createdAt: reel.createdAt ?? "")
+            }
+
+            if let description = trimmedDescription {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.95))
+                    .lineLimit(isDescriptionExpanded ? nil : 2)
+                    .animation(.spring(response: 0.28, dampingFraction: 0.86), value: isDescriptionExpanded)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            isDescriptionExpanded.toggle()
+                        }
+                    }
+                    .accessibilityAddTraits(.isButton)
+            }
+
+            Button {
+                showAudioDetails = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "music.note")
+                        .font(.caption)
+                    Text(audioDisplayText)
+                        .font(.caption)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(.white.opacity(0.9))
+            }
+            .buttonStyle(.plain)
+            .alert("Audio", isPresented: $showAudioDetails) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(audioDetailsMessage)
+            }
+        }
+        .shadow(color: .black.opacity(0.6), radius: 6, x: 0, y: 2)
+        .frame(maxWidth: 420, alignment: .leading)
+    }
+}
+
+private struct ReelActionsColumn: View {
+    let reel: Reel
+    let onLike: () -> Void
+    let onComments: () -> Void
+    let onBookmark: () -> Void
+
+    private var likesTitle: String {
+        if let count = reel.likesCount { return "\(count)" }
+        return "—"
+    }
+
+    private var commentsTitle: String {
+        if let count = reel.commentsCount { return "\(count)" }
+        return "—"
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ReelActionButton(
+                systemImage: "heart.fill",
+                title: likesTitle,
+                isSelected: reel.isLiked ?? false,
+                selectedTint: .red,
+                action: onLike
+            )
+
+            ReelActionButton(
+                systemImage: "bubble.right.fill",
+                title: commentsTitle,
+                isSelected: false,
+                selectedTint: .brandPrimary,
+                action: onComments
+            )
+
+            ReelActionButton(
+                systemImage: (reel.isBookmarked ?? false) ? "bookmark.fill" : "bookmark",
+                title: (reel.isBookmarked ?? false) ? "Saved" : "Save",
+                isSelected: reel.isBookmarked ?? false,
+                selectedTint: .brandWarning,
+                action: onBookmark
+            )
+        }
+    }
+}
+
+private struct ReelActionButton: View {
+    let systemImage: String
+    let title: String
+    let isSelected: Bool
+    let selectedTint: Color
+    let action: () -> Void
+
+    @State private var pressed = false
+
+    var body: some View {
+        Button {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                pressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    pressed = false
+                }
+            }
+
+            action()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(isSelected ? selectedTint : .white)
+                    .shadow(color: .black.opacity(0.5), radius: 6, x: 0, y: 2)
+                    .scaleEffect(pressed ? 0.86 : (isSelected ? 1.08 : 1.0))
+
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isSelected ? selectedTint : .white)
+                    .monospacedDigit()
+                    .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
+            }
+            .frame(width: 64)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ReelsLoadingStateView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .tint(.white)
+                .scaleEffect(1.25)
+
+            Text("Loading reels…")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.9))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsErrorStateView: View {
+    let message: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(Color.brandWarning)
+
+            Text("Something went wrong")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Button("Retry") { onRetry() }
+                .font(.headline)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .clipShape(Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsEmptyStateView: View {
+    let onRefresh: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "film")
+                .font(.system(size: 42, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+
+            Text("No reels yet")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Button("Refresh") { onRefresh() }
+                .font(.headline)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .clipShape(Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ReelsVideoSkeletonView: View {
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            Color.black
+
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.18), lineWidth: 3)
+                        .frame(width: 46, height: 46)
+
+                    Circle()
+                        .trim(from: 0, to: 0.68)
+                        .stroke(
+                            LinearGradient.brandPrimaryGradient,
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        )
+                        .frame(width: 46, height: 46)
+                        .rotationEffect(.degrees(animate ? 360 : 0))
+                }
+
+                Text("Loading…")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                animate = true
             }
         }
     }

@@ -188,6 +188,31 @@ class ReelsViewModel: ObservableObject {
     // MARK: - Player Management
     // Cache for AVPlayers to enable smooth scrolling
     @Published var cachedPlayers: [String: AVPlayer] = [:]
+
+    /// Pause all players except the currently active reel.
+    /// This is UI-layer playback coordination only (no backend/business logic changes).
+    func pauseAllPlayers(except activeReelId: String?) {
+        for (id, player) in cachedPlayers {
+            if id != activeReelId {
+                player.pause()
+                player.isMuted = true
+                player.volume = 0
+            }
+        }
+
+        if let activeReelId, let active = cachedPlayers[activeReelId] {
+            active.isMuted = false
+            active.volume = 1
+        }
+    }
+
+    func stopAllPlayers() {
+        for (_, player) in cachedPlayers {
+            player.pause()
+            player.isMuted = true
+            player.volume = 0
+        }
+    }
     
     /// Returns a pre-loaded player or creates a new one
     func getPlayer(for reel: Reel) -> AVPlayer {
@@ -200,6 +225,8 @@ class ReelsViewModel: ObservableObject {
             let playerItem = AVPlayerItem(url: url)
             let player = AVPlayer(playerItem: playerItem)
             player.automaticallyWaitsToMinimizeStalling = false 
+            player.isMuted = true
+            player.volume = 0
             cachedPlayers[reel.id] = player
             return player
         }

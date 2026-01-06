@@ -11,6 +11,8 @@ struct CommentsSheet: View {
     @StateObject private var viewModel: CommentsViewModel
     @Environment(\.dismiss) var dismiss
     @State private var newCommentText = ""
+    @State private var showErrorAlert = false
+    @FocusState private var isComposerFocused: Bool
     
     init(reelId: String, onCommentCountCheck: ((Int) -> Void)? = nil) {
         let vm = CommentsViewModel(reelId: reelId)
@@ -19,93 +21,146 @@ struct CommentsSheet: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            VStack {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.3))
-                    .frame(width: 40, height: 4)
-                    .padding(.top, 10)
-                
-                Text("Comments")
-                    .font(.headline)
-                    .padding(.vertical, 10)
-            }
-            .background(Color(.systemBackground))
-            
-            Divider()
-            
-            // List
-            if viewModel.isLoading {
-                ProgressView()
-                    .padding()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if viewModel.comments.isEmpty {
-                VStack {
-                    Spacer()
-                    Text("No comments yet. Be the first!")
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-            } else {
-                List {
-                    ForEach(viewModel.comments) { comment in
-                        CommentRow(comment: comment)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .deleteDisabled(comment.user.id != viewModel.currentUserId)
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            Group {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = viewModel.error, !error.isEmpty, viewModel.comments.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Couldn’t load comments")
+                            .font(.headline)
+                        Text(error)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        Button("Retry") {
+                            Task { await viewModel.fetchComments() }
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let comment = viewModel.comments[index]
-                            Task {
-                                await viewModel.deleteComment(commentId: comment.id)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 8)
+                } else if viewModel.comments.isEmpty {
+                    VStack(spacing: 8) {
+                        Spacer()
+                        Text("No comments yet")
+                            .font(.headline)
+                        Text("Be the first to comment.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(viewModel.comments) { comment in
+                                CommentRow(
+                                    comment: comment,
+                                    canDelete: comment.user.id == viewModel.currentUserId,
+                                    onDelete: {
+                                        Task { await viewModel.deleteComment(commentId: comment.id) }
+                                    }
+                                )
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+
+                                Divider()
+                                    .padding(.leading, 64)
                             }
                         }
+                        .padding(.top, 8)
+                        .padding(.bottom, 8)
                     }
+                    .scrollIndicators(.hidden)
+                    .scrollDismissesKeyboard(.interactively)
                 }
-                .listStyle(.plain)
             }
-            
-            Divider()
-            
-            // Input
-            HStack(alignment: .bottom) {
-                TextField("Add a comment...", text: $newCommentText, axis: .vertical)
-                    .padding(10)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(20)
-                    .lineLimit(1...5)
-                
-                Button {
-                    Task {
-                        await viewModel.addComment(content: newCommentText)
-                        newCommentText = ""
+            .padding(.top, 4)
+        }
+        .safeAreaInset(edge: .top) {
+            VStack(spacing: 10) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.35))
+                    .frame(width: 40, height: 4)
+                    .padding(.top, 8)
+
+                Text("Comments")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding(.bottom, 6)
+
+                Divider()
+            }
+            .frame(maxWidth: .infinity)
+            .background(Color(.systemBackground))
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 10) {
+                Divider()
+
+                HStack(alignment: .bottom, spacing: 10) {
+                    TextField("Add a comment…", text: $newCommentText, axis: .vertical)
+                        .focused($isComposerFocused)
+                        .textInputAutocapitalization(.sentences)
+                        .disableAutocorrection(false)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(Capsule())
+                        .lineLimit(1...5)
+
+                    Button {
+                        let text = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !text.isEmpty else { return }
+                        Task {
+                            await viewModel.addComment(content: text)
+                            newCommentText = ""
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundColor(
+                                newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPosting
+                                    ? .secondary
+                                    : Color.brandPrimary
+                            )
                     }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(newCommentText.isEmpty ? .gray : .blue)
+                    .disabled(newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPosting)
+                    .accessibilityLabel("Post comment")
                 }
-                .disabled(newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPosting)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
             }
-            .padding()
             .background(Color(.systemBackground))
         }
         .task {
             await viewModel.fetchComments()
+        }
+        .onChange(of: viewModel.error) { _, newValue in
+            showErrorAlert = (newValue != nil)
+        }
+        .alert("Comments", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.error ?? "Something went wrong.")
         }
     }
 }
 
 struct CommentRow: View {
     let comment: Comment
-    // onDelete removed as we use List swipe actions now
-    // In a real app we would check if current user == comment.user.id
-    // For now we assume we can maybe delete our own or allow delete for all for demo if needed
-    // But better to just show delete if authorized. Since we don't have current user in global state easily here without DI,
-    // we will implement swipe to delete which usually implies ownership or admin.
-    // Or we can just use a simple button.
+    let canDelete: Bool
+    let onDelete: () -> Void
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -134,6 +189,7 @@ struct CommentRow: View {
                     Text(timeAgoDisplay(date: comment.createdDate))
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
                 
                 Text(comment.content)
@@ -143,15 +199,15 @@ struct CommentRow: View {
             
             Spacer()
         }
-        // Context menu can remain as alternative or be removed if swipe is enough.
-        // Keeping it for accessibility/alternate interaction. 
-        // But contextMenu on List row sometimes conflicts or is redundant.
-        // Let's keep it but maybe it's fine.
-        // Actually, looking at code below, I see I removed the 'onDelete' closure from init in previous step but need to fix CommentRow signature.
-        // Wait, in previous step I removed 'onDelete' from the call site BUT I did not update CommentRow definition.
-        // I need to update CommentRow definition to remove 'onDelete' property if I removed it from init.
-        // Checking previous call: I changed call site to `CommentRow(comment: comment)`.
-        // So I MUST update CommentRow struct.
+        .contextMenu {
+            if canDelete {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
     }
     
     func timeAgoDisplay(date: Date?) -> String {

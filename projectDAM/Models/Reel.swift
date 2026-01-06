@@ -16,6 +16,7 @@ struct Reel: Codable, Identifiable, Equatable {
     let videoId: String?
     let startTime: String?
     let endTime: String?
+    let createdAt: String?
     let likesCount: Int?
     let commentsCount: Int?
     let isLiked: Bool?
@@ -45,7 +46,7 @@ struct Reel: Codable, Identifiable, Equatable {
     }
     
     static var endOfFeed: Reel {
-        return Reel(id: "END_OF_FEED", originalVideoUrl: nil, title: "All Caught Up", description: nil, filePath: nil, videoId: nil, startTime: nil, endTime: nil, likesCount: nil, commentsCount: nil, isLiked: nil, isBookmarked: nil)
+        return Reel(id: "END_OF_FEED", originalVideoUrl: nil, title: "All Caught Up", description: nil, filePath: nil, videoId: nil, startTime: nil, endTime: nil, createdAt: nil, likesCount: nil, commentsCount: nil, isLiked: nil, isBookmarked: nil)
     }
     
     // Helper to return a new copy with updated like status
@@ -59,6 +60,7 @@ struct Reel: Codable, Identifiable, Equatable {
             videoId: self.videoId,
             startTime: self.startTime,
             endTime: self.endTime,
+            createdAt: self.createdAt,
             likesCount: count,
             commentsCount: self.commentsCount,
             isLiked: isLiked,
@@ -77,6 +79,7 @@ struct Reel: Codable, Identifiable, Equatable {
             videoId: self.videoId,
             startTime: self.startTime,
             endTime: self.endTime,
+            createdAt: self.createdAt,
             likesCount: self.likesCount,
             commentsCount: count,
             isLiked: self.isLiked,
@@ -95,6 +98,7 @@ struct Reel: Codable, Identifiable, Equatable {
             videoId: self.videoId,
             startTime: self.startTime,
             endTime: self.endTime,
+            createdAt: self.createdAt,
             likesCount: self.likesCount,
             commentsCount: self.commentsCount,
             isLiked: self.isLiked,
