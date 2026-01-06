@@ -11,13 +11,41 @@ struct MessageBubble: View {
     let message: Message
     let isCurrentUser: Bool
 
-    private var timestampText: String? {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: message.createdAt) else { return nil }
-        let display = DateFormatter()
-        display.timeStyle = .short
-        display.dateStyle = .none
-        return display.string(from: date)
+    private static let displayTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let editedThreshold: TimeInterval = 2
+
+    private var sentTimeText: String {
+        guard let date = message.createdAtDate else { return "—" }
+        return Self.displayTimeFormatter.string(from: date)
+    }
+
+    private var editedTimeText: String? {
+        guard let created = message.createdAtDate,
+              let updated = message.updatedAtDate
+        else {
+            return nil
+        }
+
+        guard abs(updated.timeIntervalSince(created)) >= Self.editedThreshold else {
+            return nil
+        }
+
+        return Self.displayTimeFormatter.string(from: updated)
+    }
+
+    private var metadataText: String {
+        if let edited = editedTimeText {
+            return "\(sentTimeText) · Edited \(edited)"
+        }
+        return sentTimeText
     }
     
     var body: some View {
@@ -66,21 +94,21 @@ struct MessageBubble: View {
                     )
                     .frame(maxWidth: 320, alignment: isCurrentUser ? .trailing : .leading)
 
-                if let timestampText {
-                    HStack(spacing: 6) {
-                        Text(timestampText)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(metadataText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
 
-                        if isCurrentUser {
-                            Image(systemName: message.isRead ? "checkmark.circle.fill" : "checkmark")
-                                .font(.caption2)
-                                .foregroundStyle(message.isRead ? Color.brandPrimary : .secondary)
-                                .accessibilityLabel(message.isRead ? "Read" : "Sent")
-                        }
+                    if isCurrentUser {
+                        Image(systemName: message.isRead ? "checkmark.circle.fill" : "checkmark")
+                            .font(.caption2)
+                            .foregroundStyle(message.isRead ? Color.brandPrimary : .secondary)
+                            .accessibilityLabel(message.isRead ? "Read" : "Sent")
                     }
-                    .padding(.horizontal, 4)
                 }
+                .padding(.horizontal, 4)
+                .frame(maxWidth: 320, alignment: isCurrentUser ? .trailing : .leading)
             }
             
             if !isCurrentUser {

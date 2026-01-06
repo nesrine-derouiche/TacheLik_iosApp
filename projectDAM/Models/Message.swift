@@ -94,4 +94,54 @@ struct Message: Codable, Identifiable, Equatable {
     var conversationPartnerId: String {
         return partner?.id ?? (senderId < receiverId ? "\(senderId)-\(receiverId)" : "\(receiverId)-\(senderId)")
     }
+
+    var createdAtDate: Date? {
+        Self.parseServerTimestamp(createdAt)
+    }
+
+    var updatedAtDate: Date? {
+        guard let updatedAt, !updatedAt.isEmpty else { return nil }
+        return Self.parseServerTimestamp(updatedAt)
+    }
+
+    static func parseServerTimestamp(_ value: String?) -> Date? {
+        guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty
+        else {
+            return nil
+        }
+
+        // 1) ISO-8601 (with/without fractional seconds, with Z / timezone)
+        let isoFractional = ISO8601DateFormatter()
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFractional.date(from: raw) {
+            return date
+        }
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: raw) {
+            return date
+        }
+
+        // 2) Server timestamps like: 2026-01-06 13:52:36.926166
+        // Assume UTC if no explicit timezone is present.
+        let patterns = [
+            "yyyy-MM-dd HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd HH:mm:ss.SSS",
+            "yyyy-MM-dd HH:mm:ss"
+        ]
+
+        for pattern in patterns {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = pattern
+            if let date = formatter.date(from: raw) {
+                return date
+            }
+        }
+
+        return nil
+    }
 }
