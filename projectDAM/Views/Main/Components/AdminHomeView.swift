@@ -41,6 +41,7 @@ struct AdminHomeView: View {
         }
         .background(Color.appGroupedBackground)
         .navigationBarTitleDisplayMode(.inline)
+        .appNavigationBarStyle(.transparent)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 toolbarLeadingView

@@ -51,8 +51,8 @@ extension UIColor {
 
     // Glass-like chrome for transparent headers (Home)
     static let appNavBarGlassBackground: UIColor = AppColors.dynamic(
-        light: UIColor.systemBackground.withAlphaComponent(0.75),
-        dark: UIColor.black.withAlphaComponent(0.45)
+        light: UIColor.systemBackground.withAlphaComponent(0.22),
+        dark: UIColor.black.withAlphaComponent(0.22)
     )
 
     // Reels feed background should stay dark in both modes.

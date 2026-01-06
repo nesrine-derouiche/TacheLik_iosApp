@@ -75,7 +75,7 @@ private final class NavigationBarConfigViewController: UIViewController {
             appearance.shadowColor = .appDivider
         case .transparent:
             appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+            appearance.backgroundEffect = UIBlurEffect(style: .systemChromeMaterial)
             appearance.backgroundColor = .appNavBarGlassBackground
             appearance.shadowColor = .appDivider
         case .hidden:
@@ -84,6 +84,8 @@ private final class NavigationBarConfigViewController: UIViewController {
 
         appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+
+        navigationController.navigationBar.isTranslucent = (self.style != .standard)
 
         navigationController.navigationBar.standardAppearance = appearance
         navigationController.navigationBar.scrollEdgeAppearance = appearance

@@ -15,6 +15,56 @@ struct LessonsView: View {
     @State private var showingReelGenerator = false
     @Environment(\.colorScheme) private var colorScheme
 
+    @ToolbarContentBuilder
+    private var lessonToolbar: some ToolbarContent {
+        if viewModel.lesson?.courseId != nil {
+            if #available(iOS 16.0, *) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    lessonToolbarButtons
+                }
+            } else {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    lessonToolbarButtons
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var lessonToolbarButtons: some View {
+        Button {
+            navigateToChat = true
+        } label: {
+            Label("Message", systemImage: "message.fill")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Message")
+
+        Button {
+            showingReelGenerator = true
+        } label: {
+            Label("Reel", systemImage: "wand.and.stars")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Reel")
+
+        Button {
+            showingQuizGenerator = true
+        } label: {
+            Label("Quiz", systemImage: "sparkles")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Quiz")
+
+        Button {
+            showingGameView = true
+        } label: {
+            Label("Game", systemImage: "gamecontroller.fill")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Game")
+    }
+
     // MARK: - Initializers
     init(
         courseId: String, accessType: LessonAccessType, isOwned: Bool = false,
@@ -40,49 +90,7 @@ struct LessonsView: View {
         .navigationTitle(viewModel.lessonTitle)
         .navigationBarTitleDisplayMode(.inline)
         .appForceNavigationTitle(viewModel.lessonTitle, displayMode: .never)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if viewModel.lesson?.courseId != nil {
-                    HStack(spacing: 12) {
-                        Button {
-                            navigateToChat = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "message.fill")
-                                Text("Message")
-                            }
-                        }
-
-                        Button {
-                            showingReelGenerator = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "wand.and.stars")
-                                Text("Reel")
-                            }
-                        }
-
-                        Button {
-                            showingQuizGenerator = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "sparkles")
-                                Text("Quiz")
-                            }
-                        }
-
-                        Button {
-                            showingGameView = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "gamecontroller.fill")
-                                Text("Game")
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        .toolbar { lessonToolbar }
         .background(
             NavigationLink(
                 destination: Group {
@@ -295,7 +303,9 @@ struct LessonsView: View {
                     infoPill(icon: "arrow.down", text: "More incoming")
                 }
             }
-            .padding([.horizontal, .bottom], DS.paddingMD)
+            .padding(.horizontal, DS.paddingMD)
+            .padding(.top, DS.paddingMD)
+            .padding(.bottom, DS.paddingSM)
 
             if viewModel.visibleVideos.isEmpty {
                 EmptyStateCard(message: "Videos will appear here once available.")
