@@ -100,7 +100,7 @@ final class WalletViewModel: ObservableObject {
             }
             currentStartIndex = start
             totalPages = response.totalPages
-            hasMorePages = response.page < response.totalPages
+            hasMorePages = response.page < response.totalPages - 1
         } catch {
             errorMessage = error.localizedDescription
         }
