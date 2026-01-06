@@ -52,8 +52,8 @@ private struct AdaptiveBadgeStack<Content: View>: View {
             }
         }
         .navigationTitle(classItem.title)
-        .navigationBarTitleDisplayMode(.large)
-        .appForceNavigationTitle(classItem.title, displayMode: .always)
+        .navigationBarTitleDisplayMode(.inline)
+        .appForceNavigationTitle(classItem.title, displayMode: .never)
         .task {
             await viewModel.fetchCourses(forClass: classItem.title)
         }

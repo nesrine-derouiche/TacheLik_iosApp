@@ -168,18 +168,24 @@ private final class NavigationItemTitleViewController: UIViewController {
         }
         didScheduleRetry = false
 
-        // Only mutate the title of the currently visible screen.
-        guard let topViewController = navigationController.topViewController else {
-            if !didScheduleRetry {
-                didScheduleRetry = true
-                DispatchQueue.main.async { [weak self] in
-                    self?.apply()
-                }
+        // IMPORTANT:
+        // This title configurator is attached to a specific SwiftUI screen.
+        // If we mutate the navigationController.topViewController, a parent screen
+        // (e.g. Settings) can overwrite titles of pushed screens after async updates.
+        // Instead, find the hosting view controller in the nav stack that owns this configurator.
+        var target: UIViewController? = nil
+        var node: UIViewController? = self
+        while let parent = node?.parent {
+            if navigationController.viewControllers.contains(where: { $0 === parent }) {
+                target = parent
+                break
             }
-            return
+            node = parent
         }
-        topViewController.navigationItem.title = titleText
-        topViewController.navigationItem.largeTitleDisplayMode = largeTitleDisplayMode
+
+        let host = target ?? self.parent ?? navigationController.topViewController
+        host?.navigationItem.title = titleText
+        host?.navigationItem.largeTitleDisplayMode = largeTitleDisplayMode
 
         // SwiftUI can occasionally overwrite the title after we've set it.
         // Re-apply on the next runloop to stabilize.
