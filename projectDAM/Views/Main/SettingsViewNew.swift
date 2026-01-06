@@ -18,12 +18,11 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                    // Profile Card
-                    VStack(spacing: 20) {
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                // Profile Card
+                VStack(spacing: 20) {
                         ZStack {
                             if let imageUrl = currentUser?.image, !imageUrl.isEmpty {
                                 // Display user image
@@ -82,9 +81,13 @@ struct SettingsView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
-                    .background(Color(.systemBackground))
+                    .background(Color.appSurface)
                     .cornerRadius(24)
-                    .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color.appBorder.opacity(0.9), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 10)
                     .padding(.horizontal, 20)
                     
                     // Appearance Section
@@ -102,8 +105,12 @@ struct SettingsView: View {
                                 toggle: $isDarkMode
                             )
                         }
-                        .background(Color(.systemBackground))
+                        .background(Color.appSurface)
                         .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
+                        )
                         .padding(.horizontal, 20)
                     }
                     
@@ -136,8 +143,7 @@ struct SettingsView: View {
                             }
                             
 
-                            
-                            Divider().padding(.leading, 56)
+                            Divider().overlay(Color.appDivider).padding(.leading, 56)
                             
                             NavigationLink(destination: ChangePasswordView()) {
                                 SettingsRowNavigation(
@@ -147,7 +153,7 @@ struct SettingsView: View {
                                 )
                             }
 
-                            Divider().padding(.leading, 56)
+                            Divider().overlay(Color.appDivider).padding(.leading, 56)
 
                             NavigationLink(destination: BadgesView()) {
                                 SettingsRowNavigation(
@@ -157,7 +163,7 @@ struct SettingsView: View {
                                 )
                             }
 
-                            Divider().padding(.leading, 56)
+                            Divider().overlay(Color.appDivider).padding(.leading, 56)
 
                             NavigationLink(destination: WalletView()) {
                                 SettingsRowNavigation(
@@ -168,7 +174,7 @@ struct SettingsView: View {
                             }
 
                             if shouldShowSavedReels {
-                                Divider().padding(.leading, 56)
+                                Divider().overlay(Color.appDivider).padding(.leading, 56)
 
                                 NavigationLink(destination: BookmarksView()) {
                                     SettingsRowNavigation(
@@ -179,8 +185,12 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        .background(Color(.systemBackground))
+                        .background(Color.appSurface)
                         .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.appBorder.opacity(0.85), lineWidth: 1)
+                        )
                         .padding(.horizontal, 20)
                     }
                     
@@ -213,12 +223,12 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 20)
                     .padding(.bottom, DS.barHeight + 8)
-                }
-                .background(Color(.systemGroupedBackground))
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
+            .background(Color.appGroupedBackground)
         }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .appForceNavigationTitle("Settings", displayMode: .never)
     }
     
     private var placeholderAvatar: some View {

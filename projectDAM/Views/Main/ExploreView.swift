@@ -19,7 +19,7 @@ struct ExploreView: View {
             let safeArea = geo.safeAreaInsets
 
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.reelsBackground.ignoresSafeArea()
 
                 if viewModel.isLoading && viewModel.reels.isEmpty {
                     ReelsLoadingStateView()
@@ -102,6 +102,7 @@ struct ExploreView: View {
             viewModel.stopAllPlayers()
         }
         .statusBar(hidden: true)
+        .appHideNavigationBar()
     }
 }
 
@@ -200,7 +201,7 @@ private struct ReelCellView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
 
             // Video layer (always centered and aspect-fill)
             ZStack {
@@ -573,6 +574,7 @@ private struct ReelsLoadingStateView: View {
                 .foregroundStyle(.white.opacity(0.9))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
@@ -605,6 +607,7 @@ private struct ReelsErrorStateView: View {
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
@@ -630,6 +633,7 @@ private struct ReelsEmptyStateView: View {
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
@@ -638,7 +642,7 @@ private struct ReelsVideoSkeletonView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
 
             VStack(spacing: 12) {
                 ZStack {
@@ -688,7 +692,7 @@ private struct EndOfFeedView: View {
                 .foregroundStyle(.white.opacity(0.75))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
+        .background(Color.reelsBackground)
     }
 }
 

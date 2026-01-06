@@ -52,11 +52,11 @@ struct CustomTextField: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(showError ? Color.red.opacity(0.05) : Color(.secondarySystemBackground))
+                    .fill(showError ? Color.red.opacity(0.05) : Color.appSurfaceElevated)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(borderColor, lineWidth: 2)
+                    .stroke(borderColor, lineWidth: isFocused || showError ? 2 : 1)
             )
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isValid)
@@ -91,7 +91,7 @@ struct CustomTextField: View {
         } else if isFocused {
             return .brandPrimary
         } else {
-            return .clear
+            return Color.appBorder.opacity(0.65)
         }
     }
 }

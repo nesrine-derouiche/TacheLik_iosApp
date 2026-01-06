@@ -12,61 +12,59 @@ struct HomeView: View {
     private var userCredits: Int { currentUser?.credit ?? 0 }
 
     var body: some View {
-        NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    headerSection
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                headerSection
 
-                    if !viewModel.isOnline {
+                if !viewModel.isOnline {
+                    OfflineBanner(subtitle: lastUpdatedText)
+                        .padding(.horizontal, 20)
+                }
+
+                switch viewModel.uiState {
+                case .loading:
+                    skeletonContent
+                case .error(let message, _, let isOffline, _):
+                    if isOffline {
                         OfflineBanner(subtitle: lastUpdatedText)
                             .padding(.horizontal, 20)
                     }
-
-                    switch viewModel.uiState {
-                    case .loading:
-                        skeletonContent
-                    case .error(let message, _, let isOffline, _):
-                        if isOffline {
-                            OfflineBanner(subtitle: lastUpdatedText)
-                                .padding(.horizontal, 20)
-                        }
-                        errorCard(message: message)
-                    case .content(let home, _):
-                        quickActionsRow
-                        quickStatsGrid(home: home)
-                        aiReelGeneratorSection
-                        goalsSection(home: home)
-                    }
-                }
-                .padding(.vertical, 16)
-                .padding(.bottom, DS.barHeight + 16)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    UnifiedTopAppBarLogoView()
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    UnifiedTopAppBarActions(
-                        userCredits: userCredits,
-                        isShowingWalletAlert: .constant(false),
-                        searchAction: {},
-                        notificationsAction: {},
-                        showSearch: false,
-                        showNotifications: false,
-                        showNotificationDot: unreadDot
-                    )
+                    errorCard(message: message)
+                case .content(let home, _):
+                    quickActionsRow
+                    quickStatsGrid(home: home)
+                    aiReelGeneratorSection
+                    goalsSection(home: home)
                 }
             }
-            .onAppear {
-                if !didAppear {
-                    didAppear = true
-                    viewModel.onAppear()
-                }
+            .padding(.vertical, 16)
+            .padding(.bottom, DS.barHeight + 16)
+        }
+        .background(Color.appGroupedBackground)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                UnifiedTopAppBarLogoView()
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                UnifiedTopAppBarActions(
+                    userCredits: userCredits,
+                    isShowingWalletAlert: .constant(false),
+                    searchAction: {},
+                    notificationsAction: {},
+                    showSearch: false,
+                    showNotifications: false,
+                    showNotificationDot: unreadDot
+                )
             }
         }
-        .navigationViewStyle(.stack)
+        .appNavigationBarStyle(.transparent)
+        .onAppear {
+            if !didAppear {
+                didAppear = true
+                viewModel.onAppear()
+            }
+        }
     }
 
     private var quickActionsRow: some View {
@@ -192,9 +190,7 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(18)
-        .background(Color(.systemBackground))
-        .cornerRadius(18)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+        .appCardStyle()
         .padding(.horizontal, 20)
     }
 
@@ -381,17 +377,19 @@ struct HomeView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+        .appCardStyle()
     }
 
     private func quickActionButton(title: String, systemImage: String, tint: Color) -> some View {
         VStack(spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+                    .fill(Color.appSurface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.appBorder.opacity(0.8), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
 
                 Image(systemName: systemImage)
                     .font(.system(size: 18, weight: .semibold))
@@ -439,9 +437,7 @@ struct HomeView: View {
                 .foregroundColor(.secondary)
         }
         .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+        .appCardStyle()
     }
 
     private func goalCard(title: String, goal: StudentGoalWindow) -> some View {

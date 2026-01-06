@@ -64,7 +64,7 @@ struct ForgotPasswordView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
+        .appHideNavigationBar()
         .alert("Success", isPresented: $viewModel.passwordResetSuccess) {
             Button("OK") {
                 dismiss()

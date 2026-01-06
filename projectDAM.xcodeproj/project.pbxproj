@@ -21,6 +21,7 @@
 		04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.local.xcconfig; sourceTree = "<group>"; };
 		04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		261CBA9E2EBE51AD003C55BA /* projectDAM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = projectDAM.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		26FDE7102F0000010057C98D /* projectDAMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = projectDAMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D9EEFED22EC80EBF001E370E /* Nunito-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Bold.ttf"; sourceTree = "<group>"; };
 		D9EEFED32EC80EBF001E370E /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-ExtraBold.ttf"; sourceTree = "<group>"; };
 		D9EEFED42EC80EBF001E370E /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
@@ -35,6 +36,12 @@
 			);
 			target = 261CBA9D2EBE51AD003C55BA /* projectDAM */;
 		};
+		26FDE7162F0000010057C98D /* Exceptions for "projectDAMTests" folder in "projectDAMTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+			);
+			target = 26FDE7112F0000010057C98D /* projectDAMTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -44,6 +51,14 @@
 				26FDE7032EBF52A60057C98D /* Exceptions for "projectDAM" folder in "projectDAM" target */,
 			);
 			path = projectDAM;
+			sourceTree = "<group>";
+		};
+		26FDE7152F0000010057C98D /* projectDAMTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				26FDE7162F0000010057C98D /* Exceptions for "projectDAMTests" folder in "projectDAMTests" target */,
+			);
+			path = projectDAMTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +84,7 @@
 				D9EEFED42EC80EBF001E370E /* Nunito-Regular.ttf */,
 				D9EEFED52EC80EBF001E370E /* Nunito-SemiBold.ttf */,
 				261CBAA02EBE51AD003C55BA /* projectDAM */,
+				26FDE7152F0000010057C98D /* projectDAMTests */,
 				261CBA9F2EBE51AD003C55BA /* Products */,
 				04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */,
 				04D8E26E2EC0FF9F00AC81A0 /* Config.xcconfig */,
@@ -79,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				261CBA9E2EBE51AD003C55BA /* projectDAM.app */,
+				26FDE7102F0000010057C98D /* projectDAMTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -110,6 +127,26 @@
 			productReference = 261CBA9E2EBE51AD003C55BA /* projectDAM.app */;
 			productType = "com.apple.product-type.application";
 		};
+		26FDE7112F0000010057C98D /* projectDAMTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 26FDE7172F0000010057C98D /* Build configuration list for PBXNativeTarget "projectDAMTests" */;
+			buildPhases = (
+				26FDE7122F0000010057C98D /* Sources */,
+				26FDE7132F0000010057C98D /* Frameworks */,
+				26FDE7142F0000010057C98D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				26FDE7152F0000010057C98D /* projectDAMTests */,
+			);
+			name = projectDAMTests;
+			productName = projectDAMTests;
+			productReference = 26FDE7102F0000010057C98D /* projectDAMTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -121,6 +158,9 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					261CBA9D2EBE51AD003C55BA = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
+					26FDE7112F0000010057C98D = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
 				};
@@ -144,9 +184,40 @@
 			projectRoot = "";
 			targets = (
 				261CBA9D2EBE51AD003C55BA /* projectDAM */,
+				26FDE7112F0000010057C98D /* projectDAMTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		26FDE7142F0000010057C98D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		26FDE7122F0000010057C98D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		26FDE7132F0000010057C98D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		261CBA9C2EBE51AD003C55BA /* Resources */ = {
@@ -175,6 +246,51 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		26FDE7182F0000010057C98D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3T555Q6V82;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
+			};
+			name = Debug;
+		};
+		26FDE7192F0000010057C98D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3T555Q6V82;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tache-lik.app.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/projectDAM.app/projectDAM";
+			};
+			name = Release;
+		};
 		261CBAAC2EBE51AE003C55BA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 04D8E26C2EC0FF7F00AC81A0 /* Config.local.xcconfig */;
@@ -367,6 +483,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		26FDE7172F0000010057C98D /* Build configuration list for PBXNativeTarget "projectDAMTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26FDE7182F0000010057C98D /* Debug */,
+				26FDE7192F0000010057C98D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		261CBA992EBE51AD003C55BA /* Build configuration list for PBXProject "projectDAM" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

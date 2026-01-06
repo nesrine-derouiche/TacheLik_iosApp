@@ -22,7 +22,7 @@ struct BookmarksView: View {
             let safeArea = geo.safeAreaInsets
 
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.reelsBackground.ignoresSafeArea()
 
                 if viewModel.isLoading && viewModel.bookmarkedReels.isEmpty {
                     ReelsLoadingStateView()
@@ -103,7 +103,7 @@ struct BookmarksView: View {
                 viewModel.pauseAllPlayers(except: newId)
             }
         }
-        .navigationBarHidden(true)
+        .appHideNavigationBar()
         .ignoresSafeArea()
         .onAppear {
             guard !hasAppeared else { return }
@@ -289,7 +289,7 @@ struct BookmarksView: View {
                                     }
                                 }
                             }
-                            .navigationBarHidden(true)
+                            .appHideNavigationBar()
                             .ignoresSafeArea()
                             .onAppear {
                                 guard !hasAppeared else { return }
@@ -406,6 +406,8 @@ struct BookmarkedReelView: View {
     @ObservedObject var viewModel: BookmarksViewModel
     let safeAreaInsets: EdgeInsets
     let screenSize: CGSize
+
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var player: AVPlayer?
     @State private var isPlaying = true
@@ -421,7 +423,7 @@ struct BookmarkedReelView: View {
     
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
             
             // Video Player - Centered
             GeometryReader { geo in
@@ -610,6 +612,8 @@ struct BookmarkedReelView: View {
 struct BookmarkSkeletonView: View {
     let safeAreaInsets: EdgeInsets
     @State private var isAnimating = false
+
+    @Environment(\.colorScheme) private var colorScheme
     
     private var bottomPadding: CGFloat {
         max(safeAreaInsets.bottom, 34) + 70
@@ -617,7 +621,7 @@ struct BookmarkSkeletonView: View {
     
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
             
             // Center loading spinner
             VStack(spacing: 16) {
@@ -775,6 +779,8 @@ private struct ReelCellView: View {
     let safeAreaInsets: EdgeInsets
     let isActive: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
+
     @State private var player: AVPlayer?
     @State private var isPlaying = true
     @State private var showPlayIcon = false
@@ -786,7 +792,7 @@ private struct ReelCellView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
 
             ZStack {
                 if let player {
@@ -1152,6 +1158,7 @@ private struct ReelsLoadingStateView: View {
                 .foregroundStyle(.white.opacity(0.9))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
@@ -1184,6 +1191,7 @@ private struct ReelsErrorStateView: View {
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
@@ -1209,15 +1217,18 @@ private struct ReelsEmptyStateView: View {
                 .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.reelsBackground)
     }
 }
 
 private struct ReelsVideoSkeletonView: View {
     @State private var animate = false
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
-            Color.black
+            Color.reelsBackground
 
             VStack(spacing: 12) {
                 ZStack {

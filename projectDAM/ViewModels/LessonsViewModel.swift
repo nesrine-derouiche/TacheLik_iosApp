@@ -30,6 +30,9 @@ final class LessonsViewModel: ObservableObject {
     private var allVideos: [VideoContent] = []
     private let initialBatchSize = 4
     private let batchSize = 3
+
+    // MARK: - Request Coordination
+    private var loadGeneration: Int = 0
     
     // MARK: - Initialization
     init(
@@ -59,20 +62,42 @@ final class LessonsViewModel: ObservableObject {
     
     // MARK: - Public Methods
     func loadLesson(force: Bool = false) async {
+        if Task.isCancelled { return }
         guard !isLoading else { return }
-        if !force, lesson != nil { return }
+
+        let isInitialLoad = (lesson == nil)
+        if !force, !isInitialLoad { return }
+
         isLoading = true
-        errorMessage = nil
-        
+        loadGeneration += 1
+        let currentGeneration = loadGeneration
+
+        if isInitialLoad {
+            errorMessage = nil
+        }
+
+        defer {
+            if loadGeneration == currentGeneration {
+                isLoading = false
+            }
+        }
+
         do {
             let fetchedLesson = try await lessonService.fetchLesson(courseId: courseId, accessType: accessType)
+            if Task.isCancelled { return }
+            guard loadGeneration == currentGeneration else { return }
+
             lesson = fetchedLesson
             lastUpdated = Date()
             prepareVideos(from: fetchedLesson.videos)
-            isLoading = false
+        } catch is CancellationError {
+            // SwiftUI can cancel refresh/tasks during transitions; don't show a user-visible error.
+            return
         } catch {
-            isLoading = false
-            errorMessage = error.localizedDescription
+            // Only show a blocking error if there's no cached content on screen.
+            if isInitialLoad {
+                errorMessage = error.localizedDescription
+            }
         }
     }
     

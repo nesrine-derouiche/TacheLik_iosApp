@@ -6,33 +6,35 @@ struct ClassesView: View {
     @State private var selectedFilterID: String = ClassesViewModel.FilterOption.allID
     
     var body: some View {
-        NavigationView {
-            Group {
-                if viewModel.isLoading {
-                    loadingState
-                } else if let message = viewModel.errorMessage {
-                    errorState(message: message)
-                } else {
-                    content
-                }
+        ZStack {
+            if viewModel.isLoading {
+                loadingState
+            } else if let message = viewModel.errorMessage {
+                errorState(message: message)
+            } else {
+                content
             }
-            .navigationTitle("Classes")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {}) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        Button(action: {}) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle("Classes")
+        .navigationBarTitleDisplayMode(.inline)
+        .appForceNavigationTitle("Classes", displayMode: .never)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 16) {
+                    Button(action: {}) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    Button(action: {}) {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 18, weight: .semibold))
                     }
                 }
             }
         }
+        .appNavigationBarStyle(.standard)
+        .background(Color.appGroupedBackground)
         .task {
             await viewModel.loadClasses()
             if let firstFilter = viewModel.filters.first?.id {
@@ -51,7 +53,7 @@ struct ClassesView: View {
                 .padding(.vertical, 8)
                 .padding(.bottom, DS.barHeight + 8)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.appGroupedBackground)
         }
     }
     
@@ -208,9 +210,7 @@ struct ClassCardView: View {
                 .foregroundColor(.secondary)
         }
         .padding(16)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+        .appCardStyle()
     }
 }
 

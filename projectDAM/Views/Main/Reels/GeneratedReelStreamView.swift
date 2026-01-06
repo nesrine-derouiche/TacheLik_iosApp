@@ -28,7 +28,7 @@ struct GeneratedReelStreamView: View {
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.reelsBackground.ignoresSafeArea()
             
             if reels.isEmpty {
                 emptyStateView

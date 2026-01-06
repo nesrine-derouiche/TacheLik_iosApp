@@ -31,6 +31,17 @@ struct projectDAMApp: App {
     init() {
         // Print configuration on app launch (debug only)
         AppConfig.printConfiguration()
+
+        // Ensure navigation chrome stays readable in dark mode (avoid pure black bars).
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .appNavBarBackground
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
     }
 
     var body: some Scene {
@@ -39,6 +50,7 @@ struct projectDAMApp: App {
                 RootView(isLoggedIn: $isLoggedIn, sessionManager: sessionManager)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     .preferredColorScheme(isDarkMode ? .dark : .light)
+                    .animation(.easeInOut(duration: 0.2), value: isDarkMode)
                     .environmentObject(sessionManager)
                     .environmentObject(DIContainer.shared.roleManager)
                 

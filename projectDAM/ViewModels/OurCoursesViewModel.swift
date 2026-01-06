@@ -27,6 +27,9 @@ final class OurCoursesViewModel: ObservableObject {
     private let initialCourseBatchSize = 3
     private let courseBatchSize = 4
 
+    // MARK: - Request Coordination
+    private var fetchGeneration: Int = 0
+
     // MARK: - Computed Properties
     var hasNoCourses: Bool {
         !isLoading && courses.isEmpty && errorMessage == nil
@@ -45,9 +48,26 @@ final class OurCoursesViewModel: ObservableObject {
     
     /// Fetch courses for a specific class
     func fetchCourses(forClass classTitle: String) async {
+        if Task.isCancelled { return }
+        guard !isLoading else { return }
+
+        let hasCachedContent = !courses.isEmpty
+
         isLoading = true
-        errorMessage = nil
-        showError = false
+        fetchGeneration += 1
+        let currentGeneration = fetchGeneration
+
+        // Clear blocking error UI only if we're doing an initial load.
+        if !hasCachedContent {
+            errorMessage = nil
+            showError = false
+        }
+
+        defer {
+            if fetchGeneration == currentGeneration {
+                isLoading = false
+            }
+        }
         
         do {
             if AppConfig.enableLogging {
@@ -55,6 +75,9 @@ final class OurCoursesViewModel: ObservableObject {
             }
             
             let fetchedCourses = try await courseService.fetchCoursesByClass(classTitle: classTitle)
+
+            if Task.isCancelled { return }
+            guard fetchGeneration == currentGeneration else { return }
             
             // Sort courses by course_order
             courses = fetchedCourses.sorted { course1, course2 in
@@ -87,14 +110,22 @@ final class OurCoursesViewModel: ObservableObject {
             }
             
             isLoading = false
+        } catch is CancellationError {
+            // Treat cancellations (e.g. view transitions / refresh cancellation) as non-errors.
+            return
         } catch {
             if AppConfig.enableLogging {
                 print("❌ [OurCoursesViewModel] Error fetching courses: \(error.localizedDescription)")
             }
-            
-            errorMessage = "Failed to load courses: \(error.localizedDescription)"
-            showError = true
-            isLoading = false
+
+            // If we have cached content, keep showing it and avoid a blocking overlay.
+            if courses.isEmpty {
+                errorMessage = "Failed to load courses: \(error.localizedDescription)"
+                showError = true
+            } else {
+                errorMessage = nil
+                showError = false
+            }
         }
     }
     
