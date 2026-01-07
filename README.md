@@ -364,6 +364,12 @@ Special thanks to our mentor **Khaled Guedria** for the guidance, feedback, and 
 
 ---
 
+## 📦 License
+
+This project is released under the **MIT License**. See [LICENSE](LICENSE).
+
+---
+
 <div align="center">
   <sub><i>Keep learning. Keep building. Keep shipping.</i></sub>
 </div>
