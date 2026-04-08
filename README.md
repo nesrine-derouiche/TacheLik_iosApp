@@ -289,8 +289,8 @@ Aligned with the codebase:
       <a href="mailto:feki.karim28@gmail.com" title="Email">✉️</a>
     </td>
     <td align="center" width="180">
-      <a href="https://github.com/nesrine77">
-        <img src="https://github.com/nesrine77.png" width="96" height="96" alt="Nesrine Derouiche" />
+      <a href="https://github.com/nesrine-derouiche">
+        <img src="https://github.com/nesrine-derouiche.png" width="96" height="96" alt="Nesrine Derouiche" />
       </a>
       <br />
       <b>Nesrine Derouiche</b>
