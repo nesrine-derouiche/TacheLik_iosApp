@@ -299,7 +299,7 @@ Aligned with the codebase:
         <img src="https://skillicons.dev/icons?i=linkedin" width="20" height="20" alt="LinkedIn" />
       </a>
       &nbsp;
-      <a href="https://github.com/nesrine77" title="GitHub">
+      <a href="https://github.com/nesrine-derouiche" title="GitHub">
         <img src="https://skillicons.dev/icons?i=github" width="20" height="20" alt="GitHub" />
       </a>
       &nbsp;
